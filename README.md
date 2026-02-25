@@ -1,67 +1,131 @@
-# Nobonir E-Commerce (React + Django + AI)
+# Nobonir E-Commerce
 
-Full-stack e-commerce platform with a teal dashboard style inspired by your UI/UX reference.
+A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and sentence-transformers AI.
 
-## Stack
+## Features
 
-- Frontend: React (Vite + TypeScript), Tailwind CSS, shadcn-style UI components
-- Backend: Django + Django REST Framework + CORS
-- AI: Recommendation engine using NumPy with behavior-driven ranking
-- DB: SQLite (default, development)
+- **Modular Backend Architecture**: Separate Django apps for accounts, products, cart, orders, payments, reviews, and AI engine
+- **JWT Authentication**: Secure token-based auth with refresh token rotation
+- **Role-Based Access Control (RBAC)**: Admin and customer roles with permission-based views
+- **AI-Powered Features**: Product recommendations, semantic search, and sentiment analysis using sentence-transformers
+- **PostgreSQL & SQLite Support**: Production-ready PostgreSQL config with SQLite for development
+- **REST API Documentation**: Auto-generated Swagger UI and ReDoc with drf-spectacular
+- **Modern React Frontend**: TypeScript, Tailwind CSS, shadcn/ui components, Zustand state management
+- **Atomic Transactions**: Stock reduction only on successful payment with race condition protection
+- **Complete Test Coverage**: Unit tests for critical business logic
 
-## Features Implemented
+## Tech Stack
 
-- Product catalog with search, category filtering, sorting, stock filter
-- Category and inventory management (admin-ready)
-- Wishlist add/remove
-- Cart add/update/remove
-- Checkout flow with stock validation and order creation
-- Order tracking API and frontend panel
-- Product reviews and rating submission
-- AI recommendations based on user cart/wishlist/review behavior
-- Django admin for products, orders, carts, wishlist, reviews
+### Backend
+- Python 3.12+
+- Django 6.0
+- Django REST Framework 3.15.2
+- djangorestframework-simplejwt 5.5.1 (JWT auth)
+- drf-spectacular 0.28.0 (API docs)
+- sentence-transformers 5.1.0 (AI)
+- scikit-learn 1.6.1
+- psycopg 3.2.9 (PostgreSQL adapter)
 
-## Project Structure
+### Frontend
+- React 18.2.0
+- TypeScript 5.2.2
+- Vite 5.1.0
+- Tailwind CSS 3.4.17
+- shadcn/ui components
+- Zustand 4.5.5 (state management)
+- axios 1.13.5
+- react-router-dom 6.28.2
 
-- `backend/` Django API server
-- `frontend/` React client
+## Setup Instructions
 
-## Quick Start
+### Backend Setup
 
-### 1) Backend
+1. Clone and navigate:
+   ```bash
+   cd nobonir/backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install Django==6.0 djangorestframework==3.15.2 djangorestframework-simplejwt==5.5.1 drf-spectacular==0.28.0 django-cors-headers==4.6.0 django-filter==25.1 psycopg[binary]==3.2.9 sentence-transformers==5.1.0 scikit-learn==1.6.1 numpy==2.2.3 python-dotenv==1.0.1
+   ```
+
+3. Run migrations:
+   ```bash
+   python manage.py migrate
+   ```
+
+4. Create superuser (admin):
+   ```bash
+   python manage.py createsuperuser
+   ```
+
+5. Seed sample data:
+   ```bash
+   python manage.py seed_products
+   ```
+
+6. Run server:
+   ```bash
+   python manage.py runserver
+   ```
+
+   Backend: `http://127.0.0.1:8000`
+   API docs: `http://127.0.0.1:8000/api/docs/swagger/`
+
+### Frontend Setup
+
+1. Navigate to frontend:
+   ```bash
+   cd ../frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Run dev server:
+   ```bash
+   npm run dev
+   ```
+
+   Frontend: `http://localhost:5173`
+
+## Running Tests
 
 ```bash
 cd backend
-../.venv/bin/python manage.py migrate
-../.venv/bin/python manage.py seed_data
-../.venv/bin/python manage.py runserver
+python manage.py test
 ```
 
-Backend runs on `http://127.0.0.1:8000`.
+## User Roles
 
-### 2) Frontend
+### Customer
+- Browse and search products with AI
+- Add items to cart and wishlist
+- Place orders and track status
+- Submit product reviews
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### Admin  
+- All customer permissions
+- Create/update/delete products
+- Manage categories
+- Update order statuses
 
-Frontend runs on `http://127.0.0.1:5173`.
+## API Documentation
 
-## Environment Variables
+Visit `http://127.0.0.1:8000/api/docs/swagger/` after starting the backend server for interactive API documentation.
 
-### Backend (`backend/.env`)
+## Key Endpoints
 
-- `DEBUG=True`
-- `DJANGO_SECRET_KEY=dev-secret-key`
-- `ALLOWED_HOSTS=*`
-- `CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`
+- `POST /api/accounts/register/` - Register
+- `POST /api/accounts/login/` - Login (get JWT tokens)
+- `GET /api/products/products/` - List products
+- `GET /api/ai/recommendations/` - AI recommendations
+- `GET /api/ai/search/?query=...` - Semantic search
+- `POST /api/orders/checkout/` - Create order
 
-### Frontend (`frontend/.env`)
+## License
 
-- `VITE_API_URL=http://127.0.0.1:8000/api`
-
-## Important Note
-
-Your machine currently uses Node `18.x`. The frontend is pinned to tooling compatible with Node 18.
+MIT

@@ -174,9 +174,10 @@ export function AdminDashboard() {
                             </Button>
                           </Link>
                           <Button
-                            variant="destructive"
+                            variant="outline"
                             size="sm"
                             onClick={() => deleteProduct(product.id)}
+                            className="bg-red-600 text-white hover:bg-red-700"
                           >
                             Delete
                           </Button>
