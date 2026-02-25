@@ -155,27 +155,6 @@ export function CustomerDashboard() {
           </div>
         </div>
       </header>
-              </Link>
-              <Link to="/wishlist">
-                <Button variant="outline" size="sm">
-                  <Heart className="mr-2 h-4 w-4" />
-                  Wishlist
-                </Button>
-              </Link>
-              <Link to="/orders">
-                <Button variant="outline" size="sm">
-                  <Package className="mr-2 h-4 w-4" />
-                  Orders
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm" onClick={logout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

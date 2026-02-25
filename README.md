@@ -4,6 +4,7 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
 
 ## Features
 
+- **Guest Mode**: Browse and add to cart without account - login required only for checkout
 - **Modular Backend Architecture**: Separate Django apps for accounts, products, cart, orders, payments, reviews, and AI engine
 - **JWT Authentication**: Secure token-based auth with refresh token rotation
 - **Role-Based Access Control (RBAC)**: Admin and customer roles with permission-based views

@@ -19,14 +19,17 @@ api.interceptors.response.use(
       try {
         // Import dynamically to avoid circular dependency
         const { useAuthStore } = await import("./auth");
-        const refreshAccessToken = useAuthStore.getState().refreshAccessToken;
+        const { isAuthenticated, refreshAccessToken } = useAuthStore.getState();
 
-        await refreshAccessToken();
+        // Only try to refresh if user is authenticated
+        if (isAuthenticated) {
+          await refreshAccessToken();
 
-        // Retry original request with new token
-        const newAccessToken = useAuthStore.getState().accessToken;
-        originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
-        return api(originalRequest);
+          // Retry original request with new token
+          const newAccessToken = useAuthStore.getState().accessToken;
+          originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
+          return api(originalRequest);
+        }
       } catch (refreshError) {
         // Refresh failed, logout user
         const { useAuthStore } = await import("./auth");
