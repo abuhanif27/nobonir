@@ -24,8 +24,46 @@ export function ProductPage() {
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cartCount, setCartCount] = useState(0);
+
+  const getLocalCartCount = () => {
+    const raw = localStorage.getItem("nobonir_demo_cart");
+    if (!raw) {
+      return 0;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return 0;
+      }
+
+      return parsed.reduce(
+        (sum: number, item: any) => sum + (item.quantity || 0),
+        0,
+      );
+    } catch {
+      return 0;
+    }
+  };
+
+  const refreshCartCount = async () => {
+    try {
+      const response = await api.get("/cart/");
+      const apiItems = Array.isArray(response.data) ? response.data : [];
+      const apiCount = apiItems.reduce(
+        (sum: number, item: any) => sum + (item.quantity || 0),
+        0,
+      );
+      setCartCount(apiCount > 0 ? apiCount : getLocalCartCount());
+    } catch {
+      setCartCount(getLocalCartCount());
+    }
+  };
 
   useEffect(() => {
+    refreshCartCount();
+
     const loadProduct = async () => {
       const selectedRaw = sessionStorage.getItem("nobonir_selected_product");
       if (selectedRaw) {
@@ -92,9 +130,11 @@ export function ProductPage() {
         product: product.id,
         quantity: 1,
       });
+      await refreshCartCount();
       alert("Added to cart!");
     } catch {
       addToLocalDemoCart();
+      await refreshCartCount();
       alert("Added to cart!");
     }
   };
@@ -141,9 +181,14 @@ export function ProductPage() {
             Back
           </Button>
           <Link to="/cart">
-            <Button variant="outline">
+            <Button variant="outline" className="relative">
               <ShoppingCart className="mr-2 h-4 w-4" />
               View Cart
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </Button>
           </Link>
         </div>
