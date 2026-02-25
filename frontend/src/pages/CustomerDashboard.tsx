@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
@@ -12,6 +12,7 @@ import {
   Heart,
   Eye,
   Package,
+  User,
   LogOut,
   LogIn,
   UserPlus,
@@ -20,6 +21,7 @@ import {
   ShoppingBag,
   Tag,
   Trophy,
+  ChevronDown,
 } from "lucide-react";
 
 interface Product {
@@ -180,6 +182,8 @@ export function CustomerDashboard() {
   const [cartCount, setCartCount] = useState(0);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isTopSellingView, setIsTopSellingView] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const normalizeProducts = (items: any[]): Product[] => {
     if (!Array.isArray(items)) {
@@ -207,6 +211,25 @@ export function CustomerDashboard() {
     refreshCartCount();
     setIsInitialLoad(false);
   }, []);
+
+  useEffect(() => {
+    if (!isUserMenuOpen) {
+      return;
+    }
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!userMenuRef.current) {
+        return;
+      }
+
+      if (!userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isUserMenuOpen]);
 
   // Live search: trigger search while typing with debounce
   useEffect(() => {
@@ -444,14 +467,6 @@ export function CustomerDashboard() {
             <div className="flex items-center gap-3">
               {isAuthenticated ? (
                 <>
-                  <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-teal-50 to-cyan-50 px-4 py-2 rounded-full">
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm">
-                      {user?.first_name?.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">
-                      {user?.first_name}
-                    </span>
-                  </div>
                   <Link to="/cart">
                     <Button
                       variant="ghost"
@@ -477,27 +492,61 @@ export function CustomerDashboard() {
                     <Trophy className="h-4 w-4" />
                     <span className="hidden sm:inline">Top Selling</span>
                   </Button>
-                  <Link to="/wishlist">
-                    <Button variant="ghost" size="sm" className="gap-2">
-                      <Heart className="h-4 w-4" />
-                      <span className="hidden sm:inline">Wishlist</span>
-                    </Button>
-                  </Link>
-                  <Link to="/orders">
-                    <Button variant="ghost" size="sm" className="gap-2">
-                      <Package className="h-4 w-4" />
-                      <span className="hidden sm:inline">Orders</span>
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={logout}
-                    className="gap-2"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden sm:inline">Logout</span>
-                  </Button>
+                  <div className="relative" ref={userMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                      className="flex items-center gap-2 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 rounded-full border border-teal-100 hover:from-teal-100 hover:to-cyan-100 transition-colors"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm">
+                        {user?.first_name?.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 max-w-24 truncate">
+                        {user?.first_name || "Profile"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-gray-600" />
+                    </button>
+
+                    {isUserMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-52 rounded-xl border bg-white shadow-lg p-2 z-50">
+                        <Link
+                          to="/profile"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <User className="h-4 w-4" />
+                          My Profile
+                        </Link>
+                        <Link
+                          to="/orders"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <Package className="h-4 w-4" />
+                          Orders
+                        </Link>
+                        <Link
+                          to="/wishlist"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <Heart className="h-4 w-4" />
+                          Wishlist
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            logout();
+                          }}
+                          className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>

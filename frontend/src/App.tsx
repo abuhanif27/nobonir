@@ -7,6 +7,7 @@ import { CustomerDashboard } from "@/pages/CustomerDashboard";
 import { AdminDashboard } from "@/pages/AdminDashboard";
 import { CartPage } from "@/pages/CartPage";
 import { ProductPage } from "@/pages/ProductPage";
+import { ProfilePage } from "@/pages/ProfilePage";
 
 function App() {
   const { isAuthenticated, isAdmin } = useAuthStore();
@@ -44,6 +45,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/orders" element={<CustomerDashboard />} />
           <Route path="/wishlist" element={<CustomerDashboard />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
 
         {/* Admin routes */}
