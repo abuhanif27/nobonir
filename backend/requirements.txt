@@ -1,0 +1,20 @@
+# Django and Django REST Framework
+Django==6.0
+djangorestframework==3.15.2
+djangorestframework-simplejwt==5.5.1
+django-cors-headers==4.6.0
+django-filter==25.1
+
+# API Documentation
+drf-spectacular==0.28.0
+
+# Database
+psycopg[binary]==3.2.9
+
+# AI/ML
+sentence-transformers==5.1.0
+scikit-learn==1.6.1
+numpy==2.2.3
+
+# Python
+python-dotenv==1.0.1
