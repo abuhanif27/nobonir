@@ -183,6 +183,10 @@ export function CustomerDashboard() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isTopSellingView, setIsTopSellingView] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [wishlistToast, setWishlistToast] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const normalizeProducts = (items: any[]): Product[] => {
@@ -230,6 +234,18 @@ export function CustomerDashboard() {
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [isUserMenuOpen]);
+
+  useEffect(() => {
+    if (!wishlistToast) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setWishlistToast(null);
+    }, 2200);
+
+    return () => clearTimeout(timer);
+  }, [wishlistToast]);
 
   // Live search: trigger search while typing with debounce
   useEffect(() => {
@@ -419,7 +435,11 @@ export function CustomerDashboard() {
     navigate(`/product/${product.id}`);
   };
 
-  const addToWishlist = async (productId: number) => {
+  const addToWishlist = async (
+    productId: number,
+    sourceElement?: HTMLElement,
+    imageSrc?: string,
+  ) => {
     if (!isAuthenticated) {
       if (confirm("Please login to add items to wishlist. Go to login page?")) {
         navigate("/login");
@@ -429,11 +449,24 @@ export function CustomerDashboard() {
 
     try {
       await api.post("/cart/wishlist/", {
-        product: productId,
+        product_id: productId,
       });
-      alert("Added to wishlist!");
+
+      animateFlyToCart({
+        fromElement: sourceElement,
+        toSelector: '[data-user-menu-trigger="true"]',
+        imageSrc,
+      });
+
+      setWishlistToast({
+        type: "success",
+        message: "Added to wishlist",
+      });
     } catch (error: any) {
-      alert(error.response?.data?.detail || "Failed to add to wishlist");
+      setWishlistToast({
+        type: "error",
+        message: error.response?.data?.detail || "Failed to add to wishlist",
+      });
     }
   };
 
@@ -496,6 +529,7 @@ export function CustomerDashboard() {
                     <button
                       type="button"
                       onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                      data-user-menu-trigger="true"
                       className="flex items-center gap-2 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 rounded-full border border-teal-100 hover:from-teal-100 hover:to-cyan-100 transition-colors"
                     >
                       <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm">
@@ -847,7 +881,13 @@ export function CustomerDashboard() {
                           View Product
                         </Button>
                         <Button
-                          onClick={() => addToWishlist(product.id)}
+                          onClick={(e) =>
+                            addToWishlist(
+                              product.id,
+                              e.currentTarget,
+                              product.image,
+                            )
+                          }
                           variant="outline"
                           className="hover:bg-gradient-to-br hover:from-red-50 hover:to-pink-50 hover:text-red-600 hover:border-red-300 transition-all shadow-md"
                         >
@@ -863,6 +903,20 @@ export function CustomerDashboard() {
           </>
         )}
       </main>
+
+      {wishlistToast && (
+        <div className="fixed right-4 top-20 z-[60]">
+          <div
+            className={`rounded-xl px-4 py-3 shadow-xl border text-sm font-medium backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300 ${
+              wishlistToast.type === "success"
+                ? "bg-emerald-50/95 text-emerald-800 border-emerald-200"
+                : "bg-rose-50/95 text-rose-800 border-rose-200"
+            }`}
+          >
+            {wishlistToast.message}
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white border-t border-gray-700 mt-16">
