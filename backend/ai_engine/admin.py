@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import EmbeddingCache
 
-# Register your models here.
+
+admin.site.register(EmbeddingCache)
