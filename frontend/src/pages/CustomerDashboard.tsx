@@ -667,7 +667,7 @@ export function CustomerDashboard() {
                 }}
                 variant="outline"
               >
-                Clear Search
+                {search ? "Clear Search" : "Back to All Products"}
               </Button>
             )}
           </div>
@@ -699,7 +699,7 @@ export function CustomerDashboard() {
                   variant="outline"
                   size="sm"
                 >
-                  Clear Search
+                  {search ? "Clear Search" : "Back to All Products"}
                 </Button>
               )}
             </div>
