@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Heart, Search, ShoppingCart, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,7 @@ function App() {
     comment: "",
   });
 
-  const loadCatalog = async () => {
+  const loadCatalog = useCallback(async () => {
     const [categoryRes, productRes] = await Promise.all([
       endpoints.categories(),
       endpoints.products({
@@ -67,9 +67,9 @@ function App() {
     ]);
     setCategories(categoryRes.data);
     setProducts(productRes.data);
-  };
+  }, [category, search, sort, stockOnly]);
 
-  const loadUserData = async (id: string) => {
+  const loadUserData = useCallback(async (id: string) => {
     const [cartRes, wishlistRes, aiRes] = await Promise.all([
       endpoints.cart.list(id),
       endpoints.wishlist.list(id),
@@ -78,35 +78,35 @@ function App() {
     setCartItems(cartRes.data);
     setWishlistItems(wishlistRes.data);
     setRecommended(aiRes.data);
-  };
+  }, []);
 
-  const loadOrders = async (email?: string) => {
+  const loadOrders = useCallback(async (email?: string) => {
     const response = await endpoints.orders(email);
     setOrders(response.data);
-  };
+  }, []);
 
-  const refreshAll = async (id: string, email?: string) => {
+  const refreshAll = useCallback(async (id: string, email?: string) => {
     setLoading(true);
     setError("");
     try {
       await Promise.all([loadCatalog(), loadUserData(id), loadOrders(email)]);
-    } catch (requestError) {
+    } catch {
       setError("Failed to load data. Make sure backend server is running.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadCatalog, loadOrders, loadUserData]);
 
   useEffect(() => {
     const id = getCustomerId();
     setCustomerId(id);
     void refreshAll(id);
-  }, []);
+  }, [refreshAll]);
 
   useEffect(() => {
     if (!customerId) return;
     void loadCatalog();
-  }, [search, category, sort, stockOnly, customerId]);
+  }, [customerId, loadCatalog]);
 
   const wishlistProductIds = useMemo(
     () => new Set(wishlistItems.map((item) => item.product.id)),
