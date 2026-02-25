@@ -275,8 +275,9 @@ export function CustomerDashboard() {
     }
   };
 
-  const viewProduct = () => {
-    navigate("/cart");
+  const viewProduct = (product: Product) => {
+    sessionStorage.setItem("nobonir_selected_product", JSON.stringify(product));
+    navigate(`/product/${product.id}`);
   };
 
   const addToWishlist = async (productId: number) => {
@@ -627,7 +628,7 @@ export function CustomerDashboard() {
 
                       <div className="grid grid-cols-2 gap-2">
                         <Button
-                          onClick={viewProduct}
+                          onClick={() => viewProduct(product)}
                           variant="outline"
                           className="hover:bg-gradient-to-br hover:from-blue-50 hover:to-cyan-50 hover:text-cyan-700 hover:border-cyan-300 transition-all shadow-md"
                         >

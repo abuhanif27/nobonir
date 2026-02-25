@@ -71,7 +71,9 @@ export function CartPage() {
   };
 
   const updateQuantity = async (itemId: number, quantity: number) => {
-    const localItem = cartItems.find((item) => item.id === itemId && item.isLocal);
+    const localItem = cartItems.find(
+      (item) => item.id === itemId && item.isLocal,
+    );
     if (localItem) {
       const updated =
         quantity <= 0
@@ -97,7 +99,9 @@ export function CartPage() {
   };
 
   const removeItem = async (itemId: number) => {
-    const localItem = cartItems.find((item) => item.id === itemId && item.isLocal);
+    const localItem = cartItems.find(
+      (item) => item.id === itemId && item.isLocal,
+    );
     if (localItem) {
       const updated = cartItems.filter((item) => item.id !== itemId);
       setCartItems(updated);

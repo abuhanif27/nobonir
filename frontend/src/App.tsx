@@ -6,6 +6,7 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { CustomerDashboard } from "@/pages/CustomerDashboard";
 import { AdminDashboard } from "@/pages/AdminDashboard";
 import { CartPage } from "@/pages/CartPage";
+import { ProductPage } from "@/pages/ProductPage";
 
 function App() {
   const { isAuthenticated, isAdmin } = useAuthStore();
@@ -25,6 +26,7 @@ function App() {
           }
         />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/product/:id" element={<ProductPage />} />
         <Route
           path="/login"
           element={

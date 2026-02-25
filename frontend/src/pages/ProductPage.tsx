@@ -1,0 +1,208 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Heart, ShoppingCart, Tag } from "lucide-react";
+
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: string;
+  image: string;
+  stock: number;
+  category: {
+    id: number;
+    name: string;
+  };
+}
+
+export function ProductPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProduct = async () => {
+      const selectedRaw = sessionStorage.getItem("nobonir_selected_product");
+      if (selectedRaw) {
+        try {
+          const selected = JSON.parse(selectedRaw);
+          if (String(selected.id) === String(id)) {
+            setProduct(selected);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // ignore invalid cache
+        }
+      }
+
+      try {
+        const response = await api.get(`/products/products/${id}/`);
+        setProduct(response.data);
+      } catch (error) {
+        console.error("Failed to load product details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, [id]);
+
+  const addToCart = async () => {
+    if (!product) {
+      return;
+    }
+
+    const addToLocalDemoCart = () => {
+      const key = "nobonir_demo_cart";
+      const existingRaw = localStorage.getItem(key);
+      const existing = existingRaw ? JSON.parse(existingRaw) : [];
+      const existingIndex = existing.findIndex(
+        (item: any) => item.product.id === product.id,
+      );
+
+      if (existingIndex >= 0) {
+        existing[existingIndex].quantity += 1;
+      } else {
+        existing.push({
+          id: product.id,
+          quantity: 1,
+          isLocal: true,
+          product: {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            stock: product.stock,
+          },
+        });
+      }
+
+      localStorage.setItem(key, JSON.stringify(existing));
+    };
+
+    try {
+      await api.post("/cart/items/", {
+        product: product.id,
+        quantity: 1,
+      });
+      alert("Added to cart!");
+    } catch {
+      addToLocalDemoCart();
+      alert("Added to cart!");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">Loading product...</p>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+          <Card>
+            <CardContent className="py-12 text-center">
+              <h1 className="text-2xl font-bold text-gray-900">
+                Product not found
+              </h1>
+              <p className="mt-2 text-gray-600">
+                This product is unavailable right now.
+              </p>
+              <Link to="/">
+                <Button className="mt-6">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Products
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      <header className="bg-white/80 backdrop-blur-md shadow-sm border-b">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Link to="/cart">
+            <Button variant="outline">
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              View Cart
+            </Button>
+          </Link>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-2">
+          <Card className="overflow-hidden border-0 shadow-xl">
+            <img
+              src={
+                product.image ||
+                "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=700&fit=crop"
+              }
+              alt={product.name}
+              className="h-full w-full object-cover"
+            />
+          </Card>
+
+          <Card className="border-0 shadow-xl bg-white/90">
+            <CardContent className="p-8">
+              <Badge variant="secondary" className="mb-4 gap-1.5">
+                <Tag className="h-3 w-3" />
+                {product.category.name}
+              </Badge>
+
+              <h1 className="text-4xl font-black text-gray-900 mb-4">
+                {product.name}
+              </h1>
+
+              <p className="text-gray-600 leading-relaxed mb-6">
+                {product.description}
+              </p>
+
+              <p className="text-4xl font-black bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-transparent mb-6">
+                ${product.price}
+              </p>
+
+              <p className="text-sm text-gray-600 mb-6">
+                Stock: {product.stock}
+              </p>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Button
+                  onClick={addToCart}
+                  disabled={product.stock === 0}
+                  className="bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
+                >
+                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  {product.stock === 0 ? "Unavailable" : "Add to Cart"}
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/wishlist")}>
+                  <Heart className="mr-2 h-4 w-4" />
+                  Wishlist
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+}
