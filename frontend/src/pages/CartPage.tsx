@@ -4,9 +4,15 @@ import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Trash2, ArrowLeft, LogIn } from "lucide-react";
+import {
+  ShoppingCart,
+  Trash2,
+  ArrowLeft,
+  LogIn,
+  Minus,
+  Plus,
+} from "lucide-react";
 
 interface CartItem {
   id: number;
@@ -216,16 +222,37 @@ export function CartPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={item.product.stock}
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateQuantity(item.id, parseInt(e.target.value))
-                          }
-                          className="w-20"
-                        />
+                        <div className="inline-flex items-center rounded-md border bg-white">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-2 rounded-r-none"
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity - 1)
+                            }
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <span className="w-10 text-center text-sm font-semibold">
+                            {item.quantity}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-2 rounded-l-none"
+                            onClick={() =>
+                              updateQuantity(
+                                item.id,
+                                Math.min(item.product.stock, item.quantity + 1),
+                              )
+                            }
+                            disabled={item.quantity >= item.product.stock}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"

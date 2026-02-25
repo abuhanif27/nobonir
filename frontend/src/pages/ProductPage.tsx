@@ -4,7 +4,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Heart, ShoppingCart, Tag } from "lucide-react";
+import { ArrowLeft, Heart, Minus, Plus, ShoppingCart, Tag } from "lucide-react";
 
 interface Product {
   id: number;
@@ -25,6 +25,7 @@ export function ProductPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
+  const [quantity, setQuantity] = useState(1);
 
   const getLocalCartCount = () => {
     const raw = localStorage.getItem("nobonir_demo_cart");
@@ -106,11 +107,11 @@ export function ProductPage() {
       );
 
       if (existingIndex >= 0) {
-        existing[existingIndex].quantity += 1;
+        existing[existingIndex].quantity += quantity;
       } else {
         existing.push({
           id: product.id,
-          quantity: 1,
+          quantity,
           isLocal: true,
           product: {
             id: product.id,
@@ -128,7 +129,7 @@ export function ProductPage() {
     try {
       await api.post("/cart/items/", {
         product: product.id,
-        quantity: 1,
+        quantity,
       });
       await refreshCartCount();
       alert("Added to cart!");
@@ -229,6 +230,39 @@ export function ProductPage() {
               <p className="text-sm text-gray-600 mb-6">
                 Stock: {product.stock}
               </p>
+
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-2">Quantity</p>
+                <div className="inline-flex items-center rounded-lg border bg-white">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-r-none"
+                    onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                    disabled={quantity <= 1}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-12 text-center font-semibold">
+                    {quantity}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-l-none"
+                    onClick={() =>
+                      setQuantity((prev) =>
+                        Math.min(product.stock || 1, prev + 1),
+                      )
+                    }
+                    disabled={quantity >= product.stock || product.stock === 0}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Button
