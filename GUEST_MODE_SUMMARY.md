@@ -7,6 +7,7 @@ Guest mode has been successfully added to the Nobonir E-Commerce platform. Anony
 ## 🎯 Guest Capabilities
 
 ### Guests Can:
+
 - ✅ Browse all products on the homepage
 - ✅ Use AI-powered semantic search
 - ✅ Add products to cart
@@ -15,6 +16,7 @@ Guest mode has been successfully added to the Nobonir E-Commerce platform. Anony
 - ✅ Remove items from cart
 
 ### Guests Cannot (Must Login):
+
 - ❌ Complete checkout
 - ❌ Add items to wishlist
 - ❌ View order history
@@ -81,6 +83,7 @@ Guest mode has been successfully added to the Nobonir E-Commerce platform. Anony
 ### For Development:
 
 1. **Apply Backend Migration**:
+
    ```bash
    cd backend
    python manage.py migrate cart
@@ -98,6 +101,7 @@ Guest mode has been successfully added to the Nobonir E-Commerce platform. Anony
 ### For Users:
 
 1. **Guest Shopping Flow**:
+
    ```
    Visit site → Browse products → Add to cart → View cart
    → Click "Login to Checkout" → Register/Login
@@ -150,6 +154,7 @@ cart = Cart.objects.create(
 ## 📚 Documentation
 
 Created comprehensive guest mode documentation in:
+
 - `GUEST_MODE.md` - Full technical documentation
 - Updated `README.md` - Added guest mode to features and user roles
 
@@ -171,7 +176,7 @@ Test these scenarios:
 ## 🎉 Benefits
 
 1. **Reduced Friction**: New visitors can shop immediately
-2. **Better UX**: Try before committing to account creation  
+2. **Better UX**: Try before committing to account creation
 3. **Higher Conversion**: Cart items preserved through registration
 4. **Secure**: Critical operations still require authentication
 5. **Seamless**: Automatic cart merge on login
