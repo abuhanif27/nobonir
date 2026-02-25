@@ -5,6 +5,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { CustomerDashboard } from "@/pages/CustomerDashboard";
 import { AdminDashboard } from "@/pages/AdminDashboard";
+import { CartPage } from "@/pages/CartPage";
 
 function App() {
   const { isAuthenticated, isAdmin } = useAuthStore();
@@ -23,6 +24,7 @@ function App() {
             )
           }
         />
+        <Route path="/cart" element={<CartPage />} />
         <Route
           path="/login"
           element={

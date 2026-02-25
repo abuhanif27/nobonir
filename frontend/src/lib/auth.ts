@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthState>()(
       isAdmin: false,
 
       login: async (email: string, password: string) => {
-        const response = await api.post("/accounts/login/", {
+        const response = await api.post("/auth/token/", {
           email,
           password,
         });
@@ -93,7 +93,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await api.post("/accounts/token/refresh/", {
+          const response = await api.post("/auth/token/refresh/", {
             refresh: refreshToken,
           });
 
