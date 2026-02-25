@@ -1,5 +1,5 @@
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuthStore } from '@/lib/auth';
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuthStore } from "@/lib/auth";
 
 interface ProtectedRouteProps {
   requireAdmin?: boolean;
