@@ -96,7 +96,7 @@ export function CartPage() {
 
   const total = cartItems.reduce(
     (sum, item) => sum + parseFloat(item.product.price) * item.quantity,
-    0
+    0,
   );
 
   return (
@@ -184,7 +184,10 @@ export function CartPage() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">
-                          ${(parseFloat(item.product.price) * item.quantity).toFixed(2)}
+                          $
+                          {(
+                            parseFloat(item.product.price) * item.quantity
+                          ).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -213,7 +216,10 @@ export function CartPage() {
                           login
                         </Link>{" "}
                         or{" "}
-                        <Link to="/register" className="font-semibold underline">
+                        <Link
+                          to="/register"
+                          className="font-semibold underline"
+                        >
                           create an account
                         </Link>{" "}
                         to checkout.
