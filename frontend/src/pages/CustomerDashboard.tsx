@@ -173,7 +173,7 @@ export function CustomerDashboard() {
                     <Button
                       onClick={() => addToWishlist(product.id)}
                       variant="outline"
-                      size="icon"
+                      className="w-10 p-0"
                     >
                       <Heart className="h-4 w-4" />
                     </Button>
