@@ -85,17 +85,20 @@ function App() {
     setOrders(response.data);
   }, []);
 
-  const refreshAll = useCallback(async (id: string, email?: string) => {
-    setLoading(true);
-    setError("");
-    try {
-      await Promise.all([loadCatalog(), loadUserData(id), loadOrders(email)]);
-    } catch {
-      setError("Failed to load data. Make sure backend server is running.");
-    } finally {
-      setLoading(false);
-    }
-  }, [loadCatalog, loadOrders, loadUserData]);
+  const refreshAll = useCallback(
+    async (id: string, email?: string) => {
+      setLoading(true);
+      setError("");
+      try {
+        await Promise.all([loadCatalog(), loadUserData(id), loadOrders(email)]);
+      } catch {
+        setError("Failed to load data. Make sure backend server is running.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadCatalog, loadOrders, loadUserData],
+  );
 
   useEffect(() => {
     const id = getCustomerId();
