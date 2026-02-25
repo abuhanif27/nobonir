@@ -31,6 +31,15 @@ if [ ! -d "backend" ] || [ ! -d "frontend" ]; then
     exit 1
 fi
 
+# Activate Python virtual environment
+if [ ! -f ".venv/bin/activate" ]; then
+    echo -e "${RED}Error: Virtual environment not found at .venv/bin/activate${NC}"
+    echo "Create it first: python3 -m venv .venv && source .venv/bin/activate && pip install -r backend/requirements.txt"
+    exit 1
+fi
+
+source .venv/bin/activate
+
 # Start backend
 echo -e "\n${BLUE}Starting Django backend...${NC}"
 cd backend
