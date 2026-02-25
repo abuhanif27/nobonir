@@ -222,15 +222,26 @@ export function CustomerDashboard() {
     }
   };
 
-  const addToCart = async (productId: number) => {
+  const addToCart = async (productId: number, showMessage = true) => {
     try {
       await api.post("/cart/items/", {
         product: productId,
         quantity: 1,
       });
-      alert("Added to cart!");
+      if (showMessage) {
+        alert("Added to cart!");
+      }
+      return true;
     } catch (error: any) {
       alert(error.response?.data?.detail || "Failed to add to cart");
+      return false;
+    }
+  };
+
+  const viewProduct = async (productId: number) => {
+    const added = await addToCart(productId, false);
+    if (added) {
+      navigate("/cart");
     }
   };
 
@@ -572,12 +583,12 @@ export function CustomerDashboard() {
                     </div>
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => addToCart(product.id)}
+                        onClick={() => viewProduct(product.id)}
                         className="flex-1 bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold"
                         disabled={product.stock === 0}
                       >
                         <ShoppingCart className="mr-2 h-4 w-4" />
-                        {product.stock === 0 ? "Unavailable" : "Add to Cart"}
+                        {product.stock === 0 ? "Unavailable" : "View Product"}
                       </Button>
                       <Button
                         onClick={() => addToWishlist(product.id)}
