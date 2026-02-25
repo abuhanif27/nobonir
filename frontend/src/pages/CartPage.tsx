@@ -211,7 +211,6 @@ export function CartPage() {
           }`}
         >
           <Card className="overflow-hidden border-0 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-            <div className="h-1.5 bg-gradient-to-r from-rose-500 via-red-500 to-orange-500" />
             <CardContent className="p-6">
               <div className="mb-4 flex items-center gap-3">
                 <div className="rounded-full bg-red-100 p-2 text-red-600 shadow-sm">
@@ -232,15 +231,16 @@ export function CartPage() {
                   variant="outline"
                   onClick={() => setClearConfirmOpen(false)}
                   disabled={clearingAll}
-                  className="transition-all hover:scale-105"
+                  className="border-slate-300 bg-white text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-100 hover:shadow-md active:translate-y-0"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={clearAllCart}
                   disabled={clearingAll}
-                  className="bg-gradient-to-r from-red-600 to-rose-600 transition-all hover:scale-105 hover:from-red-700 hover:to-rose-700"
+                  className="group relative overflow-hidden bg-gradient-to-r from-red-600 to-rose-600 text-white transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.03] hover:from-red-700 hover:to-rose-700 hover:shadow-[0_12px_24px_rgba(220,38,38,0.35)] active:translate-y-0"
                 >
+                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                   {clearingAll ? "Clearing..." : "Yes, Clear All"}
                 </Button>
               </div>
