@@ -8,6 +8,10 @@ interface User {
   first_name: string;
   last_name: string;
   role: "ADMIN" | "CUSTOMER";
+  profile_picture?: string;
+  phone_number?: string;
+  address?: string;
+  date_of_birth?: string;
 }
 
 interface AuthState {
