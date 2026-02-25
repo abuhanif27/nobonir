@@ -23,7 +23,13 @@ class SearchAPIView(APIView):
 	def get(self, request):
 		serializer = QuerySerializer(data=request.query_params)
 		serializer.is_valid(raise_exception=True)
-		results = semantic_product_search(serializer.validated_data["q"])
+		limit = request.query_params.get("limit")
+		try:
+			limit_value = int(limit) if limit is not None else 12
+		except (TypeError, ValueError):
+			limit_value = 12
+
+		results = semantic_product_search(serializer.validated_data["q"], limit=limit_value)
 		return Response(ProductSerializer(results, many=True).data)
 
 

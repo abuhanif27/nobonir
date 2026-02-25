@@ -236,7 +236,9 @@ export function CustomerDashboard() {
   };
 
   const handleSearch = async () => {
-    if (!search.trim()) {
+    const query = search.trim();
+
+    if (!query) {
       loadProducts();
       return;
     }
@@ -244,19 +246,29 @@ export function CustomerDashboard() {
     setLoading(true);
     try {
       const response = await api.get("/ai/search/", {
-        params: { query: search },
+        params: { q: query },
       });
       setProducts(response.data);
     } catch (error) {
       console.error("Search failed:", error);
-      // Fallback to filtering demo products
-      const filtered = DEMO_PRODUCTS.filter(
-        (p) =>
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.description.toLowerCase().includes(search.toLowerCase()) ||
-          p.category.name.toLowerCase().includes(search.toLowerCase()),
-      );
-      setProducts(filtered);
+
+      try {
+        const fallbackResponse = await api.get("/products/products/", {
+          params: { search: query },
+        });
+        const fallbackProducts =
+          fallbackResponse.data.results || fallbackResponse.data;
+        setProducts(Array.isArray(fallbackProducts) ? fallbackProducts : []);
+      } catch {
+        const normalized = query.toLowerCase();
+        const filtered = DEMO_PRODUCTS.filter(
+          (p) =>
+            p.name.toLowerCase().includes(normalized) ||
+            p.description.toLowerCase().includes(normalized) ||
+            p.category.name.toLowerCase().includes(normalized),
+        );
+        setProducts(filtered);
+      }
     } finally {
       setLoading(false);
     }

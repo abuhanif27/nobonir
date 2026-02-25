@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from ai_engine.services.recommendation_service import get_recommendations_for_user
+from ai_engine.services.search_service import semantic_product_search
 from cart.models import WishlistItem
 from products.models import Category, Product
 
@@ -20,3 +21,34 @@ class AIRecommendationTests(TestCase):
 	def test_recommendations_returns_products(self):
 		results = get_recommendations_for_user(self.user, limit=2)
 		self.assertGreaterEqual(len(results), 1)
+
+
+class AISearchTests(TestCase):
+	def setUp(self):
+		category = Category.objects.create(name="Electronics", slug="electronics")
+		self.fan = Product.objects.create(
+			category=category,
+			name="Quiet Fan",
+			slug="quiet-fan",
+			description="Low-noise cooling fan for bedroom",
+			price=30,
+			stock=10,
+		)
+		self.camera = Product.objects.create(
+			category=category,
+			name="Camera",
+			slug="camera",
+			description="Digital camera for travel",
+			price=200,
+			stock=10,
+		)
+
+	def test_semantic_search_prioritizes_relevant_products(self):
+		results = semantic_product_search("quiet cooling fan", limit=2)
+		self.assertGreaterEqual(len(results), 1)
+		self.assertEqual(results[0].id, self.fan.id)
+
+	def test_search_api_accepts_query_parameter_alias(self):
+		response = self.client.get("/api/ai/search/", {"query": "quiet fan"})
+		self.assertEqual(response.status_code, 200)
+		self.assertGreaterEqual(len(response.json()), 1)
