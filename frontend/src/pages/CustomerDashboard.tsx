@@ -512,7 +512,7 @@ export function CustomerDashboard() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="relative pl-12 h-14 text-lg bg-white/98 backdrop-blur-md border-0 shadow-2xl focus-visible:ring-2 focus-visible:ring-white/50 rounded-2xl font-medium"
+                  className="relative pl-12 h-14 text-lg text-gray-900 placeholder:text-gray-500 caret-teal-600 bg-white/98 backdrop-blur-md border-0 shadow-2xl focus-visible:ring-2 focus-visible:ring-white/50 rounded-2xl font-medium"
                 />
               </div>
               <Button
