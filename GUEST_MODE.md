@@ -7,6 +7,7 @@ Guest mode allows anonymous users to browse products and add items to their shop
 ## Features
 
 ### Guest Users Can:
+
 - ✅ Browse all products
 - ✅ Search products with AI-powered semantic search
 - ✅ Add products to cart
@@ -14,6 +15,7 @@ Guest mode allows anonymous users to browse products and add items to their shop
 - ✅ Update quantities and remove items
 
 ### Guest Users Cannot:
+
 - ❌ Checkout (must login/register first)
 - ❌ Add items to wishlist (requires account)
 - ❌ View order history
@@ -70,25 +72,26 @@ Guest mode allows anonymous users to browse products and add items to their shop
 ## Database Schema
 
 ### Cart Model
+
 ```python
 class Cart(models.Model):
     user = models.OneToOneField(
-        User, 
-        on_delete=CASCADE, 
-        null=True, 
+        User,
+        on_delete=CASCADE,
+        null=True,
         blank=True
     )  # Null for guest carts
-    
+
     session_key = models.CharField(
-        max_length=40, 
-        null=True, 
-        blank=True, 
+        max_length=40,
+        null=True,
+        blank=True,
         db_index=True
     )  # Set for guest carts
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         constraints = [
             CheckConstraint(
@@ -101,6 +104,7 @@ class Cart(models.Model):
 ## API Example
 
 ### Guest Adding Item to Cart
+
 ```bash
 # No authentication required
 curl -X POST http://localhost:8000/api/cart/items/ \
@@ -112,6 +116,7 @@ curl -X POST http://localhost:8000/api/cart/items/ \
 ```
 
 ### Guest Trying to Checkout (will fail)
+
 ```bash
 # Returns 401 Unauthorized
 curl -X POST http://localhost:8000/api/orders/checkout/ \
@@ -122,6 +127,7 @@ curl -X POST http://localhost:8000/api/orders/checkout/ \
 ```
 
 ### After Login - Checkout Succeeds
+
 ```bash
 # With JWT token
 curl -X POST http://localhost:8000/api/orders/checkout/ \
@@ -135,6 +141,7 @@ curl -X POST http://localhost:8000/api/orders/checkout/ \
 ## Setup Instructions
 
 ### Backend Changes Made:
+
 1. ✅ Updated `Cart` model to support `session_key`
 2. ✅ Created `cart/utils.py` with helper functions
 3. ✅ Updated cart views to use `AllowAny` permissions
@@ -143,6 +150,7 @@ curl -X POST http://localhost:8000/api/orders/checkout/ \
 6. ✅ Created migration file `0002_guest_cart_support.py`
 
 ### Frontend Changes Made:
+
 1. ✅ Updated `CustomerDashboard` to work for guests
 2. ✅ Created `CartPage` component
 3. ✅ Updated routing to allow public access to home and cart
@@ -151,6 +159,7 @@ curl -X POST http://localhost:8000/api/orders/checkout/ \
 6. ✅ Updated API interceptor to handle guest 401s gracefully
 
 ### To Apply Changes:
+
 ```bash
 # Backend
 cd backend
@@ -164,6 +173,7 @@ npm run build
 ## User Experience Flow
 
 ### Scenario 1: Guest Browse → Add to Cart → Register → Checkout
+
 1. User visits site (no login)
 2. Browses products
 3. Adds items to cart
@@ -177,6 +187,7 @@ npm run build
 11. Completes checkout
 
 ### Scenario 2: Guest Browse → Try Wishlist → Prompted to Login
+
 1. User visits site (no login)
 2. Clicks heart icon on product
 3. Sees confirm dialog: "Please login to add items to wishlist"
@@ -186,7 +197,9 @@ npm run build
 ## Configuration
 
 ### Session Settings (already configured)
+
 Django sessions are enabled by default in `backend/backend/settings/base.py`:
+
 ```python
 MIDDLEWARE = [
     ...
@@ -202,7 +215,9 @@ INSTALLED_APPS = [
 ```
 
 ### CORS Settings
+
 Ensure CORS allows credentials for session cookies:
+
 ```python
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
@@ -214,6 +229,7 @@ CORS_ALLOWED_ORIGINS = [
 ## Testing
 
 ### Test Guest Cart Flow:
+
 1. Open incognito/private browser window
 2. Visit http://localhost:5173
 3. Verify you see "Browsing as Guest" in header
@@ -224,6 +240,7 @@ CORS_ALLOWED_ORIGINS = [
 8. Verify cart items are preserved
 
 ### Test Cart Merge:
+
 1. As guest, add Product A to cart
 2. Register/login
 3. Add Product B to cart (as authenticated user)
@@ -251,7 +268,9 @@ CORS_ALLOWED_ORIGINS = [
 ## Troubleshooting
 
 ### Issue: Guest cart items disappearing
+
 **Solution**: Ensure Django sessions are working:
+
 ```python
 # Check session backend
 python manage.py shell
@@ -262,14 +281,18 @@ python manage.py shell
 ```
 
 ### Issue: Cart not merging on login
+
 **Solution**: Check custom LoginAPIView is being used:
+
 ```bash
 # Verify in backend/backend/urls.py
 path('api/auth/token/', LoginAPIView.as_view(), ...)
 ```
 
 ### Issue: 401 errors for cart operations
+
 **Solution**: Verify cart endpoints use AllowAny:
+
 ```python
 # In cart/views.py
 class CartItemAPIView(APIView):
@@ -281,6 +304,7 @@ class CartItemAPIView(APIView):
 Guest mode provides a seamless shopping experience for new users while maintaining security for transactions. The implementation balances accessibility (anyone can browse and cart) with accountability (must register to buy).
 
 **Key Benefits:**
+
 - Reduces friction for new visitors
 - Increases conversion by allowing "try before you commit"
 - Preserves cart items through registration process

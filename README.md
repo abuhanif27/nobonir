@@ -18,6 +18,7 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
 ## Tech Stack
 
 ### Backend
+
 - Python 3.12+
 - Django 6.0
 - Django REST Framework 3.15.2
@@ -28,6 +29,7 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
 - psycopg 3.2.9 (PostgreSQL adapter)
 
 ### Frontend
+
 - React 18.2.0
 - TypeScript 5.2.2
 - Vite 5.1.0
@@ -42,31 +44,37 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
 ### Backend Setup
 
 1. Clone and navigate:
+
    ```bash
    cd nobonir/backend
    ```
 
 2. Install dependencies:
+
    ```bash
    pip install Django==6.0 djangorestframework==3.15.2 djangorestframework-simplejwt==5.5.1 drf-spectacular==0.28.0 django-cors-headers==4.6.0 django-filter==25.1 psycopg[binary]==3.2.9 sentence-transformers==5.1.0 scikit-learn==1.6.1 numpy==2.2.3 python-dotenv==1.0.1
    ```
 
 3. Run migrations:
+
    ```bash
    python manage.py migrate
    ```
 
 4. Create superuser (admin):
+
    ```bash
    python manage.py createsuperuser
    ```
 
 5. Seed sample data:
+
    ```bash
    python manage.py seed_products
    ```
 
 6. Run server:
+
    ```bash
    python manage.py runserver
    ```
@@ -77,16 +85,19 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
 ### Frontend Setup
 
 1. Navigate to frontend:
+
    ```bash
    cd ../frontend
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Run dev server:
+
    ```bash
    npm run dev
    ```
@@ -102,13 +113,24 @@ python manage.py test
 
 ## User Roles
 
+### Guest (No Account Required)
+
+- Browse all products
+- AI-powered search
+- Add items to cart
+- View and manage cart
+- **Must create account to checkout**
+
 ### Customer
-- Browse and search products with AI
-- Add items to cart and wishlist
-- Place orders and track status
+
+- All guest permissions
+- Checkout and place orders
+- Add items to wishlist
+- View order history
 - Submit product reviews
 
-### Admin  
+### Admin
+
 - All customer permissions
 - Create/update/delete products
 - Manage categories
