@@ -12,6 +12,7 @@ import {
   LogIn,
   Minus,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
 
 interface CartItem {
@@ -34,6 +35,8 @@ export function CartPage() {
   const [loading, setLoading] = useState(true);
   const [shippingAddress, setShippingAddress] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
 
   const getLocalCartItems = (): CartItem[] => {
     const raw = localStorage.getItem("nobonir_demo_cart");
@@ -123,19 +126,23 @@ export function CartPage() {
     }
   };
 
-  const clearAllCart = async () => {
+  const requestClearAllCart = () => {
     if (cartItems.length === 0) {
       return;
     }
 
-    if (!confirm("Clear all items from cart?")) {
-      return;
-    }
+    setClearConfirmOpen(true);
+  };
+
+  const clearAllCart = async () => {
+    setClearingAll(true);
 
     const hasLocalItems = cartItems.some((item) => item.isLocal);
     if (hasLocalItems) {
       setLocalCartItems([]);
       setCartItems([]);
+      setClearingAll(false);
+      setClearConfirmOpen(false);
       return;
     }
 
@@ -144,9 +151,12 @@ export function CartPage() {
         cartItems.map((item) => api.delete(`/cart/items/${item.id}/`)),
       );
       setCartItems([]);
+      setClearConfirmOpen(false);
     } catch (error) {
       console.error("Failed to clear cart:", error);
       await loadCart();
+    } finally {
+      setClearingAll(false);
     }
   };
 
@@ -186,6 +196,45 @@ export function CartPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {clearConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md border-0 shadow-2xl">
+            <CardContent className="p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="rounded-full bg-red-100 p-2 text-red-600">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Clear all cart items?
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    This will remove everything from your cart.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setClearConfirmOpen(false)}
+                  disabled={clearingAll}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={clearAllCart}
+                  disabled={clearingAll}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {clearingAll ? "Clearing..." : "Yes, Clear All"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
@@ -230,7 +279,7 @@ export function CartPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={clearAllCart}
+                    onClick={requestClearAllCart}
                     className="text-red-600 hover:text-red-700"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
