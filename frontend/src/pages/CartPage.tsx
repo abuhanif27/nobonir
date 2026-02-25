@@ -123,6 +123,33 @@ export function CartPage() {
     }
   };
 
+  const clearAllCart = async () => {
+    if (cartItems.length === 0) {
+      return;
+    }
+
+    if (!confirm("Clear all items from cart?")) {
+      return;
+    }
+
+    const hasLocalItems = cartItems.some((item) => item.isLocal);
+    if (hasLocalItems) {
+      setLocalCartItems([]);
+      setCartItems([]);
+      return;
+    }
+
+    try {
+      await Promise.all(
+        cartItems.map((item) => api.delete(`/cart/items/${item.id}/`)),
+      );
+      setCartItems([]);
+    } catch (error) {
+      console.error("Failed to clear cart:", error);
+      await loadCart();
+    }
+  };
+
   const handleCheckout = async () => {
     if (!isAuthenticated) {
       if (confirm("You must be logged in to checkout. Go to login page?")) {
@@ -198,8 +225,17 @@ export function CartPage() {
             {/* Cart Items */}
             <div className="lg:col-span-2">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <CardTitle>Cart Items ({cartItems.length})</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllCart}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Clear All
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {cartItems.map((item) => (
