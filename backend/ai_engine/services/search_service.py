@@ -38,11 +38,26 @@ def semantic_product_search(query: str, limit: int = 12):
                 score += 1.0
         return score / len(query_terms)
 
+    combined_scores = [
+        (semantic_scores[idx] * 0.8) + (keyword_score(products[idx]) * 0.2)
+        for idx in range(len(products))
+    ]
+
     ranked_indices = sorted(
         range(len(products)),
-        key=lambda idx: (semantic_scores[idx] * 0.8) + (keyword_score(products[idx]) * 0.2),
+        key=lambda idx: combined_scores[idx],
         reverse=True,
     )
 
+    if not ranked_indices:
+        return []
+
+    top_score = combined_scores[ranked_indices[0]]
+    min_relevance = max(0.28, top_score * 0.72)
+
+    filtered_indices = [
+        idx for idx in ranked_indices if combined_scores[idx] >= min_relevance
+    ]
+
     safe_limit = max(1, min(int(limit or 12), 50))
-    return [products[index] for index in ranked_indices[:safe_limit]]
+    return [products[index] for index in filtered_indices[:safe_limit]]

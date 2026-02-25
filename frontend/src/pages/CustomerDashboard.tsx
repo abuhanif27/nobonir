@@ -178,6 +178,27 @@ export function CustomerDashboard() {
   const [loading, setLoading] = useState(false);
   const [cartCount, setCartCount] = useState(0);
 
+  const normalizeProducts = (items: any[]): Product[] => {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || "",
+        price: String(item.price ?? ""),
+        image: item.image || item.image_url || "",
+        stock: Number(item.stock ?? 0),
+        category: {
+          id: item.category?.id ?? 0,
+          name: item.category?.name ?? "Uncategorized",
+        },
+      }))
+      .filter((item) => Boolean(item.id) && Boolean(item.name));
+  };
+
   useEffect(() => {
     loadProducts();
     refreshCartCount();
@@ -223,7 +244,9 @@ export function CustomerDashboard() {
     setLoading(true);
     try {
       const response = await api.get("/products/products/");
-      const apiProducts = response.data.results || response.data;
+      const apiProducts = normalizeProducts(
+        response.data.results || response.data,
+      );
       // Use API products if available, otherwise show demo products
       setProducts(apiProducts.length > 0 ? apiProducts : DEMO_PRODUCTS);
     } catch (error) {
@@ -248,7 +271,7 @@ export function CustomerDashboard() {
       const response = await api.get("/ai/search/", {
         params: { q: query },
       });
-      setProducts(response.data);
+      setProducts(normalizeProducts(response.data));
     } catch (error) {
       console.error("Search failed:", error);
 
@@ -256,9 +279,10 @@ export function CustomerDashboard() {
         const fallbackResponse = await api.get("/products/products/", {
           params: { search: query },
         });
-        const fallbackProducts =
-          fallbackResponse.data.results || fallbackResponse.data;
-        setProducts(Array.isArray(fallbackProducts) ? fallbackProducts : []);
+        const fallbackProducts = normalizeProducts(
+          fallbackResponse.data.results || fallbackResponse.data,
+        );
+        setProducts(fallbackProducts);
       } catch {
         const normalized = query.toLowerCase();
         const filtered = DEMO_PRODUCTS.filter(
