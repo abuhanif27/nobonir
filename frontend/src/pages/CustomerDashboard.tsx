@@ -282,31 +282,24 @@ export function CustomerDashboard() {
 
     setLoading(true);
     try {
-      const response = await api.get("/ai/search/", {
-        params: { q: query },
+      const response = await api.get("/products/products/", {
+        params: { search: query },
       });
-      setProducts(normalizeProducts(response.data));
+      const searchedProducts = normalizeProducts(
+        response.data.results || response.data,
+      );
+      setProducts(searchedProducts);
     } catch (error) {
       console.error("Search failed:", error);
 
-      try {
-        const fallbackResponse = await api.get("/products/products/", {
-          params: { search: query },
-        });
-        const fallbackProducts = normalizeProducts(
-          fallbackResponse.data.results || fallbackResponse.data,
-        );
-        setProducts(fallbackProducts);
-      } catch {
-        const normalized = query.toLowerCase();
-        const filtered = DEMO_PRODUCTS.filter(
-          (p) =>
-            p.name.toLowerCase().includes(normalized) ||
-            p.description.toLowerCase().includes(normalized) ||
-            p.category.name.toLowerCase().includes(normalized),
-        );
-        setProducts(filtered);
-      }
+      const normalized = query.toLowerCase();
+      const filtered = DEMO_PRODUCTS.filter(
+        (p) =>
+          p.name.toLowerCase().includes(normalized) ||
+          p.description.toLowerCase().includes(normalized) ||
+          p.category.name.toLowerCase().includes(normalized),
+      );
+      setProducts(filtered);
     } finally {
       setLoading(false);
     }
