@@ -1,3 +1,7 @@
 from django.db import models
 
-# Create your models here.
+
+class EmbeddingCache(models.Model):
+	text_hash = models.CharField(max_length=64, unique=True)
+	vector_json = models.TextField()
+	created_at = models.DateTimeField(auto_now_add=True)
