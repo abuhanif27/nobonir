@@ -11,7 +11,19 @@ echo "==================================="
 # Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+cleanup() {
+    if [ -n "${BACKEND_PID:-}" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
+        kill "$BACKEND_PID" 2>/dev/null || true
+    fi
+    if [ -n "${FRONTEND_PID:-}" ] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
+        kill "$FRONTEND_PID" 2>/dev/null || true
+    fi
+}
+
+trap "cleanup; echo -e '\n${GREEN}Servers stopped${NC}'; exit" INT TERM
 
 # Check if we're in the project root
 if [ ! -d "backend" ] || [ ! -d "frontend" ]; then
@@ -30,6 +42,12 @@ cd ..
 # Wait a moment for backend to initialize
 sleep 2
 
+if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+    echo -e "${RED}✗ Django backend failed to start. Fix the error above and retry.${NC}"
+    cleanup
+    exit 1
+fi
+
 # Start frontend
 echo -e "\n${BLUE}Starting React frontend...${NC}"
 cd frontend
@@ -37,6 +55,15 @@ npm run dev &
 FRONTEND_PID=$!
 echo -e "${GREEN}✓ Frontend started (PID: $FRONTEND_PID)${NC}"
 cd ..
+
+# Wait a moment for frontend to initialize
+sleep 2
+
+if ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
+    echo -e "${RED}✗ React frontend failed to start. Fix the error above and retry.${NC}"
+    cleanup
+    exit 1
+fi
 
 echo -e "\n==================================="
 echo -e "${GREEN}Both servers are running!${NC}"
@@ -48,9 +75,6 @@ echo "Frontend: http://localhost:5173"
 echo ""
 echo "Press Ctrl+C to stop both servers"
 echo ""
-
-# Wait for Ctrl+C
-trap "kill $BACKEND_PID $FRONTEND_PID; echo -e '\n${GREEN}Servers stopped${NC}'; exit" INT
 
 # Keep script running
 wait
