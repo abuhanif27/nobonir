@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='cart',
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     ('user__isnull', False),
                     ('session_key__isnull', False),
                     _connector='OR',

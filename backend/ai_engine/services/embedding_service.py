@@ -82,3 +82,7 @@ def encode_texts(texts: Iterable[str]) -> np.ndarray:
 
     matrix = encoder.fit_transform(texts)
     return matrix.toarray()
+
+
+def get_or_create_embedding(text: str) -> np.ndarray:
+    return encode_texts([text])[0]
