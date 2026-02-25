@@ -53,9 +53,13 @@ def semantic_product_search(query: str, limit: int = 12):
         return []
 
     top_score = combined_scores[ranked_indices[0]]
-    # More adaptive threshold: use lower minimum and more lenient multiplier
-    # This ensures we show somewhat-related items even if no perfect match exists
-    min_relevance = max(0.12, top_score * 0.50)
+    
+    # Two-tier threshold system:
+    # 1. Absolute minimum: 0.20 (prevents showing very unrelated items)
+    # 2. Relative threshold: 50% of top score (allows similar items to show together)
+    absolute_min = 0.20
+    relative_threshold = top_score * 0.50
+    min_relevance = max(absolute_min, relative_threshold)
 
     filtered_indices = [
         idx for idx in ranked_indices if combined_scores[idx] >= min_relevance
