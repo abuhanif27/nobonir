@@ -441,9 +441,10 @@ export function CustomerDashboard() {
     imageSrc?: string,
   ) => {
     if (!isAuthenticated) {
-      if (confirm("Please login to add items to wishlist. Go to login page?")) {
-        navigate("/login");
-      }
+      setWishlistToast({
+        type: "error",
+        message: "Please login to add items to wishlist",
+      });
       return;
     }
 
