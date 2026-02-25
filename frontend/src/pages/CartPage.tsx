@@ -196,13 +196,26 @@ export function CartPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {clearConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
-          <Card className="w-full max-w-md border-0 shadow-2xl">
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center px-4 transition-all duration-300 ${
+          clearConfirmOpen
+            ? "pointer-events-auto bg-black/45 opacity-100 backdrop-blur-sm"
+            : "pointer-events-none bg-black/0 opacity-0 backdrop-blur-0"
+        }`}
+      >
+        <div
+          className={`w-full max-w-md transform transition-all duration-300 ${
+            clearConfirmOpen
+              ? "translate-y-0 scale-100 opacity-100"
+              : "translate-y-6 scale-95 opacity-0"
+          }`}
+        >
+          <Card className="overflow-hidden border-0 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+            <div className="h-1.5 bg-gradient-to-r from-rose-500 via-red-500 to-orange-500" />
             <CardContent className="p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-full bg-red-100 p-2 text-red-600">
-                  <AlertTriangle className="h-5 w-5" />
+                <div className="rounded-full bg-red-100 p-2 text-red-600 shadow-sm">
+                  <AlertTriangle className="h-5 w-5 animate-pulse" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
@@ -219,13 +232,14 @@ export function CartPage() {
                   variant="outline"
                   onClick={() => setClearConfirmOpen(false)}
                   disabled={clearingAll}
+                  className="transition-all hover:scale-105"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={clearAllCart}
                   disabled={clearingAll}
-                  className="bg-red-600 hover:bg-red-700"
+                  className="bg-gradient-to-r from-red-600 to-rose-600 transition-all hover:scale-105 hover:from-red-700 hover:to-rose-700"
                 >
                   {clearingAll ? "Clearing..." : "Yes, Clear All"}
                 </Button>
@@ -233,7 +247,7 @@ export function CartPage() {
             </CardContent>
           </Card>
         </div>
-      )}
+      </div>
 
       {/* Header */}
       <header className="bg-white shadow">
