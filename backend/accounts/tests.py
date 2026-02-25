@@ -37,3 +37,24 @@ class RegisterAPITests(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 		user = User.objects.get(email="named@example.com")
 		self.assertEqual(user.username, "customname")
+
+	def test_login_with_email_returns_tokens_and_user(self):
+		User.objects.create_user(
+			username="loginuser",
+			email="login@example.com",
+			password="StrongPass123!",
+			first_name="Login",
+			last_name="User",
+		)
+
+		response = self.client.post(
+			"/api/auth/token/",
+			{"email": "login@example.com", "password": "StrongPass123!"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertIn("access", response.data)
+		self.assertIn("refresh", response.data)
+		self.assertIn("user", response.data)
+		self.assertEqual(response.data["user"]["email"], "login@example.com")
