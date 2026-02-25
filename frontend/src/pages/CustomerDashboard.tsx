@@ -32,23 +32,140 @@ interface Product {
   };
 }
 
+// Demo products with beautiful images
+const DEMO_PRODUCTS: Product[] = [
+  {
+    id: 1,
+    name: "Premium Wireless Headphones",
+    description: "Experience crystal-clear audio with active noise cancellation and 30-hour battery life. Perfect for music lovers and professionals.",
+    price: "299.99",
+    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop",
+    stock: 15,
+    category: { id: 1, name: "Electronics" }
+  },
+  {
+    id: 2,
+    name: "Smart Fitness Watch",
+    description: "Track your health and fitness goals with GPS, heart rate monitoring, and sleep tracking. Water-resistant up to 50m.",
+    price: "249.99",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop",
+    stock: 8,
+    category: { id: 1, name: "Electronics" }
+  },
+  {
+    id: 3,
+    name: "Minimalist Leather Backpack",
+    description: "Handcrafted genuine leather backpack with laptop compartment and multiple pockets. Perfect for daily commute.",
+    price: "189.99",
+    image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=400&fit=crop",
+    stock: 12,
+    category: { id: 2, name: "Fashion" }
+  },
+  {
+    id: 4,
+    name: "Organic Cotton T-Shirt",
+    description: "Sustainably made from 100% organic cotton. Soft, breathable, and perfect for everyday wear.",
+    price: "29.99",
+    image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=400&fit=crop",
+    stock: 50,
+    category: { id: 2, name: "Fashion" }
+  },
+  {
+    id: 5,
+    name: "Ceramic Coffee Mug Set",
+    description: "Set of 4 handmade ceramic mugs. Microwave and dishwasher safe. Each mug holds 12oz.",
+    price: "45.99",
+    image: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=600&h=400&fit=crop",
+    stock: 25,
+    category: { id: 3, name: "Home & Kitchen" }
+  },
+  {
+    id: 6,
+    name: "Yoga Mat Premium",
+    description: "Non-slip, eco-friendly yoga mat with extra cushioning. Includes carrying strap. Perfect for all yoga styles.",
+    price: "59.99",
+    image: "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=600&h=400&fit=crop",
+    stock: 20,
+    category: { id: 4, name: "Sports" }
+  },
+  {
+    id: 7,
+    name: "Desk Plant Collection",
+    description: "Set of 3 low-maintenance succulents in modern ceramic pots. Perfect for office or home decoration.",
+    price: "34.99",
+    image: "https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=600&h=400&fit=crop",
+    stock: 18,
+    category: { id: 3, name: "Home & Kitchen" }
+  },
+  {
+    id: 8,
+    name: "Professional Camera Kit",
+    description: "24MP DSLR camera with 18-55mm lens, tripod, and camera bag. Ideal for beginners and enthusiasts.",
+    price: "899.99",
+    image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&h=400&fit=crop",
+    stock: 5,
+    category: { id: 1, name: "Electronics" }
+  },
+  {
+    id: 9,
+    name: "Running Sneakers",
+    description: "Lightweight running shoes with responsive cushioning and breathable mesh upper. Available in multiple colors.",
+    price: "119.99",
+    image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=400&fit=crop",
+    stock: 30,
+    category: { id: 2, name: "Fashion" }
+  },
+  {
+    id: 10,
+    name: "Portable Bluetooth Speaker",
+    description: "Waterproof speaker with 360° sound and 12-hour battery life. Perfect for outdoor adventures.",
+    price: "79.99",
+    image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&h=400&fit=crop",
+    stock: 22,
+    category: { id: 1, name: "Electronics" }
+  },
+  {
+    id: 11,
+    name: "Scented Candle Set",
+    description: "Set of 6 aromatherapy candles with natural soy wax. Includes lavender, vanilla, and eucalyptus scents.",
+    price: "39.99",
+    image: "https://images.unsplash.com/photo-1602874801006-c2c0ff734d7e?w=600&h=400&fit=crop",
+    stock: 40,
+    category: { id: 3, name: "Home & Kitchen" }
+  },
+  {
+    id: 12,
+    name: "Stainless Steel Water Bottle",
+    description: "Insulated bottle keeps drinks cold for 24 hours or hot for 12 hours. BPA-free and leak-proof.",
+    price: "24.99",
+    image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&h=400&fit=crop",
+    stock: 0,
+    category: { id: 4, name: "Sports" }
+  }
+];
+
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(DEMO_PRODUCTS);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadProducts();
   }, []);
 
   const loadProducts = async () => {
+    setLoading(true);
     try {
       const response = await api.get("/products/products/");
-      setProducts(response.data.results || response.data);
+      const apiProducts = response.data.results || response.data;
+      // Use API products if available, otherwise show demo products
+      setProducts(apiProducts.length > 0 ? apiProducts : DEMO_PRODUCTS);
     } catch (error) {
       console.error("Failed to load products:", error);
+      // Fallback to demo products if API fails
+      setProducts(DEMO_PRODUCTS);
     } finally {
       setLoading(false);
     }
@@ -60,6 +177,7 @@ export function CustomerDashboard() {
       return;
     }
 
+    setLoading(true);
     try {
       const response = await api.get("/ai/search/", {
         params: { query: search },
@@ -67,6 +185,15 @@ export function CustomerDashboard() {
       setProducts(response.data);
     } catch (error) {
       console.error("Search failed:", error);
+      // Fallback to filtering demo products
+      const filtered = DEMO_PRODUCTS.filter(p => 
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.description.toLowerCase().includes(search.toLowerCase()) ||
+        p.category.name.toLowerCase().includes(search.toLowerCase())
+      );
+      setProducts(filtered);
+    } finally {
+      setLoading(false);
     }
   };
 
