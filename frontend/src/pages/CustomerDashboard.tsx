@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -286,9 +287,13 @@ export function CustomerDashboard() {
     }
   };
 
-  const addToCart = async (productId: number, showMessage = true) => {
+  const addToCart = async (
+    product: Product,
+    showMessage = true,
+    sourceElement?: HTMLElement,
+  ) => {
     const addToLocalDemoCart = () => {
-      const selectedProduct = products.find((item) => item.id === productId);
+      const selectedProduct = products.find((item) => item.id === product.id);
       if (!selectedProduct) {
         return;
       }
@@ -320,9 +325,14 @@ export function CustomerDashboard() {
       localStorage.setItem(key, JSON.stringify(existing));
     };
 
+    animateFlyToCart({
+      fromElement: sourceElement,
+      imageSrc: product.image,
+    });
+
     try {
       await api.post("/cart/items/", {
-        product: productId,
+        product: product.id,
         quantity: 1,
       });
       await refreshCartCount();
@@ -412,6 +422,7 @@ export function CustomerDashboard() {
                       variant="ghost"
                       size="sm"
                       className="gap-2 relative"
+                      data-cart-nav="true"
                     >
                       <ShoppingCart className="h-4 w-4" />
                       <span className="hidden sm:inline">Cart</span>
@@ -458,6 +469,7 @@ export function CustomerDashboard() {
                       variant="ghost"
                       size="sm"
                       className="gap-2 relative"
+                      data-cart-nav="true"
                     >
                       <ShoppingCart className="h-4 w-4" />
                       <span className="hidden sm:inline">Cart</span>
@@ -707,7 +719,9 @@ export function CustomerDashboard() {
                     </div>
                     <div className="space-y-2">
                       <Button
-                        onClick={() => addToCart(product.id)}
+                        onClick={(e) =>
+                          addToCart(product, true, e.currentTarget)
+                        }
                         className="w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold"
                         disabled={product.stock === 0}
                       >

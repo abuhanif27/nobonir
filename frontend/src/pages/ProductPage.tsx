@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/api";
+import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -118,10 +119,15 @@ export function ProductPage() {
     loadProduct();
   }, [id]);
 
-  const addToCart = async () => {
+  const addToCart = async (sourceElement?: HTMLElement) => {
     if (!product) {
       return;
     }
+
+    animateFlyToCart({
+      fromElement: sourceElement,
+      imageSrc: product.image,
+    });
 
     const addToLocalDemoCart = () => {
       const key = "nobonir_demo_cart";
@@ -213,7 +219,7 @@ export function ProductPage() {
             Back
           </Button>
           <Link to="/cart">
-            <Button variant="outline" className="relative">
+            <Button variant="outline" className="relative" data-cart-nav="true">
               <ShoppingCart className="mr-2 h-4 w-4" />
               View Cart
               {cartCount > 0 && (
@@ -297,7 +303,7 @@ export function ProductPage() {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Button
-                  onClick={addToCart}
+                  onClick={(e) => addToCart(e.currentTarget)}
                   disabled={product.stock === 0}
                   className="bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
                 >
