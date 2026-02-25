@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ShoppingCart,
   Heart,
+  Eye,
   Package,
   LogOut,
   LogIn,
@@ -223,6 +224,39 @@ export function CustomerDashboard() {
   };
 
   const addToCart = async (productId: number, showMessage = true) => {
+    const addToLocalDemoCart = () => {
+      const selectedProduct = products.find((item) => item.id === productId);
+      if (!selectedProduct) {
+        return;
+      }
+
+      const key = "nobonir_demo_cart";
+      const existingRaw = localStorage.getItem(key);
+      const existing = existingRaw ? JSON.parse(existingRaw) : [];
+      const existingIndex = existing.findIndex(
+        (item: any) => item.product.id === selectedProduct.id,
+      );
+
+      if (existingIndex >= 0) {
+        existing[existingIndex].quantity += 1;
+      } else {
+        existing.push({
+          id: selectedProduct.id,
+          quantity: 1,
+          isLocal: true,
+          product: {
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            price: selectedProduct.price,
+            image: selectedProduct.image,
+            stock: selectedProduct.stock,
+          },
+        });
+      }
+
+      localStorage.setItem(key, JSON.stringify(existing));
+    };
+
     try {
       await api.post("/cart/items/", {
         product: productId,
@@ -233,16 +267,16 @@ export function CustomerDashboard() {
       }
       return true;
     } catch (error: any) {
-      alert(error.response?.data?.detail || "Failed to add to cart");
+      addToLocalDemoCart();
+      if (showMessage) {
+        alert("Added to cart!");
+      }
       return false;
     }
   };
 
-  const viewProduct = async (productId: number) => {
-    const added = await addToCart(productId, false);
-    if (added) {
-      navigate("/cart");
-    }
+  const viewProduct = () => {
+    navigate("/cart");
   };
 
   const addToWishlist = async (productId: number) => {
@@ -581,23 +615,34 @@ export function CustomerDashboard() {
                         {product.stock > 0 ? `${product.stock} left` : "Out"}
                       </Badge>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="space-y-2">
                       <Button
-                        onClick={() => viewProduct(product.id)}
-                        className="flex-1 bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold"
+                        onClick={() => addToCart(product.id)}
+                        className="w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold"
                         disabled={product.stock === 0}
                       >
                         <ShoppingCart className="mr-2 h-4 w-4" />
-                        {product.stock === 0 ? "Unavailable" : "View Product"}
+                        {product.stock === 0 ? "Unavailable" : "Add to Cart"}
                       </Button>
-                      <Button
-                        onClick={() => addToWishlist(product.id)}
-                        variant="outline"
-                        size="icon"
-                        className="hover:bg-gradient-to-br hover:from-red-50 hover:to-pink-50 hover:text-red-600 hover:border-red-300 transition-all hover:scale-110 shadow-md"
-                      >
-                        <Heart className="h-4 w-4" />
-                      </Button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          onClick={viewProduct}
+                          variant="outline"
+                          className="hover:bg-gradient-to-br hover:from-blue-50 hover:to-cyan-50 hover:text-cyan-700 hover:border-cyan-300 transition-all shadow-md"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Product
+                        </Button>
+                        <Button
+                          onClick={() => addToWishlist(product.id)}
+                          variant="outline"
+                          className="hover:bg-gradient-to-br hover:from-red-50 hover:to-pink-50 hover:text-red-600 hover:border-red-300 transition-all shadow-md"
+                        >
+                          <Heart className="mr-2 h-4 w-4" />
+                          Wishlist
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

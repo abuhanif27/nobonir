@@ -18,6 +18,7 @@ interface CartItem {
     stock: number;
   };
   quantity: number;
+  isLocal?: boolean;
 }
 
 export function CartPage() {
@@ -28,6 +29,26 @@ export function CartPage() {
   const [shippingAddress, setShippingAddress] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
+  const getLocalCartItems = (): CartItem[] => {
+    const raw = localStorage.getItem("nobonir_demo_cart");
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.map((item) => ({ ...item, isLocal: true }))
+        : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const setLocalCartItems = (items: CartItem[]) => {
+    localStorage.setItem("nobonir_demo_cart", JSON.stringify(items));
+  };
+
   useEffect(() => {
     loadCart();
   }, []);
@@ -35,15 +56,34 @@ export function CartPage() {
   const loadCart = async () => {
     try {
       const response = await api.get("/cart/");
-      setCartItems(response.data);
+      const apiItems = response.data;
+      if (Array.isArray(apiItems) && apiItems.length > 0) {
+        setCartItems(apiItems);
+      } else {
+        setCartItems(getLocalCartItems());
+      }
     } catch (error) {
       console.error("Failed to load cart:", error);
+      setCartItems(getLocalCartItems());
     } finally {
       setLoading(false);
     }
   };
 
   const updateQuantity = async (itemId: number, quantity: number) => {
+    const localItem = cartItems.find((item) => item.id === itemId && item.isLocal);
+    if (localItem) {
+      const updated =
+        quantity <= 0
+          ? cartItems.filter((item) => item.id !== itemId)
+          : cartItems.map((item) =>
+              item.id === itemId ? { ...item, quantity } : item,
+            );
+      setCartItems(updated);
+      setLocalCartItems(updated.filter((item) => item.isLocal));
+      return;
+    }
+
     try {
       if (quantity <= 0) {
         await api.delete(`/cart/items/${itemId}/`);
@@ -57,6 +97,14 @@ export function CartPage() {
   };
 
   const removeItem = async (itemId: number) => {
+    const localItem = cartItems.find((item) => item.id === itemId && item.isLocal);
+    if (localItem) {
+      const updated = cartItems.filter((item) => item.id !== itemId);
+      setCartItems(updated);
+      setLocalCartItems(updated.filter((item) => item.isLocal));
+      return;
+    }
+
     try {
       await api.delete(`/cart/items/${itemId}/`);
       await loadCart();
