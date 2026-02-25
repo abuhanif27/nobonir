@@ -7,22 +7,23 @@ from common.permissions import IsCustomerRole
 from products.models import Product
 from .models import Cart, CartItem, WishlistItem
 from .serializers import CartItemSerializer, WishlistItemSerializer
+from .utils import get_or_create_cart_for_request
 
 
 class CartOverviewAPIView(APIView):
-	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+	permission_classes = [permissions.AllowAny]
 
 	def get(self, request):
-		cart, _ = Cart.objects.get_or_create(user=request.user)
+		cart, _ = get_or_create_cart_for_request(request)
 		items = CartItem.objects.filter(cart=cart).select_related("product", "product__category")
 		return Response(CartItemSerializer(items, many=True).data)
 
 
 class CartItemAPIView(APIView):
-	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+	permission_classes = [permissions.AllowAny]
 
 	def post(self, request):
-		cart, _ = Cart.objects.get_or_create(user=request.user)
+		cart, _ = get_or_create_cart_for_request(request)
 		serializer = CartItemSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 		product = get_object_or_404(Product, pk=serializer.validated_data["product_id"], is_active=True)
@@ -37,7 +38,7 @@ class CartItemAPIView(APIView):
 		return Response(CartItemSerializer(item).data, status=status.HTTP_201_CREATED)
 
 	def patch(self, request, item_id):
-		cart = get_object_or_404(Cart, user=request.user)
+		cart, _ = get_or_create_cart_for_request(request)
 		item = get_object_or_404(CartItem, cart=cart, pk=item_id)
 		quantity = int(request.data.get("quantity", item.quantity))
 		if quantity <= 0:
@@ -48,7 +49,7 @@ class CartItemAPIView(APIView):
 		return Response(CartItemSerializer(item).data)
 
 	def delete(self, request, item_id):
-		cart = get_object_or_404(Cart, user=request.user)
+		cart, _ = get_or_create_cart_for_request(request)
 		item = get_object_or_404(CartItem, cart=cart, pk=item_id)
 		item.delete()
 		return Response(status=status.HTTP_204_NO_CONTENT)

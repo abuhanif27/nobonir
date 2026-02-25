@@ -5,6 +5,7 @@
 A **complete, production-ready, AI-powered e-commerce platform** with:
 
 ✅ **Modular Django Backend** (7 apps)
+
 - `accounts` - JWT authentication with ADMIN/CUSTOMER roles
 - `products` - Categories and product catalog with stock management
 - `cart` - Shopping cart and wishlist
@@ -15,6 +16,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 - `common` - Shared RBAC permissions (IsAdminRole, IsCustomerRole)
 
 ✅ **Modern React Frontend**
+
 - JWT-based authentication with Zustand state management
 - Protected routes with role-based access control
 - Customer dashboard: AI-powered product search, cart, wishlist, checkout
@@ -23,12 +25,14 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 - Automatic token refresh on API 401 errors
 
 ✅ **AI Features** (sentence-transformers)
+
 - Personalized product recommendations using user behavior
 - Semantic product search with natural language queries
 - Review sentiment analysis
 - Embedding caching for performance
 
 ✅ **Enterprise Architecture**
+
 - Split settings (base/dev/prod) for environment-specific config
 - PostgreSQL for production, SQLite for development
 - JWT with refresh token rotation (30min access, 7-day refresh)
@@ -37,6 +41,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 - Atomic transactions to prevent race conditions on stock updates
 
 ✅ **Production Ready**
+
 - Pinned dependency versions in package.json and requirements.txt
 - Unit tests covering critical business logic (checkout, payment, stock management)
 - Comprehensive README with setup instructions
@@ -46,6 +51,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 ## Key Technical Decisions
 
 ### Backend
+
 1. **Modular App Structure**: Each feature is isolated in its own Django app for maintainability
 2. **Custom User Model with Roles**: Implemented from the start to avoid migration conflicts
 3. **Stock Reduction Strategy**: Only successful payments reduce stock (atomic with `select_for_update()`)
@@ -53,6 +59,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 5. **AI Model Loading**: Loaded once at app startup in `ai_engine/apps.py ready()` hook
 
 ### Frontend
+
 1. **Zustand for Auth**: Lightweight state manager with persistence middleware
 2. **Axios Interceptors**: Automatic JWT refresh on 401 errors
 3. **Protected Routes**: Role-based navigation with redirect logic
@@ -61,6 +68,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 ## What Works
 
 ### Backend APIs ✓
+
 - User registration and login with JWT
 - Product CRUD with filtering, search, ordering
 - Cart and wishlist management
@@ -71,6 +79,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 - Auto-generated Swagger docs at `/api/docs/swagger/`
 
 ### Frontend UI ✓
+
 - Login/register pages with error handling
 - Customer dashboard with product browsing, AI search, cart actions
 - Admin dashboard with product table, stats, delete functionality
@@ -78,6 +87,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 - Role-based routing (customers → /, admins → /admin)
 
 ### Tests ✓
+
 - `test_checkout_creates_pending_order_without_reducing_stock` - Passes
 - `test_success_payment_reduces_stock_and_marks_paid` - Passes
 - `test_failed_payment_cancels_order_and_does_not_reduce_stock` - Passes
@@ -86,6 +96,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 ## Quick Start
 
 ### First Time Setup
+
 ```bash
 # Backend
 cd backend
@@ -99,13 +110,16 @@ npm install
 ```
 
 ### Running (Easy Way)
+
 ```bash
 # From project root
 ./start.sh
 ```
+
 This starts both backend (port 8000) and frontend (port 5173) simultaneously.
 
 ### Running (Manual)
+
 ```bash
 # Terminal 1 - Backend
 cd backend
@@ -117,6 +131,7 @@ npm run dev
 ```
 
 ### Access Points
+
 - Frontend: http://localhost:5173
 - Backend API: http://127.0.0.1:8000
 - Swagger Docs: http://127.0.0.1:8000/api/docs/swagger/
@@ -189,14 +204,16 @@ python3 manage.py test
 ## Architecture Highlights
 
 ### Authentication Flow
+
 1. User registers → receives JWT access + refresh tokens
 2. Frontend stores tokens in localStorage via Zustand persist
 3. API requests include `Authorization: Bearer <access_token>`
-4. On 401 error → Axios interceptor calls /token/refresh/ 
+4. On 401 error → Axios interceptor calls /token/refresh/
 5. New access token used to retry original request
 6. If refresh fails → logout and redirect to /login
 
 ### Order + Payment Flow
+
 1. Customer adds items to cart
 2. Checkout creates Order with status=PENDING (no stock change)
 3. Payment simulation called with order_id
@@ -205,6 +222,7 @@ python3 manage.py test
 6. Admin can update status: PROCESSING → SHIPPED → DELIVERED
 
 ### AI Recommendation Flow
+
 1. User interacts with products (cart, wishlist, reviews)
 2. AI service generates embeddings for product descriptions
 3. User's preference vector calculated from interaction history
@@ -214,8 +232,9 @@ python3 manage.py test
 ---
 
 **Total Development Scope:**
+
 - 7 Django apps
-- 30+ API endpoints  
+- 30+ API endpoints
 - 4 test cases
 - JWT auth with RBAC
 - AI integration with sentence-transformers

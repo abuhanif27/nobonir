@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ShoppingCart, Heart, Package, LogOut } from "lucide-react";
+import { ShoppingCart, Heart, Package, LogOut, LogIn, UserPlus } from "lucide-react";
 
 interface Product {
   id: number;
@@ -21,7 +21,8 @@ interface Product {
 }
 
 export function CustomerDashboard() {
-  const { user, logout } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,13 @@ export function CustomerDashboard() {
   };
 
   const addToWishlist = async (productId: number) => {
+    if (!isAuthenticated) {
+      if (confirm("Please login to add items to wishlist. Go to login page?")) {
+        navigate("/login");
+      }
+      return;
+    }
+
     try {
       await api.post("/cart/wishlist/", {
         product: productId,
@@ -90,14 +98,63 @@ export function CustomerDashboard() {
               Nobonir E-Commerce
             </h1>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Welcome, {user?.first_name}!
-              </span>
-              <Link to="/cart">
-                <Button variant="outline" size="sm">
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  Cart
-                </Button>
+              {isAuthenticated ? (
+                <>
+                  <span className="text-sm text-gray-600">
+                    Welcome, {user?.first_name}!
+                  </span>
+                  <Link to="/cart">
+                    <Button variant="outline" size="sm">
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      Cart
+                    </Button>
+                  </Link>
+                  <Link to="/wishlist">
+                    <Button variant="outline" size="sm">
+                      <Heart className="mr-2 h-4 w-4" />
+                      Wishlist
+                    </Button>
+                  </Link>
+                  <Link to="/orders">
+                    <Button variant="outline" size="sm">
+                      <Package className="mr-2 h-4 w-4" />
+                      Orders
+                    </Button>
+                  </Link>
+                  <Button variant="outline" size="sm" onClick={logout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm text-gray-600">
+                    Browsing as Guest
+                  </span>
+                  <Link to="/cart">
+                    <Button variant="outline" size="sm">
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      Cart
+                    </Button>
+                  </Link>
+                  <Link to="/login">
+                    <Button variant="outline" size="sm">
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Login
+                    </Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button size="sm">
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Sign Up
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
               </Link>
               <Link to="/wishlist">
                 <Button variant="outline" size="sm">

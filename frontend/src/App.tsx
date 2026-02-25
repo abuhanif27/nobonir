@@ -12,13 +12,15 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
+        {/* Public routes - accessible to all */}
+        <Route path="/" element={isAuthenticated && isAdmin ? <Navigate to="/admin" replace /> : <CustomerDashboard />} />
         <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />} />
         <Route path="/register" element={!isAuthenticated ? <RegisterPage /> : <Navigate to="/" replace />} />
 
-        {/* Protected routes */}
+        {/* Protected customer routes */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={isAdmin ? <Navigate to="/admin" replace /> : <CustomerDashboard />} />
+          <Route path="/orders" element={<CustomerDashboard />} />
+          <Route path="/wishlist" element={<CustomerDashboard />} />
         </Route>
 
         {/* Admin routes */}
