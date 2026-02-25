@@ -1,11 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuthStore } from '@/lib/auth';
-import api from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { LogOut, Plus } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuthStore } from "@/lib/auth";
+import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { LogOut, Plus } from "lucide-react";
 
 interface Product {
   id: number;
@@ -28,26 +35,26 @@ export function AdminDashboard() {
 
   const loadProducts = async () => {
     try {
-      const response = await api.get('/products/products/');
+      const response = await api.get("/products/products/");
       setProducts(response.data.results || response.data);
     } catch (error) {
-      console.error('Failed to load products:', error);
+      console.error("Failed to load products:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const deleteProduct = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this product?')) {
+    if (!confirm("Are you sure you want to delete this product?")) {
       return;
     }
 
     try {
       await api.delete(`/products/products/${id}/`);
       setProducts(products.filter((p) => p.id !== id));
-      alert('Product deleted successfully');
+      alert("Product deleted successfully");
     } catch (error) {
-      alert('Failed to delete product');
+      alert("Failed to delete product");
     }
   };
 
@@ -57,7 +64,9 @@ export function AdminDashboard() {
       <header className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Admin Dashboard
+            </h1>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
                 Welcome, {user?.first_name}!
@@ -139,17 +148,19 @@ export function AdminDashboard() {
                   {products.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell>{product.id}</TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {product.name}
+                      </TableCell>
                       <TableCell>{product.category.name}</TableCell>
                       <TableCell>${product.price}</TableCell>
                       <TableCell>
                         <span
                           className={`rounded px-2 py-1 text-xs font-semibold ${
                             product.stock === 0
-                              ? 'bg-red-100 text-red-800'
+                              ? "bg-red-100 text-red-800"
                               : product.stock < 10
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-green-100 text-green-800'
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-green-100 text-green-800"
                           }`}
                         >
                           {product.stock}

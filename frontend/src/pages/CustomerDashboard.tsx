@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuthStore } from '@/lib/auth';
-import api from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { ShoppingCart, Heart, Package, LogOut } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuthStore } from "@/lib/auth";
+import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ShoppingCart, Heart, Package, LogOut } from "lucide-react";
 
 interface Product {
   id: number;
@@ -23,7 +23,7 @@ interface Product {
 export function CustomerDashboard() {
   const { user, logout } = useAuthStore();
   const [products, setProducts] = useState<Product[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,10 +32,10 @@ export function CustomerDashboard() {
 
   const loadProducts = async () => {
     try {
-      const response = await api.get('/products/products/');
+      const response = await api.get("/products/products/");
       setProducts(response.data.results || response.data);
     } catch (error) {
-      console.error('Failed to load products:', error);
+      console.error("Failed to load products:", error);
     } finally {
       setLoading(false);
     }
@@ -48,33 +48,35 @@ export function CustomerDashboard() {
     }
 
     try {
-      const response = await api.get('/ai/search/', { params: { query: search } });
+      const response = await api.get("/ai/search/", {
+        params: { query: search },
+      });
       setProducts(response.data);
     } catch (error) {
-      console.error('Search failed:', error);
+      console.error("Search failed:", error);
     }
   };
 
   const addToCart = async (productId: number) => {
     try {
-      await api.post('/cart/items/', {
+      await api.post("/cart/items/", {
         product: productId,
         quantity: 1,
       });
-      alert('Added to cart!');
+      alert("Added to cart!");
     } catch (error: any) {
-      alert(error.response?.data?.detail || 'Failed to add to cart');
+      alert(error.response?.data?.detail || "Failed to add to cart");
     }
   };
 
   const addToWishlist = async (productId: number) => {
     try {
-      await api.post('/cart/wishlist/', {
+      await api.post("/cart/wishlist/", {
         product: productId,
       });
-      alert('Added to wishlist!');
+      alert("Added to wishlist!");
     } catch (error: any) {
-      alert(error.response?.data?.detail || 'Failed to add to wishlist');
+      alert(error.response?.data?.detail || "Failed to add to wishlist");
     }
   };
 
@@ -84,7 +86,9 @@ export function CustomerDashboard() {
       <header className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Nobonir E-Commerce</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Nobonir E-Commerce
+            </h1>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
                 Welcome, {user?.first_name}!
@@ -125,7 +129,7 @@ export function CustomerDashboard() {
             placeholder="Search products with AI..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             className="flex-1"
           />
           <Button onClick={handleSearch}>Search</Button>
@@ -140,12 +144,14 @@ export function CustomerDashboard() {
               <Card key={product.id}>
                 <CardHeader>
                   <img
-                    src={product.image || '/placeholder.png'}
+                    src={product.image || "/placeholder.png"}
                     alt={product.name}
                     className="h-48 w-full object-cover rounded"
                   />
                   <CardTitle className="text-lg">{product.name}</CardTitle>
-                  <p className="text-sm text-gray-500">{product.category.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {product.category.name}
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <p className="mb-2 text-sm text-gray-600 line-clamp-2">
