@@ -22,6 +22,7 @@ interface CartItem {
     name: string;
     price: string;
     image: string;
+    image_url?: string;
     stock: number;
   };
   quantity: number;
@@ -307,9 +308,17 @@ export function CartPage() {
                       className="flex items-center gap-4 rounded-lg border p-4"
                     >
                       <img
-                        src={item.product.image || "/placeholder.png"}
+                        src={
+                          item.product.image ||
+                          item.product.image_url ||
+                          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop"
+                        }
                         alt={item.product.name}
                         className="h-20 w-20 rounded object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src =
+                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop";
+                        }}
                       />
                       <div className="flex-1">
                         <h3 className="font-semibold">{item.product.name}</h3>
