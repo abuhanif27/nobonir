@@ -82,7 +82,7 @@ class TopSellingProductsTests(APITestCase):
 
 		self.assertEqual(response.status_code, 200)
 		names = [item["name"] for item in response.data["results"]]
-		self.assertEqual(names, ["Lamp"])
+		self.assertEqual(names[0], "Lamp")
 
 	def test_top_selling_only_uses_last_30_days(self):
 		recent_order = self._add_order_item(
@@ -107,4 +107,10 @@ class TopSellingProductsTests(APITestCase):
 
 		self.assertEqual(response.status_code, 200)
 		names = [item["name"] for item in response.data["results"]]
-		self.assertEqual(names, ["Phone"])
+		self.assertEqual(names[0], "Phone")
+
+	def test_top_selling_returns_active_products_even_without_sales(self):
+		response = self.client.get(reverse("product-top-selling"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertGreaterEqual(len(response.data["results"]), 3)

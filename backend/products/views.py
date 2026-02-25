@@ -62,7 +62,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 					0,
 				),
 			)
-			.filter(total_sold__gt=0, is_active=True)
+			.filter(is_active=True)
 			.order_by("-total_sold", "-created_at")
 		)
 
