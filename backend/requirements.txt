@@ -16,5 +16,8 @@ sentence-transformers==5.1.0
 scikit-learn==1.6.1
 numpy==2.2.3
 
+# Image Processing
+Pillow==11.0.0
+
 # Python
 python-dotenv==1.0.1

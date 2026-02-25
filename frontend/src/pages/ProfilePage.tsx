@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
-import api from "@/lib/api";
+import api, { MEDIA_BASE_URL } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,9 @@ export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [stats, setStats] = useState<AccountStats>({
     totalOrders: 0,
     wishlistCount: 0,
@@ -55,7 +58,6 @@ export function ProfilePage() {
     phone_number: user?.phone_number || "",
     address: user?.address || "",
     date_of_birth: user?.date_of_birth || "",
-    profile_picture: user?.profile_picture || "",
   });
 
   // Password change form state
@@ -73,7 +75,6 @@ export function ProfilePage() {
         phone_number: user.phone_number || "",
         address: user.address || "",
         date_of_birth: user.date_of_birth || "",
-        profile_picture: user.profile_picture || "",
       });
     }
   }, [user]);
@@ -106,11 +107,54 @@ export function ProfilePage() {
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        setToast({ message: "Please select an image file", type: "error" });
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setToast({
+          message: "Image size should be less than 5MB",
+          type: "error",
+        });
+        return;
+      }
+      setSelectedImage(file);
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveProfile = async () => {
     try {
-      await api.patch("/accounts/me/", formData);
+      const formDataToSend = new FormData();
+      formDataToSend.append("first_name", formData.first_name);
+      formDataToSend.append("last_name", formData.last_name);
+      formDataToSend.append("phone_number", formData.phone_number);
+      formDataToSend.append("address", formData.address);
+      formDataToSend.append("date_of_birth", formData.date_of_birth);
+
+      if (selectedImage) {
+        formDataToSend.append("profile_picture", selectedImage);
+      }
+
+      await api.patch("/accounts/me/", formDataToSend, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
       await fetchMe();
       setIsEditing(false);
+      setSelectedImage(null);
+      setImagePreview(null);
       setToast({ message: "Profile updated successfully", type: "success" });
     } catch (error: any) {
       setToast({
@@ -128,9 +172,10 @@ export function ProfilePage() {
         phone_number: user.phone_number || "",
         address: user.address || "",
         date_of_birth: user.date_of_birth || "",
-        profile_picture: user.profile_picture || "",
       });
     }
+    setSelectedImage(null);
+    setImagePreview(null);
     setIsEditing(false);
   };
 
@@ -192,9 +237,15 @@ export function ProfilePage() {
               {/* Profile Picture */}
               <div className="relative">
                 <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-xl">
-                  {user?.profile_picture ? (
+                  {imagePreview ? (
                     <img
-                      src={user.profile_picture}
+                      src={imagePreview}
+                      alt="Preview"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : user?.profile_picture ? (
+                    <img
+                      src={`${MEDIA_BASE_URL}${user.profile_picture}`}
                       alt={user.first_name}
                       className="h-full w-full object-cover"
                       onError={(e) => {
@@ -206,23 +257,28 @@ export function ProfilePage() {
                     />
                   ) : null}
                   <div
-                    className={`flex h-full w-full items-center justify-center bg-gradient-to-br from-teal-400 to-teal-600 text-4xl font-bold text-white ${user?.profile_picture ? "hidden" : ""}`}
+                    className={`flex h-full w-full items-center justify-center bg-gradient-to-br from-teal-400 to-teal-600 text-4xl font-bold text-white ${imagePreview || user?.profile_picture ? "hidden" : ""}`}
                   >
                     {getInitials()}
                   </div>
                 </div>
                 {isEditing && (
-                  <button
-                    onClick={() => {
-                      const url = prompt("Enter profile picture URL:");
-                      if (url) {
-                        setFormData({ ...formData, profile_picture: url });
-                      }
-                    }}
-                    className="absolute bottom-0 right-0 rounded-full bg-teal-600 p-2 text-white shadow-lg transition-transform hover:scale-110 hover:bg-teal-700"
-                  >
-                    <Camera className="h-4 w-4" />
-                  </button>
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 rounded-full bg-teal-600 p-2 text-white shadow-lg transition-transform hover:scale-110 hover:bg-teal-700"
+                      title="Upload profile picture"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </button>
+                  </>
                 )}
               </div>
 
