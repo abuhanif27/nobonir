@@ -114,7 +114,9 @@ export function CustomerDashboard() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                   Nobonir E-Commerce
                 </h1>
-                <p className="text-xs text-gray-500">AI-Powered Shopping Experience</p>
+                <p className="text-xs text-gray-500">
+                  AI-Powered Shopping Experience
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -146,14 +148,22 @@ export function CustomerDashboard() {
                       <span className="hidden sm:inline">Orders</span>
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="sm" onClick={logout} className="gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={logout}
+                    className="gap-2"
+                  >
                     <LogOut className="h-4 w-4" />
                     <span className="hidden sm:inline">Logout</span>
                   </Button>
                 </>
               ) : (
                 <>
-                  <Badge variant="secondary" className="hidden sm:flex gap-1.5 py-1.5 px-3">
+                  <Badge
+                    variant="secondary"
+                    className="hidden sm:flex gap-1.5 py-1.5 px-3"
+                  >
                     <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
                     Browsing as Guest
                   </Badge>
@@ -170,7 +180,10 @@ export function CustomerDashboard() {
                     </Button>
                   </Link>
                   <Link to="/register">
-                    <Button size="sm" className="gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700">
+                    <Button
+                      size="sm"
+                      className="gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700"
+                    >
                       <UserPlus className="h-4 w-4" />
                       Sign Up
                     </Button>
@@ -194,7 +207,7 @@ export function CustomerDashboard() {
             <p className="text-lg text-white/90 mb-8">
               Find exactly what you need with our AI-powered search
             </p>
-            
+
             {/* Enhanced Search */}
             <div className="flex gap-3 max-w-2xl mx-auto">
               <div className="relative flex-1">
@@ -208,7 +221,7 @@ export function CustomerDashboard() {
                   className="pl-12 h-14 text-lg bg-white/95 backdrop-blur-sm border-0 shadow-lg focus-visible:ring-2 focus-visible:ring-white"
                 />
               </div>
-              <Button 
+              <Button
                 onClick={handleSearch}
                 size="lg"
                 className="h-14 px-8 bg-white text-teal-600 hover:bg-gray-50 font-semibold shadow-lg"
@@ -230,23 +243,37 @@ export function CustomerDashboard() {
               <div className="h-20 w-20 rounded-full border-4 border-gray-200"></div>
               <div className="absolute top-0 left-0 h-20 w-20 rounded-full border-4 border-t-teal-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
             </div>
-            <p className="mt-6 text-lg text-gray-600 font-medium">Loading amazing products...</p>
+            <p className="mt-6 text-lg text-gray-600 font-medium">
+              Loading amazing products...
+            </p>
           </div>
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="bg-gradient-to-br from-gray-100 to-gray-200 p-8 rounded-full mb-6">
               <ShoppingBag className="h-20 w-20 text-gray-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No Products Found</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              No Products Found
+            </h3>
             <p className="text-gray-600 mb-6 text-center max-w-md">
               {search ? (
-                <>We couldn't find any products matching "<span className="font-semibold">{search}</span>". Try a different search term!</>
+                <>
+                  We couldn't find any products matching "
+                  <span className="font-semibold">{search}</span>". Try a
+                  different search term!
+                </>
               ) : (
                 "It looks like there are no products available right now. Check back soon!"
               )}
             </p>
             {search && (
-              <Button onClick={() => { setSearch(""); loadProducts(); }} variant="outline">
+              <Button
+                onClick={() => {
+                  setSearch("");
+                  loadProducts();
+                }}
+                variant="outline"
+              >
                 Clear Search
               </Button>
             )}
@@ -259,12 +286,16 @@ export function CustomerDashboard() {
                   {search ? "Search Results" : "All Products"}
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Found {products.length} {products.length === 1 ? "product" : "products"}
+                  Found {products.length}{" "}
+                  {products.length === 1 ? "product" : "products"}
                 </p>
               </div>
               {search && (
-                <Button 
-                  onClick={() => { setSearch(""); loadProducts(); }} 
+                <Button
+                  onClick={() => {
+                    setSearch("");
+                    loadProducts();
+                  }}
                   variant="outline"
                   size="sm"
                 >
@@ -272,26 +303,30 @@ export function CustomerDashboard() {
                 </Button>
               )}
             </div>
-            
+
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {products.map((product) => (
-                <Card 
-                  key={product.id} 
+                <Card
+                  key={product.id}
                   className="group hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-0 shadow-md overflow-hidden bg-white"
                 >
                   <CardHeader className="p-0">
                     <div className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
                       <img
-                        src={product.image || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
+                        src={
+                          product.image ||
+                          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+                        }
                         alt={product.name}
                         className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-110"
                         onError={(e) => {
-                          e.currentTarget.src = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop";
+                          e.currentTarget.src =
+                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop";
                         }}
                       />
                       <div className="absolute top-3 right-3">
-                        <Badge 
-                          variant="secondary" 
+                        <Badge
+                          variant="secondary"
                           className="bg-white/90 backdrop-blur-sm text-gray-700 gap-1.5"
                         >
                           <Tag className="h-3 w-3" />
@@ -300,7 +335,10 @@ export function CustomerDashboard() {
                       </div>
                       {product.stock === 0 && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                          <Badge variant="destructive" className="text-sm px-4 py-2">
+                          <Badge
+                            variant="destructive"
+                            className="text-sm px-4 py-2"
+                          >
                             Out of Stock
                           </Badge>
                         </div>
@@ -318,8 +356,14 @@ export function CustomerDashboard() {
                       <p className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                         ${product.price}
                       </p>
-                      <Badge 
-                        variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}
+                      <Badge
+                        variant={
+                          product.stock > 10
+                            ? "default"
+                            : product.stock > 0
+                              ? "secondary"
+                              : "destructive"
+                        }
                         className="text-xs"
                       >
                         {product.stock > 0 ? `${product.stock} left` : "Out"}
@@ -355,7 +399,9 @@ export function CustomerDashboard() {
       <footer className="bg-white border-t mt-16">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="text-center text-sm text-gray-600">
-            <p className="font-semibold text-gray-900 mb-2">Nobonir E-Commerce</p>
+            <p className="font-semibold text-gray-900 mb-2">
+              Nobonir E-Commerce
+            </p>
             <p>© 2026 All rights reserved. Powered by AI.</p>
           </div>
         </div>
