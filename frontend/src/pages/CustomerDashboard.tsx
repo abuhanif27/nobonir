@@ -290,9 +290,7 @@ export function CustomerDashboard() {
     setSearch("");
 
     try {
-      const response = await api.get("/products/products/", {
-        params: { top_selling: true },
-      });
+      const response = await api.get("/products/top-selling/");
       const topSellingProducts = normalizeProducts(
         response.data.results || response.data,
       );

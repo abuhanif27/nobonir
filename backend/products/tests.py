@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from orders.models import Order, OrderItem
@@ -58,13 +59,14 @@ class TopSellingProductsTests(APITestCase):
 			unit_price=product.price,
 			quantity=quantity,
 		)
+		return order
 
 	def test_top_selling_orders_by_total_sold(self):
 		self._add_order_item(self.phone, quantity=2, status=Order.Status.PAID)
 		self._add_order_item(self.earbuds, quantity=5, status=Order.Status.DELIVERED)
 		self._add_order_item(self.phone, quantity=1, status=Order.Status.SHIPPED)
 
-		response = self.client.get(reverse("product-list"), {"top_selling": "true"})
+		response = self.client.get(reverse("product-top-selling"))
 
 		self.assertEqual(response.status_code, 200)
 		names = [item["name"] for item in response.data["results"]]
@@ -76,8 +78,33 @@ class TopSellingProductsTests(APITestCase):
 		self._add_order_item(self.earbuds, quantity=7, status=Order.Status.CANCELLED)
 		self._add_order_item(self.lamp, quantity=2, status=Order.Status.PAID)
 
-		response = self.client.get(reverse("product-list"), {"top_selling": "1"})
+		response = self.client.get(reverse("product-top-selling"))
 
 		self.assertEqual(response.status_code, 200)
 		names = [item["name"] for item in response.data["results"]]
 		self.assertEqual(names, ["Lamp"])
+
+	def test_top_selling_only_uses_last_30_days(self):
+		recent_order = self._add_order_item(
+			self.phone,
+			quantity=2,
+			status=Order.Status.DELIVERED,
+		)
+		old_order = self._add_order_item(
+			self.earbuds,
+			quantity=20,
+			status=Order.Status.DELIVERED,
+		)
+
+		Order.objects.filter(id=old_order.id).update(
+			created_at=timezone.now() - timezone.timedelta(days=45),
+		)
+		Order.objects.filter(id=recent_order.id).update(
+			created_at=timezone.now() - timezone.timedelta(days=5),
+		)
+
+		response = self.client.get(reverse("product-top-selling"))
+
+		self.assertEqual(response.status_code, 200)
+		names = [item["name"] for item in response.data["results"]]
+		self.assertEqual(names, ["Phone"])
