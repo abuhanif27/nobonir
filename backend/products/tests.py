@@ -1,3 +1,83 @@
-from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.urls import reverse
+from rest_framework.test import APITestCase
 
-# Create your tests here.
+from orders.models import Order, OrderItem
+from products.models import Category, Product
+
+User = get_user_model()
+
+
+class TopSellingProductsTests(APITestCase):
+	def setUp(self):
+		self.user = User.objects.create_user(
+			username="customer-top",
+			email="top@example.com",
+			password="Secret123!",
+		)
+		self.category = Category.objects.create(name="Electronics", slug="electronics")
+		self.phone = Product.objects.create(
+			category=self.category,
+			name="Phone",
+			slug="phone",
+			description="Smartphone",
+			price=100,
+			stock=50,
+			is_active=True,
+		)
+		self.earbuds = Product.objects.create(
+			category=self.category,
+			name="Earbuds",
+			slug="earbuds",
+			description="Wireless earbuds",
+			price=60,
+			stock=50,
+			is_active=True,
+		)
+		self.lamp = Product.objects.create(
+			category=self.category,
+			name="Lamp",
+			slug="lamp",
+			description="Desk lamp",
+			price=30,
+			stock=50,
+			is_active=True,
+		)
+
+	def _add_order_item(self, product, quantity, status):
+		order = Order.objects.create(
+			user=self.user,
+			status=status,
+			total_amount=quantity * product.price,
+			shipping_address="Dhaka",
+		)
+		OrderItem.objects.create(
+			order=order,
+			product=product,
+			product_name=product.name,
+			unit_price=product.price,
+			quantity=quantity,
+		)
+
+	def test_top_selling_orders_by_total_sold(self):
+		self._add_order_item(self.phone, quantity=2, status=Order.Status.PAID)
+		self._add_order_item(self.earbuds, quantity=5, status=Order.Status.DELIVERED)
+		self._add_order_item(self.phone, quantity=1, status=Order.Status.SHIPPED)
+
+		response = self.client.get(reverse("product-list"), {"top_selling": "true"})
+
+		self.assertEqual(response.status_code, 200)
+		names = [item["name"] for item in response.data["results"]]
+		self.assertEqual(names[0], "Earbuds")
+		self.assertEqual(names[1], "Phone")
+
+	def test_top_selling_excludes_pending_and_cancelled(self):
+		self._add_order_item(self.phone, quantity=10, status=Order.Status.PENDING)
+		self._add_order_item(self.earbuds, quantity=7, status=Order.Status.CANCELLED)
+		self._add_order_item(self.lamp, quantity=2, status=Order.Status.PAID)
+
+		response = self.client.get(reverse("product-list"), {"top_selling": "1"})
+
+		self.assertEqual(response.status_code, 200)
+		names = [item["name"] for item in response.data["results"]]
+		self.assertEqual(names, ["Lamp"])

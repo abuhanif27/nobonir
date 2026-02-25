@@ -19,6 +19,7 @@ import {
   Sparkles,
   ShoppingBag,
   Tag,
+  Trophy,
 } from "lucide-react";
 
 interface Product {
@@ -178,6 +179,7 @@ export function CustomerDashboard() {
   const [loading, setLoading] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isTopSellingView, setIsTopSellingView] = useState(false);
 
   const normalizeProducts = (items: any[]): Product[] => {
     if (!Array.isArray(items)) {
@@ -211,12 +213,21 @@ export function CustomerDashboard() {
     // Skip live search on initial load
     if (isInitialLoad) return;
 
+    const query = search.trim();
+
     const debounceTimer = setTimeout(() => {
-      handleSearch();
+      if (query) {
+        handleSearch();
+        return;
+      }
+
+      if (!isTopSellingView) {
+        loadProducts();
+      }
     }, 500); // Wait 500ms after user stops typing
 
     return () => clearTimeout(debounceTimer);
-  }, [search]);
+  }, [search, isTopSellingView]);
 
   const getLocalCartCount = () => {
     const raw = localStorage.getItem("nobonir_demo_cart");
@@ -256,6 +267,7 @@ export function CustomerDashboard() {
 
   const loadProducts = async () => {
     setLoading(true);
+    setIsTopSellingView(false);
     try {
       const response = await api.get("/products/products/");
       const apiProducts = normalizeProducts(
@@ -272,15 +284,38 @@ export function CustomerDashboard() {
     }
   };
 
+  const loadTopSellingProducts = async () => {
+    setLoading(true);
+    setIsTopSellingView(true);
+    setSearch("");
+
+    try {
+      const response = await api.get("/products/products/", {
+        params: { top_selling: true },
+      });
+      const topSellingProducts = normalizeProducts(
+        response.data.results || response.data,
+      );
+      setProducts(topSellingProducts);
+    } catch (error) {
+      console.error("Failed to load top selling products:", error);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSearch = async () => {
     const query = search.trim();
 
     if (!query) {
+      setIsTopSellingView(false);
       loadProducts();
       return;
     }
 
     setLoading(true);
+    setIsTopSellingView(false);
     try {
       const response = await api.get("/products/products/", {
         params: { search: query },
@@ -435,6 +470,15 @@ export function CustomerDashboard() {
                       )}
                     </Button>
                   </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2"
+                    onClick={loadTopSellingProducts}
+                  >
+                    <Trophy className="h-4 w-4" />
+                    <span className="hidden sm:inline">Top Selling</span>
+                  </Button>
                   <Link to="/wishlist">
                     <Button variant="ghost" size="sm" className="gap-2">
                       <Heart className="h-4 w-4" />
@@ -482,6 +526,15 @@ export function CustomerDashboard() {
                       )}
                     </Button>
                   </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2"
+                    onClick={loadTopSellingProducts}
+                  >
+                    <Trophy className="h-4 w-4" />
+                    <span className="hidden sm:inline">Top Selling</span>
+                  </Button>
                   <Link to="/login">
                     <Button variant="outline" size="sm" className="gap-2">
                       <LogIn className="h-4 w-4" />
@@ -601,13 +654,16 @@ export function CustomerDashboard() {
                   <span className="font-semibold">{search}</span>". Try a
                   different search term!
                 </>
+              ) : isTopSellingView ? (
+                "No top selling products yet. Complete more orders to see trends here."
               ) : (
                 "It looks like there are no products available right now. Check back soon!"
               )}
             </p>
-            {search && (
+            {(search || isTopSellingView) && (
               <Button
                 onClick={() => {
+                  setIsTopSellingView(false);
                   setSearch("");
                   loadProducts();
                 }}
@@ -622,7 +678,11 @@ export function CustomerDashboard() {
             <div className="mb-8 flex items-center justify-between">
               <div>
                 <h3 className="text-3xl font-black bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 bg-clip-text text-transparent">
-                  {search ? "🔍 Search Results" : "✨ All Products"}
+                  {search
+                    ? "🔍 Search Results"
+                    : isTopSellingView
+                      ? "🏆 Top Selling Products"
+                      : "✨ All Products"}
                 </h3>
                 <p className="text-sm text-gray-600 mt-2 font-medium">
                   Found {products.length}{" "}
@@ -631,9 +691,10 @@ export function CustomerDashboard() {
                     : "amazing products"}
                 </p>
               </div>
-              {search && (
+              {(search || isTopSellingView) && (
                 <Button
                   onClick={() => {
+                    setIsTopSellingView(false);
                     setSearch("");
                     loadProducts();
                   }}
