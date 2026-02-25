@@ -177,6 +177,7 @@ export function CustomerDashboard() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const normalizeProducts = (items: any[]): Product[] => {
     if (!Array.isArray(items)) {
@@ -202,7 +203,20 @@ export function CustomerDashboard() {
   useEffect(() => {
     loadProducts();
     refreshCartCount();
+    setIsInitialLoad(false);
   }, []);
+
+  // Live search: trigger search while typing with debounce
+  useEffect(() => {
+    // Skip live search on initial load
+    if (isInitialLoad) return;
+
+    const debounceTimer = setTimeout(() => {
+      handleSearch();
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(debounceTimer);
+  }, [search]);
 
   const getLocalCartCount = () => {
     const raw = localStorage.getItem("nobonir_demo_cart");
