@@ -8,6 +8,7 @@ import { AdminDashboard } from "@/pages/AdminDashboard";
 import { CartPage } from "@/pages/CartPage";
 import { ProductPage } from "@/pages/ProductPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { OrdersPage } from "@/pages/OrdersPage";
 
 function App() {
   const { isAuthenticated, isAdmin } = useAuthStore();
@@ -43,7 +44,7 @@ function App() {
 
         {/* Protected customer routes */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/orders" element={<CustomerDashboard />} />
+          <Route path="/orders" element={<OrdersPage />} />
           <Route path="/wishlist" element={<CustomerDashboard />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
