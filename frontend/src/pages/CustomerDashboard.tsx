@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AnimatedToast } from "@/components/ui/animated-toast";
 import {
   ShoppingCart,
   Heart,
@@ -176,11 +177,35 @@ export function CustomerDashboard() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: "success" | "error";
+  }>({ visible: false, message: "", type: "success" });
 
   useEffect(() => {
     loadProducts();
     refreshCartCount();
   }, []);
+
+  useEffect(() => {
+    if (!toast.visible) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, visible: false }));
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = (
+    message: string,
+    type: "success" | "error" = "success",
+  ) => {
+    setToast({ visible: true, message, type });
+  };
 
   const getLocalCartCount = () => {
     const raw = localStorage.getItem("nobonir_demo_cart");
@@ -302,14 +327,14 @@ export function CustomerDashboard() {
       });
       await refreshCartCount();
       if (showMessage) {
-        alert("Added to cart!");
+        showToast("Added to cart!", "success");
       }
       return true;
     } catch (error: any) {
       addToLocalDemoCart();
       await refreshCartCount();
       if (showMessage) {
-        alert("Added to cart!");
+        showToast("Added to cart!", "success");
       }
       return false;
     }
@@ -340,6 +365,12 @@ export function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      <AnimatedToast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+      />
+
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b sticky top-0 z-50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">

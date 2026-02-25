@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AnimatedToast } from "@/components/ui/animated-toast";
 import { ArrowLeft, Heart, Minus, Plus, ShoppingCart, Tag } from "lucide-react";
 
 interface Product {
@@ -26,6 +27,30 @@ export function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: "success" | "error";
+  }>({ visible: false, message: "", type: "success" });
+
+  useEffect(() => {
+    if (!toast.visible) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, visible: false }));
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = (
+    message: string,
+    type: "success" | "error" = "success",
+  ) => {
+    setToast({ visible: true, message, type });
+  };
 
   const getLocalCartCount = () => {
     const raw = localStorage.getItem("nobonir_demo_cart");
@@ -132,11 +157,11 @@ export function ProductPage() {
         quantity,
       });
       await refreshCartCount();
-      alert("Added to cart!");
+      showToast("Added to cart!", "success");
     } catch {
       addToLocalDemoCart();
       await refreshCartCount();
-      alert("Added to cart!");
+      showToast("Added to cart!", "success");
     }
   };
 
@@ -175,6 +200,12 @@ export function ProductPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      <AnimatedToast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+      />
+
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <Button variant="outline" onClick={() => navigate(-1)}>
