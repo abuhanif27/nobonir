@@ -490,27 +490,85 @@ export function CustomerDashboard() {
   const detectGeoDetails = async () => {
     setIsDetectingGeo(true);
     setGeoDetectionFailed(false);
-    try {
-      const response = await api.get("/ai/geo-detect/");
-      const data = response.data;
+    setDetectedCountryCode("");
+    setDetectedCountryName("");
+    setDetectedContinent("");
 
-      if (data?.country_code) {
-        setDetectedCountryCode(data.country_code);
+    const applyGeoData = (data: any) => {
+      const continentMap: Record<string, string> = {
+        AF: "Africa",
+        AN: "Antarctica",
+        AS: "Asia",
+        EU: "Europe",
+        NA: "North America",
+        OC: "Oceania",
+        SA: "South America",
+      };
+
+      const country = data?.country || data?.country_name || "";
+      const countryCode = data?.country_code || "";
+      const continent =
+        data?.continent ||
+        continentMap[String(data?.continent_code || "").toUpperCase()] ||
+        "";
+
+      if (countryCode) {
+        setDetectedCountryCode(countryCode);
       }
 
-      if (data?.country) {
-        setDetectedCountryName(data.country);
+      if (country) {
+        setDetectedCountryName(country);
       }
 
-      if (data?.continent) {
-        setDetectedContinent(data.continent);
+      if (continent) {
+        setDetectedContinent(continent);
+      }
+
+      if (!country && !countryCode && !continent) {
+        return false;
       }
 
       setPreferenceForm((prev) => ({
         ...prev,
-        location: data?.country || prev.location,
-        continent: data?.continent || prev.continent,
+        location: country || prev.location,
+        continent: continent || prev.continent,
       }));
+
+      return true;
+    };
+
+    try {
+      let browserGeo: any = null;
+
+      try {
+        const browserResponse = await fetch("https://ipwho.is/");
+        if (browserResponse.ok) {
+          const browserData = await browserResponse.json();
+          if (browserData?.success) {
+            browserGeo = browserData;
+          }
+        }
+      } catch {
+        browserGeo = null;
+      }
+
+      if (!browserGeo) {
+        try {
+          const browserResponse = await fetch("https://ipapi.co/json/");
+          if (browserResponse.ok) {
+            const browserData = await browserResponse.json();
+            browserGeo = browserData;
+          }
+        } catch {
+          browserGeo = null;
+        }
+      }
+
+      if (browserGeo && applyGeoData(browserGeo)) {
+        return;
+      }
+
+      setGeoDetectionFailed(true);
     } catch (error) {
       console.error("Automatic geo detection failed:", error);
       setGeoDetectionFailed(true);
@@ -1219,14 +1277,15 @@ export function CustomerDashboard() {
             </p>
             <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-teal-500/40 bg-teal-500/10 px-4 py-1.5 text-sm font-semibold text-teal-300 shadow-lg shadow-teal-900/20">
               <Globe2 className="h-4 w-4" />
-              {(detectedCountryName || preferenceForm.location) &&
-              (detectedContinent || preferenceForm.continent)
-                ? `${countryCodeToFlag(detectedCountryCode)} You're from ${detectedCountryName || preferenceForm.location}, ${detectedContinent || preferenceForm.continent}`
-                : isDetectingGeo
-                  ? "Detecting your region..."
-                  : geoDetectionFailed
-                    ? "Region unavailable right now"
-                    : "Welcome from around the world"}
+              {detectedCountryName && detectedContinent
+                ? `${countryCodeToFlag(detectedCountryCode)} You're from ${detectedCountryName}, ${detectedContinent}`
+                : detectedCountryName
+                  ? `${countryCodeToFlag(detectedCountryCode)} You're from ${detectedCountryName}`
+                  : isDetectingGeo
+                    ? "Detecting your region..."
+                    : geoDetectionFailed
+                      ? "Region unavailable right now"
+                      : "Welcome from around the world"}
             </div>
             <p className="text-xs text-gray-500">© 2026 All rights reserved.</p>
           </div>
