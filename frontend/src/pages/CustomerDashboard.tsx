@@ -538,8 +538,48 @@ export function CustomerDashboard() {
     };
 
     try {
-      let browserGeo: any = null;
+      try {
+        const getPublicIp = async () => {
+          try {
+            const response = await fetch("https://api64.ipify.org?format=json");
+            if (response.ok) {
+              const data = await response.json();
+              if (data?.ip) {
+                return String(data.ip);
+              }
+            }
+          } catch {
+            // Continue to next provider
+          }
 
+          try {
+            const response = await fetch("https://ifconfig.co/json");
+            if (response.ok) {
+              const data = await response.json();
+              if (data?.ip) {
+                return String(data.ip);
+              }
+            }
+          } catch {
+            // Continue to backend lookup without IP
+          }
+
+          return "";
+        };
+
+        const publicIp = await getPublicIp();
+        const response = await api.get("/ai/geo-detect/", {
+          params: publicIp ? { ip: publicIp } : undefined,
+        });
+
+        if (applyGeoData(response.data)) {
+          return;
+        }
+      } catch {
+        // Continue to direct browser geo fallback
+      }
+
+      let browserGeo: any = null;
       try {
         const browserResponse = await fetch("https://ipwho.is/");
         if (browserResponse.ok) {
@@ -568,7 +608,10 @@ export function CustomerDashboard() {
         return;
       }
 
-      setGeoDetectionFailed(true);
+      const fallbackResponse = await api.get("/ai/geo-detect/");
+      if (!applyGeoData(fallbackResponse.data)) {
+        setGeoDetectionFailed(true);
+      }
     } catch (error) {
       console.error("Automatic geo detection failed:", error);
       setGeoDetectionFailed(true);

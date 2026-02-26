@@ -1,5 +1,6 @@
 import json
 from urllib.error import URLError, HTTPError
+from urllib.parse import quote
 from urllib.request import urlopen
 
 from rest_framework import permissions
@@ -98,8 +99,27 @@ class GeoDetectAPIView(APIView):
 		except (URLError, HTTPError, TimeoutError, ValueError):
 			return None
 
+	def _normalized_ip(self, value: str) -> str:
+		if not value:
+			return ""
+
+		ip = str(value).strip()
+		if not ip:
+			return ""
+
+		allowed = set("0123456789abcdefABCDEF:.")
+		return ip if all(char in allowed for char in ip) else ""
+
 	def get(self, request):
-		primary = self._fetch_json("https://ipapi.co/json/")
+		client_ip = self._normalized_ip(request.query_params.get("ip", ""))
+		ipapi_url = (
+			f"https://ipapi.co/{quote(client_ip)}/json/" if client_ip else "https://ipapi.co/json/"
+		)
+		ipwhois_url = (
+			f"https://ipwho.is/{quote(client_ip)}" if client_ip else "https://ipwho.is/"
+		)
+
+		primary = self._fetch_json(ipapi_url)
 		if primary and (primary.get("country_name") or primary.get("country_code")):
 			continent_map = {
 				"AF": "Africa",
@@ -115,17 +135,17 @@ class GeoDetectAPIView(APIView):
 				"country_code": primary.get("country_code", ""),
 				"continent": continent_map.get(str(primary.get("continent_code", "")).upper(), ""),
 				"city": primary.get("city", ""),
-				"provider": "ipapi",
+				"provider": "ipapi_ip" if client_ip else "ipapi",
 			})
 
-		fallback = self._fetch_json("https://ipwho.is/")
+		fallback = self._fetch_json(ipwhois_url)
 		if fallback and fallback.get("success"):
 			return Response({
 				"country": fallback.get("country", ""),
 				"country_code": fallback.get("country_code", ""),
 				"continent": fallback.get("continent", ""),
 				"city": fallback.get("city", ""),
-				"provider": "ipwhois",
+				"provider": "ipwhois_ip" if client_ip else "ipwhois",
 			})
 
 		return Response({
