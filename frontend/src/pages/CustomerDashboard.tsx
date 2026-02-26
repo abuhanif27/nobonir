@@ -25,6 +25,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Pause,
+  Play,
   Globe2,
   Menu,
   X,
@@ -217,6 +219,9 @@ export function CustomerDashboard() {
   const [activeSuggestionCategory, setActiveSuggestionCategory] =
     useState("All");
   const [suggestionStartIndex, setSuggestionStartIndex] = useState(0);
+  const [isSuggestionAutoplayEnabled, setIsSuggestionAutoplayEnabled] =
+    useState(true);
+  const [isSuggestionInteracting, setIsSuggestionInteracting] = useState(false);
   const [isAutoPersonalizing, setIsAutoPersonalizing] = useState(false);
   const [isPreferenceHydrated, setIsPreferenceHydrated] = useState(false);
   const [isDetectingGeo, setIsDetectingGeo] = useState(false);
@@ -316,6 +321,9 @@ export function CustomerDashboard() {
     );
   }, [personalizedProducts, activeSuggestionCategory]);
 
+  const isSuggestionAutoplayPaused =
+    !isSuggestionAutoplayEnabled || isSuggestionInteracting;
+
   const suggestionWindowProducts = useMemo(() => {
     if (visibleSuggestions.length === 0) {
       return [];
@@ -351,7 +359,7 @@ export function CustomerDashboard() {
   }, [visibleSuggestions.length]);
 
   useEffect(() => {
-    if (visibleSuggestions.length <= 1) {
+    if (visibleSuggestions.length <= 1 || isSuggestionAutoplayPaused) {
       return;
     }
 
@@ -360,7 +368,11 @@ export function CustomerDashboard() {
     }, SUGGESTION_CAROUSEL_AUTOPLAY_MS);
 
     return () => window.clearInterval(timer);
-  }, [visibleSuggestions.length, activeSuggestionCategory]);
+  }, [
+    visibleSuggestions.length,
+    activeSuggestionCategory,
+    isSuggestionAutoplayPaused,
+  ]);
 
   useEffect(() => {
     loadProducts();
@@ -896,6 +908,21 @@ export function CustomerDashboard() {
     });
   };
 
+  const goToSuggestionIndex = (index: number) => {
+    if (visibleSuggestions.length === 0) {
+      return;
+    }
+
+    const normalizedIndex =
+      ((index % visibleSuggestions.length) + visibleSuggestions.length) %
+      visibleSuggestions.length;
+    setSuggestionStartIndex(normalizedIndex);
+  };
+
+  const toggleSuggestionAutoplay = () => {
+    setIsSuggestionAutoplayEnabled((prev) => !prev);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Header */}
@@ -1331,35 +1358,86 @@ export function CustomerDashboard() {
                 No suggestions in this category yet. Try another category.
               </div>
             ) : (
-              <div className="space-y-3">
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    onClick={() => scrollSuggestionCarousel("left")}
-                    aria-label="Previous suggestions"
-                    disabled={visibleSuggestions.length <= 1}
+              <div
+                className="space-y-4"
+                onMouseEnter={() => setIsSuggestionInteracting(true)}
+                onMouseLeave={() => setIsSuggestionInteracting(false)}
+                onFocusCapture={() => setIsSuggestionInteracting(true)}
+                onBlurCapture={() => setIsSuggestionInteracting(false)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    scrollSuggestionCarousel("left");
+                  }
+
+                  if (event.key === "ArrowRight") {
+                    event.preventDefault();
+                    scrollSuggestionCarousel("right");
+                  }
+                }}
+                tabIndex={0}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full px-3 py-1 text-xs font-semibold"
                   >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    onClick={() => scrollSuggestionCarousel("right")}
-                    aria-label="Next suggestions"
-                    disabled={visibleSuggestions.length <= 1}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                    {isSuggestionAutoplayPaused ? "Paused" : "Auto Playing"}
+                  </Badge>
+
+                  <div className="inline-flex items-center gap-1 rounded-full border border-teal-200/70 bg-white/90 p-1.5 shadow-md backdrop-blur-sm">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 rounded-full"
+                      onClick={() => scrollSuggestionCarousel("left")}
+                      aria-label="Previous suggestions"
+                      disabled={visibleSuggestions.length <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="icon"
+                      onClick={toggleSuggestionAutoplay}
+                      aria-label={
+                        isSuggestionAutoplayEnabled
+                          ? "Pause auto sliding"
+                          : "Play auto sliding"
+                      }
+                      className="h-9 w-9 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-sm hover:from-teal-600 hover:to-cyan-700"
+                      disabled={visibleSuggestions.length <= 1}
+                    >
+                      {isSuggestionAutoplayEnabled ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 rounded-full"
+                      onClick={() => scrollSuggestionCarousel("right")}
+                      aria-label="Next suggestions"
+                      disabled={visibleSuggestions.length <= 1}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {suggestionWindowProducts.map((product, cardIndex) => (
                     <Card
                       key={`pref-${product.id}-${cardIndex}`}
-                      className="border shadow-sm"
+                      className={`border shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg ${
+                        cardIndex === 1 ? "ring-1 ring-teal-200" : ""
+                      }`}
                     >
                       <CardHeader className="p-0">
                         <img
@@ -1392,6 +1470,27 @@ export function CustomerDashboard() {
                     </Card>
                   ))}
                 </div>
+
+                {visibleSuggestions.length > 1 && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    {visibleSuggestions.map((product, index) => {
+                      const isActive = index === suggestionStartIndex;
+                      return (
+                        <button
+                          key={`dot-${product.id}-${index}`}
+                          type="button"
+                          onClick={() => goToSuggestionIndex(index)}
+                          className={`h-2.5 rounded-full transition-all duration-300 ${
+                            isActive
+                              ? "w-7 bg-teal-600"
+                              : "w-2.5 bg-slate-300 hover:bg-slate-400"
+                          }`}
+                          aria-label={`Go to suggestion ${index + 1}`}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </section>
