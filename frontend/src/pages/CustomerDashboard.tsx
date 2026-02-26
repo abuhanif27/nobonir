@@ -1330,53 +1330,53 @@ export function CustomerDashboard() {
       </header>
 
       {/* Hero Section */}
-      <div className="relative mb-8 overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-700 py-12 text-white sm:py-16">
+      <div className="relative mb-8 overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-700 py-12 text-white dark:from-slate-900 dark:via-slate-800 dark:to-indigo-950 sm:py-16">
         {/* Animated Background Circles */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+        <div className="absolute top-0 left-1/4 h-96 w-96 rounded-full bg-cyan-400 opacity-20 mix-blend-multiply blur-3xl filter animate-pulse dark:bg-cyan-500 dark:opacity-25"></div>
         <div
-          className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"
+          className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-blue-400 opacity-20 mix-blend-multiply blur-3xl filter animate-pulse dark:bg-indigo-500 dark:opacity-30"
           style={{ animationDelay: "1s" }}
         ></div>
         <div
-          className="absolute top-1/2 left-1/2 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"
+          className="absolute top-1/2 left-1/2 h-96 w-96 rounded-full bg-purple-400 opacity-20 mix-blend-multiply blur-3xl filter animate-pulse dark:bg-violet-500 dark:opacity-30"
           style={{ animationDelay: "2s" }}
         ></div>
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
             <div className="mb-5 flex items-center justify-center gap-2 sm:mb-6 sm:gap-3">
-              <Sparkles className="h-8 w-8 text-yellow-300 animate-pulse sm:h-10 sm:w-10" />
+              <Sparkles className="h-8 w-8 animate-pulse text-yellow-300 dark:text-teal-300 sm:h-10 sm:w-10" />
               <h2 className="text-4xl font-black tracking-tight sm:text-5xl md:text-6xl">
                 <span className="bg-gradient-to-r from-white via-cyan-100 to-blue-100 bg-clip-text text-transparent drop-shadow-lg">
                   Discover
                 </span>
               </h2>
-              <Sparkles className="h-8 w-8 text-yellow-300 animate-pulse sm:h-10 sm:w-10" />
+              <Sparkles className="h-8 w-8 animate-pulse text-yellow-300 dark:text-teal-300 sm:h-10 sm:w-10" />
             </div>
-            <p className="mb-8 text-lg font-light tracking-wide text-white/95 sm:text-2xl">
+            <p className="mb-8 text-lg font-light tracking-wide text-white/95 dark:text-slate-200 sm:text-2xl">
               Find exactly what you need with intelligent search
             </p>
 
             {/* Enhanced Search */}
             <div className="mx-auto flex max-w-2xl flex-col gap-3 sm:flex-row">
               <div className="relative flex-1 group">
-                <div className="absolute inset-0 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-500 opacity-0 group-focus-within:opacity-100 blur-xl transition-opacity duration-300 rounded-2xl"></div>
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-500 opacity-0 blur-xl transition-opacity duration-300 group-focus-within:opacity-100 dark:from-cyan-500 dark:via-blue-500 dark:to-violet-500"></div>
+                <Search className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-slate-300" />
                 <Input
                   type="text"
                   placeholder="Try 'wireless headphones' or 'summer dress'..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="relative h-14 rounded-2xl border-0 bg-white/98 pl-12 text-base font-medium text-gray-900 caret-teal-600 placeholder:text-gray-500 shadow-2xl backdrop-blur-md focus-visible:ring-2 focus-visible:ring-white/50 sm:text-lg"
+                  className="relative h-14 rounded-2xl border border-white/40 bg-white/95 pl-12 text-base font-medium text-gray-900 caret-teal-600 placeholder:text-gray-500 shadow-2xl backdrop-blur-md focus-visible:ring-2 focus-visible:ring-white/60 dark:border-slate-600/70 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus-visible:ring-cyan-400/40 sm:text-lg"
                 />
               </div>
               <Button
                 onClick={handleSearch}
                 size="lg"
-                className="h-14 bg-slate-950 px-8 font-bold text-teal-400 shadow-2xl transition-all hover:scale-105 hover:bg-slate-900 hover:shadow-xl dark:bg-slate-100 dark:text-teal-700 dark:hover:bg-white"
+                className="h-14 bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 px-8 font-bold text-white shadow-2xl transition-all hover:scale-105 hover:from-teal-400 hover:via-cyan-500 hover:to-blue-500 hover:shadow-xl dark:from-cyan-500 dark:via-blue-600 dark:to-violet-600 dark:hover:from-cyan-400 dark:hover:via-blue-500 dark:hover:to-violet-500"
               >
-                <Sparkles className="mr-2 h-5 w-5 text-yellow-500" />
+                <Sparkles className="mr-2 h-5 w-5 text-yellow-200 dark:text-cyan-100" />
                 Search
               </Button>
             </div>
