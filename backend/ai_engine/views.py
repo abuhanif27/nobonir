@@ -25,20 +25,38 @@ class RecommendationAPIView(APIView):
 class UserPreferenceAPIView(APIView):
 	permission_classes = [permissions.IsAuthenticated]
 
+	def _age_from_birthdate(self, user):
+		dob = getattr(user, "date_of_birth", None)
+		if not dob:
+			return None
+
+		from datetime import date
+
+		today = date.today()
+		age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+		return age if age >= 0 else None
+
+	def _payload_with_auto_age(self, request):
+		payload = request.data.copy()
+		auto_age = self._age_from_birthdate(request.user)
+		if auto_age is not None:
+			payload["age"] = auto_age
+		return payload
+
 	def get(self, request):
 		preference, _ = UserPreference.objects.get_or_create(user=request.user)
 		return Response(UserPreferenceSerializer(preference).data)
 
 	def put(self, request):
 		preference, _ = UserPreference.objects.get_or_create(user=request.user)
-		serializer = UserPreferenceSerializer(preference, data=request.data)
+		serializer = UserPreferenceSerializer(preference, data=self._payload_with_auto_age(request))
 		serializer.is_valid(raise_exception=True)
 		serializer.save()
 		return Response(serializer.data)
 
 	def patch(self, request):
 		preference, _ = UserPreference.objects.get_or_create(user=request.user)
-		serializer = UserPreferenceSerializer(preference, data=request.data, partial=True)
+		serializer = UserPreferenceSerializer(preference, data=self._payload_with_auto_age(request), partial=True)
 		serializer.is_valid(raise_exception=True)
 		serializer.save()
 		return Response(serializer.data)

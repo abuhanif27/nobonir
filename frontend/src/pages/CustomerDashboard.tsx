@@ -25,6 +25,7 @@ import {
   Globe2,
   Wand2,
   SlidersHorizontal,
+  LocateFixed,
 } from "lucide-react";
 
 interface Product {
@@ -50,6 +51,13 @@ interface PreferenceForm {
   location: string;
   continent: string;
   preferred_categories: number[];
+}
+
+interface GeoDetectResult {
+  countryName: string;
+  countryCode: string;
+  city?: string;
+  continentName?: string;
 }
 
 // Demo products with beautiful images
@@ -215,7 +223,45 @@ export function CustomerDashboard() {
   );
   const [isSavingPreference, setIsSavingPreference] = useState(false);
   const [isTrainingPreference, setIsTrainingPreference] = useState(false);
+  const [isDetectingGeo, setIsDetectingGeo] = useState(false);
+  const [detectedCountryCode, setDetectedCountryCode] = useState("");
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const getAgeFromBirthDate = (dateOfBirth?: string) => {
+    if (!dateOfBirth) {
+      return null;
+    }
+
+    const birthDate = new Date(dateOfBirth);
+    if (Number.isNaN(birthDate.getTime())) {
+      return null;
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    const dayDiff = today.getDate() - birthDate.getDate();
+
+    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+      age -= 1;
+    }
+
+    return age >= 0 ? age : null;
+  };
+
+  const calculatedAge = getAgeFromBirthDate(user?.date_of_birth);
+
+  const countryCodeToFlag = (code: string) => {
+    if (!code || code.length !== 2) {
+      return "🌍";
+    }
+
+    return code
+      .toUpperCase()
+      .split("")
+      .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
+      .join("");
+  };
 
   useEffect(() => {
     if (user?.profile_picture) {
@@ -263,6 +309,17 @@ export function CustomerDashboard() {
 
     loadPreferenceData();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (calculatedAge === null) {
+      return;
+    }
+
+    setPreferenceForm((prev) => ({
+      ...prev,
+      age: String(calculatedAge),
+    }));
+  }, [calculatedAge]);
 
   useEffect(() => {
     if (!isUserMenuOpen) {
@@ -379,6 +436,8 @@ export function CustomerDashboard() {
           preferenceResponse.data?.preferred_categories || [],
       });
 
+      await detectGeoDetails();
+
       setPersonalizedProducts(
         normalizeProducts(recommendationResponse.data || []).filter(
           (product) => product.stock > 0,
@@ -389,11 +448,74 @@ export function CustomerDashboard() {
     }
   };
 
+  const detectGeoDetails = async () => {
+    setIsDetectingGeo(true);
+    try {
+      const ipApiResponse = await fetch("https://ipapi.co/json/");
+      if (ipApiResponse.ok) {
+        const data = await ipApiResponse.json();
+        const continentMap: Record<string, string> = {
+          AF: "Africa",
+          AN: "Antarctica",
+          AS: "Asia",
+          EU: "Europe",
+          NA: "North America",
+          OC: "Oceania",
+          SA: "South America",
+        };
+        const geo: GeoDetectResult = {
+          countryName: data.country_name || "",
+          countryCode: data.country_code || "",
+          city: data.city || "",
+          continentName: data.continent_code
+            ? continentMap[String(data.continent_code).toUpperCase()] || ""
+            : "",
+        };
+
+        if (geo.countryCode) {
+          setDetectedCountryCode(geo.countryCode);
+        }
+
+        setPreferenceForm((prev) => ({
+          ...prev,
+          location: geo.countryName || prev.location,
+          continent: geo.continentName || prev.continent,
+        }));
+        return;
+      }
+
+      throw new Error("Primary geo provider failed");
+    } catch {
+      try {
+        const fallbackResponse = await fetch("https://ipwho.is/");
+        const data = await fallbackResponse.json();
+
+        if (data?.success) {
+          setDetectedCountryCode(data.country_code || "");
+          setPreferenceForm((prev) => ({
+            ...prev,
+            location: data.country || prev.location,
+            continent: data.continent || prev.continent,
+          }));
+        }
+      } catch (error) {
+        console.error("Automatic geo detection failed:", error);
+      }
+    } finally {
+      setIsDetectingGeo(false);
+    }
+  };
+
   const savePreferences = async () => {
     setIsSavingPreference(true);
     try {
       await api.put("/ai/preferences/", {
-        age: preferenceForm.age ? Number(preferenceForm.age) : null,
+        age:
+          calculatedAge !== null
+            ? calculatedAge
+            : preferenceForm.age
+              ? Number(preferenceForm.age)
+              : null,
         location: preferenceForm.location,
         continent: preferenceForm.continent,
         preferred_categories: preferenceForm.preferred_categories,
@@ -878,64 +1000,68 @@ export function CustomerDashboard() {
             <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Age
+                  Age (Auto from Birthdate)
                 </label>
                 <Input
                   type="number"
                   min={10}
                   max={100}
-                  value={preferenceForm.age}
-                  onChange={(e) =>
-                    setPreferenceForm((prev) => ({
-                      ...prev,
-                      age: e.target.value,
-                    }))
-                  }
-                  placeholder="e.g. 25"
+                  value={calculatedAge !== null ? String(calculatedAge) : ""}
+                  readOnly
+                  disabled
+                  placeholder="Set birthdate in profile"
                 />
+                {calculatedAge === null && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Add birthdate in profile to auto-calculate age.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Location
+                  Country (Auto by IP)
                 </label>
-                <Input
-                  value={preferenceForm.location}
-                  onChange={(e) =>
-                    setPreferenceForm((prev) => ({
-                      ...prev,
-                      location: e.target.value,
-                    }))
-                  }
-                  placeholder="City or country"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    value={
+                      preferenceForm.location
+                        ? `${countryCodeToFlag(detectedCountryCode)} ${preferenceForm.location}`
+                        : "Detecting country..."
+                    }
+                    readOnly
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={detectGeoDetails}
+                    disabled={isDetectingGeo}
+                    className="shrink-0"
+                    title="Detect location again"
+                  >
+                    <LocateFixed className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Continent
+                  Continent (Auto by IP)
                 </label>
                 <div className="relative">
                   <Globe2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <select
-                    value={preferenceForm.continent}
-                    onChange={(e) =>
-                      setPreferenceForm((prev) => ({
-                        ...prev,
-                        continent: e.target.value,
-                      }))
-                    }
-                    className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
-                  >
-                    <option value="">Select continent</option>
-                    <option value="Asia">Asia</option>
-                    <option value="Europe">Europe</option>
-                    <option value="North America">North America</option>
-                    <option value="South America">South America</option>
-                    <option value="Africa">Africa</option>
-                    <option value="Oceania">Oceania</option>
-                  </select>
+                  <Input
+                    value={preferenceForm.continent || "Detecting continent..."}
+                    readOnly
+                    className="pl-9"
+                  />
                 </div>
               </div>
             </div>
+
+            <p className="mt-2 text-xs text-gray-500">
+              {isDetectingGeo
+                ? "Detecting location from your network..."
+                : "Country/continent are detected automatically using IP-based lookup (with fallback provider)."}
+            </p>
 
             <div className="mt-5">
               <p className="mb-2 text-sm font-semibold text-gray-700">
