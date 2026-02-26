@@ -30,8 +30,6 @@ import {
   X,
 } from "lucide-react";
 
-type SuggestionGender = "male" | "female";
-
 interface Product {
   id: number;
   name: string;
@@ -188,57 +186,6 @@ const DEMO_PRODUCTS: Product[] = [
   },
 ];
 
-const GENDER_KEYWORDS: Record<SuggestionGender, string[]> = {
-  male: [
-    "men",
-    "male",
-    "shirt",
-    "watch",
-    "wallet",
-    "sneaker",
-    "sports",
-    "gaming",
-    "headphone",
-    "camera",
-  ],
-  female: [
-    "women",
-    "female",
-    "dress",
-    "skirt",
-    "handbag",
-    "jewelry",
-    "beauty",
-    "makeup",
-    "home",
-    "kitchen",
-  ],
-};
-
-const GENDER_CATEGORY_HINTS: Record<SuggestionGender, string[]> = {
-  male: ["electronics", "sports", "automotive", "tools", "gaming"],
-  female: ["fashion", "beauty", "home", "kitchen", "jewelry"],
-};
-
-const getGenderSuggestionScore = (
-  product: Product,
-  gender: SuggestionGender,
-) => {
-  const keywordMatches = GENDER_KEYWORDS[gender].reduce((score, keyword) => {
-    const haystack = `${product.name} ${product.description}`.toLowerCase();
-    return haystack.includes(keyword) ? score + 2 : score;
-  }, 0);
-
-  const categoryName = product.category.name.toLowerCase();
-  const categoryBonus = GENDER_CATEGORY_HINTS[gender].some((hint) =>
-    categoryName.includes(hint),
-  )
-    ? 1
-    : 0;
-
-  return keywordMatches + categoryBonus;
-};
-
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
@@ -265,8 +212,6 @@ export function CustomerDashboard() {
   const [personalizedProducts, setPersonalizedProducts] = useState<Product[]>(
     [],
   );
-  const [suggestionGender, setSuggestionGender] =
-    useState<SuggestionGender>("male");
   const [activeSuggestionCategory, setActiveSuggestionCategory] =
     useState("All");
   const [isAutoPersonalizing, setIsAutoPersonalizing] = useState(false);
@@ -349,38 +294,25 @@ export function CustomerDashboard() {
       .filter((item) => Boolean(item.id) && Boolean(item.name));
   };
 
-  const genderAwareSuggestions = useMemo(() => {
-    return [...personalizedProducts].sort((left, right) => {
-      const leftScore = getGenderSuggestionScore(left, suggestionGender);
-      const rightScore = getGenderSuggestionScore(right, suggestionGender);
-
-      if (rightScore !== leftScore) {
-        return rightScore - leftScore;
-      }
-
-      return left.id - right.id;
-    });
-  }, [personalizedProducts, suggestionGender]);
-
   const suggestionCategories = useMemo(() => {
     const unique = new Set(
-      genderAwareSuggestions
+      personalizedProducts
         .map((product) => product.category.name)
         .filter(Boolean),
     );
 
     return ["All", ...Array.from(unique)];
-  }, [genderAwareSuggestions]);
+  }, [personalizedProducts]);
 
   const visibleSuggestions = useMemo(() => {
     if (activeSuggestionCategory === "All") {
-      return genderAwareSuggestions;
+      return personalizedProducts;
     }
 
-    return genderAwareSuggestions.filter(
+    return personalizedProducts.filter(
       (product) => product.category.name === activeSuggestionCategory,
     );
-  }, [genderAwareSuggestions, activeSuggestionCategory]);
+  }, [personalizedProducts, activeSuggestionCategory]);
 
   useEffect(() => {
     if (
@@ -398,7 +330,7 @@ export function CustomerDashboard() {
     }
 
     carousel.scrollTo({ left: 0, behavior: "smooth" });
-  }, [activeSuggestionCategory, suggestionGender]);
+  }, [activeSuggestionCategory]);
 
   useEffect(() => {
     loadProducts();
@@ -1331,31 +1263,11 @@ export function CustomerDashboard() {
               <h4 className="text-lg font-bold text-gray-900">
                 Exclusive Suggestions for You
               </h4>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={suggestionGender === "male" ? "default" : "outline"}
-                  onClick={() => setSuggestionGender("male")}
-                >
-                  Male
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={
-                    suggestionGender === "female" ? "default" : "outline"
-                  }
-                  onClick={() => setSuggestionGender("female")}
-                >
-                  Female
-                </Button>
-                {isAutoPersonalizing && (
-                  <span className="text-xs font-semibold text-teal-700">
-                    Refreshing...
-                  </span>
-                )}
-              </div>
+              {isAutoPersonalizing && (
+                <span className="text-xs font-semibold text-teal-700">
+                  Refreshing...
+                </span>
+              )}
             </div>
 
             {personalizedProducts.length > 0 && (

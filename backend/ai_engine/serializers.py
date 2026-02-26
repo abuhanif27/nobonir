@@ -35,9 +35,16 @@ class UserPreferenceSerializer(serializers.ModelSerializer):
             "continent",
             "preferred_categories",
             "trained_category_weights",
+            "inferred_segment",
+            "inferred_segment_confidence",
             "last_trained_at",
         ]
-        read_only_fields = ["trained_category_weights", "last_trained_at"]
+        read_only_fields = [
+            "trained_category_weights",
+            "inferred_segment",
+            "inferred_segment_confidence",
+            "last_trained_at",
+        ]
 
     def update(self, instance, validated_data):
         categories = validated_data.pop("preferred_categories", None)
