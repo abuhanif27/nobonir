@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ArrowLeft } from "lucide-react";
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -115,6 +116,12 @@ export function RegisterPage() {
                 Login
               </Link>
             </p>
+            <Link to="/" className="w-full">
+              <Button variant="outline" className="w-full">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Products
+              </Button>
+            </Link>
           </CardFooter>
         </form>
       </Card>
