@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    GeoDetectAPIView,
     PersonalizedRecommendationAPIView,
     PreferenceTrainAPIView,
     RecommendationAPIView,
@@ -14,6 +15,7 @@ urlpatterns = [
     path("recommendations/personalized/", PersonalizedRecommendationAPIView.as_view()),
     path("preferences/", UserPreferenceAPIView.as_view()),
     path("preferences/train/", PreferenceTrainAPIView.as_view()),
+    path("geo-detect/", GeoDetectAPIView.as_view()),
     path("search/", SearchAPIView.as_view()),
     path("sentiment/", SentimentAPIView.as_view()),
 ]

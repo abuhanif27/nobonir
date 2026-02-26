@@ -1,3 +1,7 @@
+import json
+from urllib.error import URLError, HTTPError
+from urllib.request import urlopen
+
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -80,6 +84,58 @@ class PersonalizedRecommendationAPIView(APIView):
 	def get(self, request):
 		products = get_personalized_recommendations_for_user(request.user)
 		return Response(ProductSerializer(products, many=True).data)
+
+
+class GeoDetectAPIView(APIView):
+	permission_classes = [permissions.IsAuthenticated]
+
+	def _fetch_json(self, url: str):
+		try:
+			with urlopen(url, timeout=5) as response:
+				if response.status != 200:
+					return None
+				return json.loads(response.read().decode("utf-8"))
+		except (URLError, HTTPError, TimeoutError, ValueError):
+			return None
+
+	def get(self, request):
+		primary = self._fetch_json("https://ipapi.co/json/")
+		if primary and (primary.get("country_name") or primary.get("country_code")):
+			continent_map = {
+				"AF": "Africa",
+				"AN": "Antarctica",
+				"AS": "Asia",
+				"EU": "Europe",
+				"NA": "North America",
+				"OC": "Oceania",
+				"SA": "South America",
+			}
+			return Response({
+				"country": primary.get("country_name", ""),
+				"country_code": primary.get("country_code", ""),
+				"continent": continent_map.get(str(primary.get("continent_code", "")).upper(), ""),
+				"city": primary.get("city", ""),
+				"provider": "ipapi",
+			})
+
+		fallback = self._fetch_json("https://ipwho.is/")
+		if fallback and fallback.get("success"):
+			return Response({
+				"country": fallback.get("country", ""),
+				"country_code": fallback.get("country_code", ""),
+				"continent": fallback.get("continent", ""),
+				"city": fallback.get("city", ""),
+				"provider": "ipwhois",
+			})
+
+		return Response({
+			"country": "",
+			"country_code": "",
+			"continent": "",
+			"city": "",
+			"provider": "none",
+			"detail": "Geo detection unavailable",
+		}, status=503)
 
 
 class SearchAPIView(APIView):

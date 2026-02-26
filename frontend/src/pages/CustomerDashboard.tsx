@@ -53,13 +53,6 @@ interface PreferenceForm {
   preferred_categories: number[];
 }
 
-interface GeoDetectResult {
-  countryName: string;
-  countryCode: string;
-  city?: string;
-  continentName?: string;
-}
-
 // Demo products with beautiful images
 const DEMO_PRODUCTS: Product[] = [
   {
@@ -225,6 +218,7 @@ export function CustomerDashboard() {
   const [isTrainingPreference, setIsTrainingPreference] = useState(false);
   const [isDetectingGeo, setIsDetectingGeo] = useState(false);
   const [detectedCountryCode, setDetectedCountryCode] = useState("");
+  const [geoDetectionFailed, setGeoDetectionFailed] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const getAgeFromBirthDate = (dateOfBirth?: string) => {
@@ -308,6 +302,7 @@ export function CustomerDashboard() {
     }
 
     loadPreferenceData();
+    detectGeoDetails();
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -436,8 +431,6 @@ export function CustomerDashboard() {
           preferenceResponse.data?.preferred_categories || [],
       });
 
-      await detectGeoDetails();
-
       setPersonalizedProducts(
         normalizeProducts(recommendationResponse.data || []).filter(
           (product) => product.stock > 0,
@@ -450,57 +443,23 @@ export function CustomerDashboard() {
 
   const detectGeoDetails = async () => {
     setIsDetectingGeo(true);
+    setGeoDetectionFailed(false);
     try {
-      const ipApiResponse = await fetch("https://ipapi.co/json/");
-      if (ipApiResponse.ok) {
-        const data = await ipApiResponse.json();
-        const continentMap: Record<string, string> = {
-          AF: "Africa",
-          AN: "Antarctica",
-          AS: "Asia",
-          EU: "Europe",
-          NA: "North America",
-          OC: "Oceania",
-          SA: "South America",
-        };
-        const geo: GeoDetectResult = {
-          countryName: data.country_name || "",
-          countryCode: data.country_code || "",
-          city: data.city || "",
-          continentName: data.continent_code
-            ? continentMap[String(data.continent_code).toUpperCase()] || ""
-            : "",
-        };
+      const response = await api.get("/ai/geo-detect/");
+      const data = response.data;
 
-        if (geo.countryCode) {
-          setDetectedCountryCode(geo.countryCode);
-        }
-
-        setPreferenceForm((prev) => ({
-          ...prev,
-          location: geo.countryName || prev.location,
-          continent: geo.continentName || prev.continent,
-        }));
-        return;
+      if (data?.country_code) {
+        setDetectedCountryCode(data.country_code);
       }
 
-      throw new Error("Primary geo provider failed");
-    } catch {
-      try {
-        const fallbackResponse = await fetch("https://ipwho.is/");
-        const data = await fallbackResponse.json();
-
-        if (data?.success) {
-          setDetectedCountryCode(data.country_code || "");
-          setPreferenceForm((prev) => ({
-            ...prev,
-            location: data.country || prev.location,
-            continent: data.continent || prev.continent,
-          }));
-        }
-      } catch (error) {
-        console.error("Automatic geo detection failed:", error);
-      }
+      setPreferenceForm((prev) => ({
+        ...prev,
+        location: data?.country || prev.location,
+        continent: data?.continent || prev.continent,
+      }));
+    } catch (error) {
+      console.error("Automatic geo detection failed:", error);
+      setGeoDetectionFailed(true);
     } finally {
       setIsDetectingGeo(false);
     }
@@ -1026,7 +985,11 @@ export function CustomerDashboard() {
                     value={
                       preferenceForm.location
                         ? `${countryCodeToFlag(detectedCountryCode)} ${preferenceForm.location}`
-                        : "Detecting country..."
+                        : isDetectingGeo
+                          ? "Detecting country..."
+                          : geoDetectionFailed
+                            ? "Country unavailable"
+                            : "Country not set"
                     }
                     readOnly
                   />
@@ -1049,7 +1012,14 @@ export function CustomerDashboard() {
                 <div className="relative">
                   <Globe2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <Input
-                    value={preferenceForm.continent || "Detecting continent..."}
+                    value={
+                      preferenceForm.continent ||
+                      (isDetectingGeo
+                        ? "Detecting continent..."
+                        : geoDetectionFailed
+                          ? "Continent unavailable"
+                          : "Continent not set")
+                    }
                     readOnly
                     className="pl-9"
                   />
@@ -1060,7 +1030,9 @@ export function CustomerDashboard() {
             <p className="mt-2 text-xs text-gray-500">
               {isDetectingGeo
                 ? "Detecting location from your network..."
-                : "Country/continent are detected automatically using IP-based lookup (with fallback provider)."}
+                : geoDetectionFailed
+                  ? "Could not detect country/continent right now. Click the detect button to retry."
+                  : "Country/continent are detected automatically using IP-based lookup (with fallback provider)."}
             </p>
 
             <div className="mt-5">
