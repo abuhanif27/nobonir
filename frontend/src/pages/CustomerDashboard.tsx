@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api, { MEDIA_BASE_URL } from "@/lib/api";
+import { useCurrency } from "@/lib/currency";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -185,6 +186,7 @@ const DEMO_PRODUCTS: Product[] = [
 
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
+  const { formatPrice } = useCurrency();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>(DEMO_PRODUCTS);
   const [search, setSearch] = useState("");
@@ -1217,7 +1219,7 @@ export function CustomerDashboard() {
                         {product.name}
                       </p>
                       <p className="text-sm font-bold text-teal-700">
-                        ${product.price}
+                        {formatPrice(product.price)}
                       </p>
                       <Button
                         onClick={(e) => addToCart(product, e.currentTarget)}
@@ -1385,7 +1387,7 @@ export function CustomerDashboard() {
                     </p>
                     <div className="mb-5 flex items-baseline justify-between">
                       <p className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-2xl font-black text-transparent drop-shadow-sm sm:text-3xl">
-                        ${product.price}
+                        {formatPrice(product.price)}
                       </p>
                       <Badge
                         variant={

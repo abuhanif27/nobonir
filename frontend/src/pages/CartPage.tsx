@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import { useCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +32,7 @@ interface CartItem {
 
 export function CartPage() {
   const { isAuthenticated } = useAuthStore();
+  const { formatPrice } = useCurrency();
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -323,7 +325,7 @@ export function CartPage() {
                         <div className="flex-1">
                           <h3 className="font-semibold">{item.product.name}</h3>
                           <p className="text-sm text-gray-600">
-                            ${item.product.price} each
+                            {formatPrice(item.product.price)} each
                           </p>
                           <p className="text-sm text-gray-500">
                             Stock: {item.product.stock}
@@ -374,10 +376,9 @@ export function CartPage() {
                         </div>
                         <div className="text-left sm:text-right">
                           <p className="font-semibold">
-                            $
-                            {(
-                              parseFloat(item.product.price) * item.quantity
-                            ).toFixed(2)}
+                            {formatPrice(
+                              parseFloat(item.product.price) * item.quantity,
+                            )}
                           </p>
                         </div>
                       </div>
@@ -396,7 +397,7 @@ export function CartPage() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total:</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span>{formatPrice(total)}</span>
                   </div>
 
                   {!isAuthenticated && (

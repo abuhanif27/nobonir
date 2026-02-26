@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import { useCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -26,6 +27,7 @@ interface Product {
 
 export function AdminDashboard() {
   const { user, logout } = useAuthStore();
+  const { formatPrice } = useCurrency();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -153,7 +155,7 @@ export function AdminDashboard() {
                           {product.name}
                         </TableCell>
                         <TableCell>{product.category.name}</TableCell>
-                        <TableCell>${product.price}</TableCell>
+                        <TableCell>{formatPrice(product.price)}</TableCell>
                         <TableCell>
                           <span
                             className={`rounded px-2 py-1 text-xs font-semibold ${

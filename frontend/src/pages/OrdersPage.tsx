@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "@/lib/api";
+import { useCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,13 +82,6 @@ const toAmount = (value: string | number) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const formatMoney = (value: string | number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(toAmount(value));
-
 const formatDate = (value: string) =>
   new Date(value).toLocaleString("en-US", {
     year: "numeric",
@@ -124,6 +118,7 @@ const getStatusIcon = (status: OrderStatus) => {
 };
 
 export function OrdersPage() {
+  const { formatPrice } = useCurrency();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -236,7 +231,7 @@ export function OrdersPage() {
             <CardContent className="pt-6">
               <p className="text-sm text-slate-500">Total Spent</p>
               <p className="mt-1 text-2xl font-bold text-slate-900">
-                {formatMoney(totals.totalSpent)}
+                {formatPrice(totals.totalSpent)}
               </p>
             </CardContent>
           </Card>
@@ -342,7 +337,7 @@ export function OrdersPage() {
                           {STATUS_LABELS[order.status]}
                         </Badge>
                         <span className="text-base font-bold text-slate-900">
-                          {formatMoney(order.total_amount)}
+                          {formatPrice(order.total_amount)}
                         </span>
                       </div>
                     </div>
@@ -415,7 +410,7 @@ export function OrdersPage() {
                                 x{item.quantity}
                               </span>
                               <span className="font-semibold text-slate-900 sm:text-right">
-                                {formatMoney(
+                                {formatPrice(
                                   toAmount(item.unit_price) * item.quantity,
                                 )}
                               </span>

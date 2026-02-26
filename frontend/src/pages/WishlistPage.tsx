@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import { useCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,15 +44,9 @@ const parseAmount = (value: string | number) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const formatMoney = (value: string | number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(parseAmount(value));
-
 export function WishlistPage() {
   const navigate = useNavigate();
+  const { formatPrice } = useCurrency();
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -265,7 +260,7 @@ export function WishlistPage() {
             <CardContent className="pt-6">
               <p className="text-sm text-slate-500">Estimated Value</p>
               <p className="mt-1 text-2xl font-bold text-slate-900">
-                {formatMoney(summary.estValue)}
+                {formatPrice(summary.estValue)}
               </p>
             </CardContent>
           </Card>
@@ -399,7 +394,7 @@ export function WishlistPage() {
 
                     <div className="mt-3 flex items-center justify-between">
                       <p className="text-2xl font-bold text-slate-900">
-                        {formatMoney(item.product.price)}
+                        {formatPrice(item.product.price)}
                       </p>
                       <p className="text-xs text-slate-500">Saved item</p>
                     </div>
