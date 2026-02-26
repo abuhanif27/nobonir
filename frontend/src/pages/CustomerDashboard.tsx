@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api, { MEDIA_BASE_URL } from "@/lib/api";
@@ -23,10 +23,14 @@ import {
   Tag,
   Trophy,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Globe2,
   Menu,
   X,
 } from "lucide-react";
+
+type SuggestionGender = "male" | "female";
 
 interface Product {
   id: number;
@@ -184,6 +188,57 @@ const DEMO_PRODUCTS: Product[] = [
   },
 ];
 
+const GENDER_KEYWORDS: Record<SuggestionGender, string[]> = {
+  male: [
+    "men",
+    "male",
+    "shirt",
+    "watch",
+    "wallet",
+    "sneaker",
+    "sports",
+    "gaming",
+    "headphone",
+    "camera",
+  ],
+  female: [
+    "women",
+    "female",
+    "dress",
+    "skirt",
+    "handbag",
+    "jewelry",
+    "beauty",
+    "makeup",
+    "home",
+    "kitchen",
+  ],
+};
+
+const GENDER_CATEGORY_HINTS: Record<SuggestionGender, string[]> = {
+  male: ["electronics", "sports", "automotive", "tools", "gaming"],
+  female: ["fashion", "beauty", "home", "kitchen", "jewelry"],
+};
+
+const getGenderSuggestionScore = (
+  product: Product,
+  gender: SuggestionGender,
+) => {
+  const keywordMatches = GENDER_KEYWORDS[gender].reduce((score, keyword) => {
+    const haystack = `${product.name} ${product.description}`.toLowerCase();
+    return haystack.includes(keyword) ? score + 2 : score;
+  }, 0);
+
+  const categoryName = product.category.name.toLowerCase();
+  const categoryBonus = GENDER_CATEGORY_HINTS[gender].some((hint) =>
+    categoryName.includes(hint),
+  )
+    ? 1
+    : 0;
+
+  return keywordMatches + categoryBonus;
+};
+
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
@@ -210,6 +265,10 @@ export function CustomerDashboard() {
   const [personalizedProducts, setPersonalizedProducts] = useState<Product[]>(
     [],
   );
+  const [suggestionGender, setSuggestionGender] =
+    useState<SuggestionGender>("male");
+  const [activeSuggestionCategory, setActiveSuggestionCategory] =
+    useState("All");
   const [isAutoPersonalizing, setIsAutoPersonalizing] = useState(false);
   const [isPreferenceHydrated, setIsPreferenceHydrated] = useState(false);
   const [isDetectingGeo, setIsDetectingGeo] = useState(false);
@@ -217,6 +276,7 @@ export function CustomerDashboard() {
   const [detectedCountryName, setDetectedCountryName] = useState("");
   const [detectedContinent, setDetectedContinent] = useState("");
   const [geoDetectionFailed, setGeoDetectionFailed] = useState(false);
+  const suggestionCarouselRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const lastAutoPersonalizeKeyRef = useRef("");
 
@@ -288,6 +348,57 @@ export function CustomerDashboard() {
       }))
       .filter((item) => Boolean(item.id) && Boolean(item.name));
   };
+
+  const genderAwareSuggestions = useMemo(() => {
+    return [...personalizedProducts].sort((left, right) => {
+      const leftScore = getGenderSuggestionScore(left, suggestionGender);
+      const rightScore = getGenderSuggestionScore(right, suggestionGender);
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
+      }
+
+      return left.id - right.id;
+    });
+  }, [personalizedProducts, suggestionGender]);
+
+  const suggestionCategories = useMemo(() => {
+    const unique = new Set(
+      genderAwareSuggestions
+        .map((product) => product.category.name)
+        .filter(Boolean),
+    );
+
+    return ["All", ...Array.from(unique)];
+  }, [genderAwareSuggestions]);
+
+  const visibleSuggestions = useMemo(() => {
+    if (activeSuggestionCategory === "All") {
+      return genderAwareSuggestions;
+    }
+
+    return genderAwareSuggestions.filter(
+      (product) => product.category.name === activeSuggestionCategory,
+    );
+  }, [genderAwareSuggestions, activeSuggestionCategory]);
+
+  useEffect(() => {
+    if (
+      activeSuggestionCategory !== "All" &&
+      !suggestionCategories.includes(activeSuggestionCategory)
+    ) {
+      setActiveSuggestionCategory("All");
+    }
+  }, [activeSuggestionCategory, suggestionCategories]);
+
+  useEffect(() => {
+    const carousel = suggestionCarouselRef.current;
+    if (!carousel) {
+      return;
+    }
+
+    carousel.scrollTo({ left: 0, behavior: "smooth" });
+  }, [activeSuggestionCategory, suggestionGender]);
 
   useEffect(() => {
     loadProducts();
@@ -809,6 +920,19 @@ export function CustomerDashboard() {
     }
   };
 
+  const scrollSuggestionCarousel = (direction: "left" | "right") => {
+    const carousel = suggestionCarouselRef.current;
+    if (!carousel) {
+      return;
+    }
+
+    const delta = Math.max(carousel.clientWidth * 0.8, 260);
+    carousel.scrollBy({
+      left: direction === "right" ? delta : -delta,
+      behavior: "smooth",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Header */}
@@ -1203,51 +1327,129 @@ export function CustomerDashboard() {
       <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         {isAuthenticated && (
           <section className="mb-10 rounded-2xl border bg-white/85 p-6 shadow-lg backdrop-blur-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h4 className="text-lg font-bold text-gray-900">
                 Exclusive Suggestions for You
               </h4>
-              {isAutoPersonalizing && (
-                <span className="text-xs font-semibold text-teal-700">
-                  Refreshing...
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={suggestionGender === "male" ? "default" : "outline"}
+                  onClick={() => setSuggestionGender("male")}
+                >
+                  Male
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    suggestionGender === "female" ? "default" : "outline"
+                  }
+                  onClick={() => setSuggestionGender("female")}
+                >
+                  Female
+                </Button>
+                {isAutoPersonalizing && (
+                  <span className="text-xs font-semibold text-teal-700">
+                    Refreshing...
+                  </span>
+                )}
+              </div>
             </div>
+
+            {personalizedProducts.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {suggestionCategories.map((category) => (
+                  <Button
+                    key={category}
+                    type="button"
+                    size="sm"
+                    variant={
+                      activeSuggestionCategory === category
+                        ? "default"
+                        : "outline"
+                    }
+                    onClick={() => setActiveSuggestionCategory(category)}
+                    className="h-8"
+                  >
+                    {category}
+                  </Button>
+                ))}
+              </div>
+            )}
+
             {personalizedProducts.length === 0 ? (
               <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600">
                 Preparing your personalized picks...
               </div>
+            ) : visibleSuggestions.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+                No suggestions in this category yet. Try another category.
+              </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {personalizedProducts.slice(0, 4).map((product) => (
-                  <Card key={`pref-${product.id}`} className="border shadow-sm">
-                    <CardHeader className="p-0">
-                      <img
-                        src={
-                          product.image ||
-                          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-                        }
-                        alt={product.name}
-                        className="h-36 w-full rounded-t-lg object-cover"
-                      />
-                    </CardHeader>
-                    <CardContent className="p-3">
-                      <p className="line-clamp-1 font-semibold text-gray-900">
-                        {product.name}
-                      </p>
-                      <p className="text-sm font-bold text-teal-700">
-                        {formatPrice(product.price)}
-                      </p>
-                      <Button
-                        onClick={(e) => addToCart(product, e.currentTarget)}
-                        size="sm"
-                        className="mt-2 w-full"
-                      >
-                        Add to Cart
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="space-y-3">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => scrollSuggestionCarousel("left")}
+                    aria-label="Previous suggestions"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => scrollSuggestionCarousel("right")}
+                    aria-label="Next suggestions"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div
+                  ref={suggestionCarouselRef}
+                  className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
+                >
+                  {visibleSuggestions.map((product) => (
+                    <Card
+                      key={`pref-${product.id}`}
+                      className="border shadow-sm"
+                    >
+                      <CardHeader className="p-0 min-w-[240px] snap-start sm:min-w-[260px] lg:min-w-[280px]">
+                        <img
+                          src={
+                            product.image ||
+                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+                          }
+                          alt={product.name}
+                          className="h-36 w-full rounded-t-lg object-cover"
+                        />
+                      </CardHeader>
+                      <CardContent className="p-3">
+                        <p className="line-clamp-1 font-semibold text-gray-900">
+                          {product.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {product.category.name}
+                        </p>
+                        <p className="text-sm font-bold text-teal-700">
+                          {formatPrice(product.price)}
+                        </p>
+                        <Button
+                          onClick={(e) => addToCart(product, e.currentTarget)}
+                          size="sm"
+                          className="mt-2 w-full"
+                        >
+                          Add to Cart
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
           </section>
