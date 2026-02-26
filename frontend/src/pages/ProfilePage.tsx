@@ -44,6 +44,7 @@ export function ProfilePage() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [stats, setStats] = useState<AccountStats>({
     totalOrders: 0,
@@ -89,6 +90,12 @@ export function ProfilePage() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  useEffect(() => {
+    if (user?.profile_picture) {
+      setAvatarVersion(Date.now());
+    }
+  }, [user?.profile_picture]);
 
   const loadAccountStats = async () => {
     try {
@@ -155,6 +162,7 @@ export function ProfilePage() {
       setIsEditing(false);
       setSelectedImage(null);
       setImagePreview(null);
+      setAvatarVersion(Date.now());
       setToast({ message: "Profile updated successfully", type: "success" });
     } catch (error: any) {
       setToast({
@@ -227,6 +235,12 @@ export function ProfilePage() {
     ? new Date().getFullYear() - (user.id % 5)
     : new Date().getFullYear();
 
+  const profileImageSrc = user?.profile_picture
+    ? user.profile_picture.startsWith("http")
+      ? `${user.profile_picture}?v=${avatarVersion}`
+      : `${MEDIA_BASE_URL}${user.profile_picture}?v=${avatarVersion}`
+    : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-10">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -245,7 +259,7 @@ export function ProfilePage() {
                     />
                   ) : user?.profile_picture ? (
                     <img
-                      src={`${MEDIA_BASE_URL}${user.profile_picture}`}
+                      src={profileImageSrc ?? ""}
                       alt={user.first_name}
                       className="h-full w-full object-cover"
                       onError={(e) => {
@@ -302,6 +316,12 @@ export function ProfilePage() {
 
               {/* Edit Button */}
               <div className="flex gap-2">
+                <Link to="/">
+                  <Button variant="outline" className="gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    Back to Shopping
+                  </Button>
+                </Link>
                 {!isEditing ? (
                   <Button onClick={() => setIsEditing(true)} className="gap-2">
                     <Edit2 className="h-4 w-4" />

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
-import api from "@/lib/api";
+import api, { MEDIA_BASE_URL } from "@/lib/api";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -187,7 +187,20 @@ export function CustomerDashboard() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (user?.profile_picture) {
+      setAvatarVersion(Date.now());
+    }
+  }, [user?.profile_picture]);
+
+  const userImageSrc = user?.profile_picture
+    ? user.profile_picture.startsWith("http")
+      ? `${user.profile_picture}?v=${avatarVersion}`
+      : `${MEDIA_BASE_URL}${user.profile_picture}?v=${avatarVersion}`
+    : null;
 
   const normalizeProducts = (items: any[]): Product[] => {
     if (!Array.isArray(items)) {
@@ -533,8 +546,23 @@ export function CustomerDashboard() {
                       data-user-menu-trigger="true"
                       className="flex items-center gap-2 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 rounded-full border border-teal-100 hover:from-teal-100 hover:to-cyan-100 transition-colors"
                     >
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm">
-                        {user?.first_name?.charAt(0).toUpperCase()}
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
+                        {userImageSrc ? (
+                          <img
+                            src={userImageSrc}
+                            alt={user?.first_name || "User"}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              e.currentTarget.nextElementSibling?.classList.remove(
+                                "hidden",
+                              );
+                            }}
+                          />
+                        ) : null}
+                        <span className={userImageSrc ? "hidden" : ""}>
+                          {user?.first_name?.charAt(0).toUpperCase()}
+                        </span>
                       </div>
                       <span className="text-sm font-medium text-gray-700 max-w-24 truncate">
                         {user?.first_name || "Profile"}
