@@ -59,14 +59,21 @@ body {
 
 @layer base {
   .dark .bg-white,
-  .dark .bg-white\/90,
-  .dark .bg-white\/80,
-  .dark .bg-white\/85,
   .dark .bg-white\/95,
-  .dark .bg-gray-50,
-  .dark .bg-gray-100,
-  .dark .bg-slate-50 {
+  .dark .bg-white\/90,
+  .dark .bg-white\/85,
+  .dark .bg-white\/80 {
     background-color: rgb(15 23 42) !important;
+  }
+
+  .dark .bg-gray-50,
+  .dark .bg-slate-50 {
+    background-color: rgb(17 24 39) !important;
+  }
+
+  .dark .bg-gray-100,
+  .dark .bg-slate-100 {
+    background-color: rgb(30 41 59) !important;
   }
 
   .dark .text-gray-900,
@@ -81,7 +88,7 @@ body {
   .dark .text-slate-600,
   .dark .text-slate-500,
   .dark .text-slate-400 {
-    color: rgb(148 163 184) !important;
+    color: rgb(203 213 225) !important;
   }
 
   .dark .border-gray-100,

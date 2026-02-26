@@ -23,6 +23,8 @@ import {
   Trophy,
   ChevronDown,
   Globe2,
+  Menu,
+  X,
 } from "lucide-react";
 
 interface Product {
@@ -191,6 +193,7 @@ export function CustomerDashboard() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isTopSellingView, setIsTopSellingView] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [wishlistToast, setWishlistToast] = useState<{
     type: "success" | "error";
     message: string;
@@ -814,7 +817,38 @@ export function CustomerDashboard() {
                 </p>
               </div>
             </div>
-            <div className="flex w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:justify-end lg:gap-3">
+
+            <div className="flex items-center gap-2 lg:hidden">
+              <Link to="/cart">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative"
+                  data-cart-nav="true"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">
+                      {cartCount > 99 ? "99+" : cartCount}
+                    </span>
+                  )}
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+                aria-label="Toggle navigation menu"
+              >
+                {isMobileMenuOpen ? (
+                  <X className="h-5 w-5" />
+                ) : (
+                  <Menu className="h-5 w-5" />
+                )}
+              </Button>
+            </div>
+
+            <div className="hidden w-full flex-wrap items-center justify-start gap-2 lg:flex lg:w-auto lg:justify-end lg:gap-3">
               {isAuthenticated ? (
                 <>
                   <Link to="/cart">
@@ -967,6 +1001,119 @@ export function CustomerDashboard() {
               )}
             </div>
           </div>
+
+          {isMobileMenuOpen && (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900 lg:hidden">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => {
+                    loadTopSellingProducts();
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  <Trophy className="mr-2 h-4 w-4" />
+                  Top Selling
+                </Button>
+                <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                  >
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Cart
+                  </Button>
+                </Link>
+
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                      >
+                        <User className="mr-2 h-4 w-4" />
+                        Profile
+                      </Button>
+                    </Link>
+                    <Link
+                      to="/orders"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                      >
+                        <Package className="mr-2 h-4 w-4" />
+                        Orders
+                      </Button>
+                    </Link>
+                    <Link
+                      to="/wishlist"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                      >
+                        <Heart className="mr-2 h-4 w-4" />
+                        Wishlist
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="justify-start text-red-600 hover:text-red-600"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        logout();
+                      }}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                      >
+                        <LogIn className="mr-2 h-4 w-4" />
+                        Login
+                      </Button>
+                    </Link>
+                    <Link
+                      to="/register"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Button
+                        size="sm"
+                        className="w-full justify-start bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700"
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -985,14 +1132,14 @@ export function CustomerDashboard() {
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="mb-6 flex items-center justify-center gap-3">
-              <Sparkles className="h-10 w-10 text-yellow-300 animate-pulse" />
+            <div className="mb-5 flex items-center justify-center gap-2 sm:mb-6 sm:gap-3">
+              <Sparkles className="h-8 w-8 text-yellow-300 animate-pulse sm:h-10 sm:w-10" />
               <h2 className="text-4xl font-black tracking-tight sm:text-5xl md:text-6xl">
                 <span className="bg-gradient-to-r from-white via-cyan-100 to-blue-100 bg-clip-text text-transparent drop-shadow-lg">
                   Discover
                 </span>
               </h2>
-              <Sparkles className="h-10 w-10 text-yellow-300 animate-pulse" />
+              <Sparkles className="h-8 w-8 text-yellow-300 animate-pulse sm:h-10 sm:w-10" />
             </div>
             <p className="mb-8 text-lg font-light tracking-wide text-white/95 sm:text-2xl">
               Find exactly what you need with intelligent search
@@ -1015,7 +1162,7 @@ export function CustomerDashboard() {
               <Button
                 onClick={handleSearch}
                 size="lg"
-                className="h-14 bg-white px-8 font-bold text-teal-600 shadow-2xl transition-all hover:scale-105 hover:bg-gray-50 hover:shadow-xl"
+                className="h-14 bg-slate-950 px-8 font-bold text-teal-400 shadow-2xl transition-all hover:scale-105 hover:bg-slate-900 hover:shadow-xl dark:bg-slate-100 dark:text-teal-700 dark:hover:bg-white"
               >
                 <Sparkles className="mr-2 h-5 w-5 text-yellow-500" />
                 Search
@@ -1140,16 +1287,16 @@ export function CustomerDashboard() {
           </div>
         ) : (
           <>
-            <div className="mb-8 flex items-center justify-between">
+            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="text-3xl font-black bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 bg-clip-text text-transparent">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 sm:text-3xl">
                   {search
                     ? "🔍 Search Results"
                     : isTopSellingView
                       ? "🏆 Top Selling Products"
                       : "✨ All Products"}
                 </h3>
-                <p className="text-sm text-gray-600 mt-2 font-medium">
+                <p className="mt-2 text-sm font-medium text-slate-600 dark:text-slate-300">
                   Found {products.length}{" "}
                   {products.length === 1
                     ? "amazing product"
@@ -1175,7 +1322,7 @@ export function CustomerDashboard() {
               {products.map((product) => (
                 <Card
                   key={product.id}
-                  className="group relative hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 border-0 shadow-lg overflow-hidden bg-white rounded-2xl"
+                  className="group relative overflow-hidden rounded-2xl border-0 bg-white shadow-lg transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl dark:bg-slate-900"
                 >
                   {/* Hover Gradient Border Effect */}
                   <div
@@ -1221,15 +1368,15 @@ export function CustomerDashboard() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="p-6 bg-gradient-to-br from-white to-gray-50">
-                    <CardTitle className="text-lg font-bold mb-2 line-clamp-1 group-hover:bg-gradient-to-r group-hover:from-teal-600 group-hover:to-cyan-600 group-hover:bg-clip-text group-hover:text-transparent transition-all duration-300">
+                  <CardContent className="bg-gradient-to-br from-white to-gray-50 p-5 dark:from-slate-900 dark:to-slate-900 sm:p-6">
+                    <CardTitle className="mb-2 line-clamp-1 text-base font-bold text-slate-900 transition-all duration-300 group-hover:bg-gradient-to-r group-hover:from-teal-600 group-hover:to-cyan-600 group-hover:bg-clip-text group-hover:text-transparent dark:text-slate-100 sm:text-lg">
                       {product.name}
                     </CardTitle>
-                    <p className="mb-4 text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                    <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                       {product.description}
                     </p>
-                    <div className="flex items-baseline justify-between mb-5">
-                      <p className="text-3xl font-black bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-transparent drop-shadow-sm">
+                    <div className="mb-5 flex items-baseline justify-between">
+                      <p className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-2xl font-black text-transparent drop-shadow-sm sm:text-3xl">
                         ${product.price}
                       </p>
                       <Badge
