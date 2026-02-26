@@ -955,82 +955,71 @@ export function CustomerDashboard() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Age (Auto from Birthdate)
-                </label>
-                <Input
-                  type="number"
-                  min={10}
-                  max={100}
-                  value={calculatedAge !== null ? String(calculatedAge) : ""}
-                  readOnly
-                  disabled
-                  placeholder="Set birthdate in profile"
-                />
-                {calculatedAge === null && (
-                  <p className="mt-1 text-xs text-amber-700">
-                    Add birthdate in profile to auto-calculate age.
-                  </p>
-                )}
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Age
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {calculatedAge !== null ? calculatedAge : "—"}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Derived from your account profile
+                </p>
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Country (Auto by IP)
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    value={
-                      preferenceForm.location
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Country
+                    </p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {preferenceForm.location
                         ? `${countryCodeToFlag(detectedCountryCode)} ${preferenceForm.location}`
                         : isDetectingGeo
-                          ? "Detecting country..."
+                          ? "Detecting..."
                           : geoDetectionFailed
-                            ? "Country unavailable"
-                            : "Country not set"
-                    }
-                    readOnly
-                  />
+                            ? "Unavailable"
+                            : "—"}
+                    </p>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={detectGeoDetails}
                     disabled={isDetectingGeo}
-                    className="shrink-0"
-                    title="Detect location again"
+                    className="h-8 px-2"
+                    title="Refresh location"
                   >
                     <LocateFixed className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Continent (Auto by IP)
-                </label>
-                <div className="relative">
-                  <Globe2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    value={
-                      preferenceForm.continent ||
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Region
+                </p>
+                <div className="mt-1 flex items-center gap-2 text-lg font-bold text-gray-900">
+                  <Globe2 className="h-4 w-4 text-gray-500" />
+                  <span>
+                    {preferenceForm.continent ||
                       (isDetectingGeo
-                        ? "Detecting continent..."
+                        ? "Detecting..."
                         : geoDetectionFailed
-                          ? "Continent unavailable"
-                          : "Continent not set")
-                    }
-                    readOnly
-                    className="pl-9"
-                  />
+                          ? "Unavailable"
+                          : "—")}
+                  </span>
                 </div>
               </div>
             </div>
 
             <p className="mt-2 text-xs text-gray-500">
               {isDetectingGeo
-                ? "Detecting location from your network..."
+                ? "Refreshing your profile signals..."
                 : geoDetectionFailed
-                  ? "Could not detect country/continent right now. Click the detect button to retry."
-                  : "Country/continent are detected automatically using IP-based lookup (with fallback provider)."}
+                  ? "Location signal is temporarily unavailable. You can retry using the refresh icon."
+                  : "Profile signals are captured automatically to power more relevant recommendations."}
             </p>
 
             <div className="mt-5">
