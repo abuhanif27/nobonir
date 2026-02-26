@@ -15,6 +15,13 @@ const CurrencyContext = createContext<CurrencyContextValue | undefined>(
 const BASE_CURRENCY = "USD";
 const RATE_REFRESH_MS = 5 * 60 * 1000;
 const GEO_REFRESH_MS = 5 * 60 * 1000;
+const CURRENCY_STORAGE_KEY = "nobonir_currency_context_v1";
+
+type PersistedCurrencyState = {
+  countryCode: string;
+  currencyCode: string;
+  rates: Record<string, number>;
+};
 
 const REGION_FALLBACK_CURRENCY: Record<string, string> = {
   BD: "BDT",
@@ -51,13 +58,64 @@ const getFallbackCurrencyFromLocale = () => {
   return REGION_FALLBACK_CURRENCY[region] || "USD";
 };
 
+const getPersistedCurrencyState = (): PersistedCurrencyState | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CURRENCY_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    const persistedCountryCode = String(
+      parsed?.countryCode || "",
+    ).toUpperCase();
+    const persistedCurrencyCode = String(
+      parsed?.currencyCode || "",
+    ).toUpperCase();
+    const persistedRates = parsed?.rates;
+
+    if (!persistedCurrencyCode || typeof persistedRates !== "object") {
+      return null;
+    }
+
+    return {
+      countryCode: persistedCountryCode,
+      currencyCode: persistedCurrencyCode,
+      rates: { ...persistedRates, [BASE_CURRENCY]: 1 },
+    };
+  } catch {
+    return null;
+  }
+};
+
+const persistCurrencyState = (state: PersistedCurrencyState) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(CURRENCY_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [countryCode, setCountryCode] = useState("");
+  const persisted = getPersistedCurrencyState();
+  const [countryCode, setCountryCode] = useState(persisted?.countryCode || "");
   const [currencyCode, setCurrencyCode] = useState(
-    getFallbackCurrencyFromLocale,
+    persisted?.currencyCode || "",
   );
-  const [rates, setRates] = useState<Record<string, number>>({ USD: 1 });
-  const [isCurrencyLoading, setIsCurrencyLoading] = useState(true);
+  const [rates, setRates] = useState<Record<string, number>>(
+    persisted?.rates || { USD: 1 },
+  );
+  const [isCurrencyLoading, setIsCurrencyLoading] = useState(
+    !persisted?.currencyCode,
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -183,6 +241,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       try {
         const nextCountry = await resolveCountryCode();
 
+        if (!isMounted) {
+          return;
+        }
+
         if (nextCountry) {
           setCountryCode(nextCountry);
 
@@ -217,15 +279,18 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Keep locale-based fallback if geo is unavailable
         setCurrencyCode(getFallbackCurrencyFromLocale());
-      } finally {
-        if (isMounted) {
-          setIsCurrencyLoading(false);
-        }
       }
     };
 
-    fetchRates();
-    fetchGeoAndCurrency();
+    const bootstrapCurrency = async () => {
+      await Promise.allSettled([fetchRates(), fetchGeoAndCurrency()]);
+
+      if (isMounted) {
+        setIsCurrencyLoading(false);
+      }
+    };
+
+    bootstrapCurrency();
 
     const ratesTimer = window.setInterval(fetchRates, RATE_REFRESH_MS);
     const geoTimer = window.setInterval(fetchGeoAndCurrency, GEO_REFRESH_MS);
@@ -237,7 +302,19 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!currencyCode) {
+      return;
+    }
+
+    persistCurrencyState({ countryCode, currencyCode, rates });
+  }, [countryCode, currencyCode, rates]);
+
   const formatPrice = (amount: string | number) => {
+    if (!currencyCode) {
+      return "…";
+    }
+
     const numeric = toNumber(amount);
     const rate = rates[currencyCode] || 1;
     const converted = numeric * rate;
