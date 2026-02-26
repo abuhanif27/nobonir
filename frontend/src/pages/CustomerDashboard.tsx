@@ -794,17 +794,17 @@ export function CustomerDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-white/80 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
+        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-600 blur-lg opacity-70 animate-pulse"></div>
-                <div className="relative bg-gradient-to-br from-teal-500 via-cyan-600 to-blue-700 p-2.5 rounded-xl shadow-lg">
-                  <ShoppingBag className="h-7 w-7 text-white" />
+                <div className="relative rounded-xl bg-gradient-to-br from-teal-500 via-cyan-600 to-blue-700 p-2 shadow-lg sm:p-2.5">
+                  <ShoppingBag className="h-6 w-6 text-white sm:h-7 sm:w-7" />
                 </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-black leading-none tracking-tight sm:text-3xl">
                   <span className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-700 bg-clip-text text-transparent drop-shadow-sm">
                     No
                   </span>
@@ -812,38 +812,47 @@ export function CustomerDashboard() {
                     Bonir
                   </span>
                 </h1>
-                <p className="text-xs font-semibold bg-gradient-to-r from-gray-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent tracking-wide">
+                <p className="mt-0.5 truncate bg-gradient-to-r from-gray-600 via-teal-600 to-cyan-600 bg-clip-text text-[10px] font-semibold leading-tight tracking-wide text-transparent sm:text-xs">
                   Soft Style Smart Shopping
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 lg:hidden">
-              <Link to="/cart">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative"
-                  data-cart-nav="true"
-                >
-                  <ShoppingCart className="h-5 w-5" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">
-                      {cartCount > 99 ? "99+" : cartCount}
-                    </span>
-                  )}
-                </Button>
-              </Link>
+            <div className="ml-2 flex shrink-0 items-center gap-1.5 lg:hidden">
+              {isAuthenticated ? (
+                <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 px-2.5 text-xs sm:px-3 sm:text-sm"
+                  >
+                    <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Profile
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 px-2.5 text-xs sm:px-3 sm:text-sm"
+                  >
+                    <LogIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Login
+                  </Button>
+                </Link>
+              )}
               <Button
                 variant="outline"
                 size="icon"
+                className="h-9 w-9"
                 onClick={() => setIsMobileMenuOpen((prev) => !prev)}
                 aria-label="Toggle navigation menu"
               >
                 {isMobileMenuOpen ? (
-                  <X className="h-5 w-5" />
+                  <X className="h-4.5 w-4.5" />
                 ) : (
-                  <Menu className="h-5 w-5" />
+                  <Menu className="h-4.5 w-4.5" />
                 )}
               </Button>
             </div>
@@ -881,7 +890,7 @@ export function CustomerDashboard() {
                       type="button"
                       onClick={() => setIsUserMenuOpen((prev) => !prev)}
                       data-user-menu-trigger="true"
-                      className="flex items-center gap-2 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 rounded-full border border-teal-100 hover:from-teal-100 hover:to-cyan-100 transition-colors"
+                      className="flex items-center gap-2 rounded-full border border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 transition-colors hover:from-teal-100 hover:to-cyan-100 dark:border-slate-700 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 dark:hover:from-slate-700 dark:hover:to-slate-600"
                     >
                       <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
                         {userImageSrc ? (
@@ -901,10 +910,10 @@ export function CustomerDashboard() {
                           {user?.first_name?.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="text-sm font-medium text-gray-700 max-w-24 truncate">
+                      <span className="max-w-24 truncate text-sm font-medium text-slate-700 dark:text-slate-100">
                         {user?.first_name || "Profile"}
                       </span>
-                      <ChevronDown className="h-4 w-4 text-gray-600" />
+                      <ChevronDown className="h-4 w-4 text-slate-600 dark:text-slate-300" />
                     </button>
 
                     {isUserMenuOpen && (
@@ -1005,6 +1014,16 @@ export function CustomerDashboard() {
           {isMobileMenuOpen && (
             <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900 lg:hidden">
               <div className="grid grid-cols-2 gap-2">
+                <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start"
+                  >
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Cart
+                  </Button>
+                </Link>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1017,17 +1036,6 @@ export function CustomerDashboard() {
                   <Trophy className="mr-2 h-4 w-4" />
                   Top Selling
                 </Button>
-                <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start"
-                  >
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    Cart
-                  </Button>
-                </Link>
-
                 {isAuthenticated ? (
                   <>
                     <Link
@@ -1454,7 +1462,7 @@ export function CustomerDashboard() {
         <div className="absolute inset-0 bg-grid-white/5"></div>
         <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h3 className="text-3xl font-black mb-3">
+            <h3 className="mb-3 text-2xl font-black sm:text-3xl">
               <span className="bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
                 No
               </span>
@@ -1462,20 +1470,27 @@ export function CustomerDashboard() {
                 Bonir
               </span>
             </h3>
-            <p className="text-sm font-semibold bg-gradient-to-r from-gray-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent mb-2 tracking-wide">
+            <p className="mb-2 bg-gradient-to-r from-gray-400 via-teal-400 to-cyan-400 bg-clip-text text-xs font-semibold tracking-wide text-transparent sm:text-sm">
               Soft Style Smart Shopping
             </p>
-            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-teal-500/40 bg-teal-500/10 px-4 py-1.5 text-sm font-semibold text-teal-300 shadow-lg shadow-teal-900/20">
-              <Globe2 className="h-4 w-4" />
-              {detectedCountryName && detectedContinent
-                ? `${countryCodeToFlag(detectedCountryCode)} You're from ${detectedCountryName}, ${detectedContinent}`
-                : detectedCountryName
-                  ? `${countryCodeToFlag(detectedCountryCode)} You're from ${detectedCountryName}`
-                  : isDetectingGeo
-                    ? "Detecting your region..."
-                    : geoDetectionFailed
-                      ? "Region unavailable right now"
-                      : "Welcome from around the world"}
+            <div className="mx-auto mb-3 inline-flex w-full max-w-md items-center gap-2 rounded-full border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-teal-300 shadow-lg shadow-teal-900/20 sm:px-4">
+              <Globe2 className="h-4 w-4 shrink-0" />
+              <span className="text-base leading-none">
+                {detectedCountryName
+                  ? countryCodeToFlag(detectedCountryCode)
+                  : "🌍"}
+              </span>
+              <span className="text-left text-xs font-semibold leading-tight sm:text-sm">
+                {detectedCountryName && detectedContinent
+                  ? `You're from ${detectedCountryName}, ${detectedContinent}`
+                  : detectedCountryName
+                    ? `You're from ${detectedCountryName}`
+                    : isDetectingGeo
+                      ? "Detecting your region..."
+                      : geoDetectionFailed
+                        ? "Region unavailable right now"
+                        : "Welcome from around the world"}
+              </span>
             </div>
             <p className="text-xs text-gray-500">© 2026 All rights reserved.</p>
           </div>
