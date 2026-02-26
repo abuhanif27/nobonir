@@ -87,7 +87,7 @@ class PersonalizedRecommendationAPIView(APIView):
 
 
 class GeoDetectAPIView(APIView):
-	permission_classes = [permissions.IsAuthenticated]
+	permission_classes = [permissions.AllowAny]
 
 	def _fetch_json(self, url: str):
 		try:

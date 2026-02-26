@@ -23,8 +23,6 @@ import {
   Trophy,
   ChevronDown,
   Globe2,
-  SlidersHorizontal,
-  LocateFixed,
 } from "lucide-react";
 
 interface Product {
@@ -38,11 +36,6 @@ interface Product {
     id: number;
     name: string;
   };
-}
-
-interface CategoryOption {
-  id: number;
-  name: string;
 }
 
 interface PreferenceForm {
@@ -203,7 +196,6 @@ export function CustomerDashboard() {
     message: string;
   } | null>(null);
   const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [preferenceForm, setPreferenceForm] = useState<PreferenceForm>({
     age: "",
     location: "",
@@ -217,6 +209,8 @@ export function CustomerDashboard() {
   const [isPreferenceHydrated, setIsPreferenceHydrated] = useState(false);
   const [isDetectingGeo, setIsDetectingGeo] = useState(false);
   const [detectedCountryCode, setDetectedCountryCode] = useState("");
+  const [detectedCountryName, setDetectedCountryName] = useState("");
+  const [detectedContinent, setDetectedContinent] = useState("");
   const [geoDetectionFailed, setGeoDetectionFailed] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const lastAutoPersonalizeKeyRef = useRef("");
@@ -297,12 +291,15 @@ export function CustomerDashboard() {
   }, []);
 
   useEffect(() => {
+    detectGeoDetails();
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       return;
     }
 
     loadPreferenceData();
-    detectGeoDetails();
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -401,9 +398,7 @@ export function CustomerDashboard() {
     return () => clearTimeout(timer);
   }, [wishlistToast]);
 
-  // Live search: trigger search while typing with debounce
   useEffect(() => {
-    // Skip live search on initial load
     if (isInitialLoad) return;
 
     const query = search.trim();
@@ -417,7 +412,7 @@ export function CustomerDashboard() {
       if (!isTopSellingView) {
         loadProducts();
       }
-    }, 500); // Wait 500ms after user stops typing
+    }, 500);
 
     return () => clearTimeout(debounceTimer);
   }, [search, isTopSellingView]);
@@ -460,22 +455,11 @@ export function CustomerDashboard() {
 
   const loadPreferenceData = async () => {
     try {
-      const [categoriesResult, preferenceResult, recommendationsResult] =
+      const [preferenceResult, recommendationsResult] =
         await Promise.allSettled([
-          api.get("/products/categories/"),
           api.get("/ai/preferences/"),
           api.get("/ai/recommendations/personalized/"),
         ]);
-
-      if (categoriesResult.status === "fulfilled") {
-        const categoryItems = Array.isArray(categoriesResult.value.data)
-          ? categoriesResult.value.data
-          : categoriesResult.value.data?.results || [];
-
-        setCategories(
-          categoryItems.map((item: any) => ({ id: item.id, name: item.name })),
-        );
-      }
 
       if (preferenceResult.status === "fulfilled") {
         setPreferenceForm({
@@ -512,6 +496,14 @@ export function CustomerDashboard() {
 
       if (data?.country_code) {
         setDetectedCountryCode(data.country_code);
+      }
+
+      if (data?.country) {
+        setDetectedCountryName(data.country);
+      }
+
+      if (data?.continent) {
+        setDetectedContinent(data.continent);
       }
 
       setPreferenceForm((prev) => ({
@@ -936,175 +928,53 @@ export function CustomerDashboard() {
       <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         {isAuthenticated && (
           <section className="mb-10 rounded-2xl border bg-white/85 p-6 shadow-lg backdrop-blur-sm">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="flex items-center gap-2 text-2xl font-black text-gray-900">
-                  <SlidersHorizontal className="h-6 w-6 text-teal-600" />
-                  AI Personalization Profile
-                </h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Your preferences are saved and trained automatically while you
-                  browse.
-                </p>
-              </div>
-              <div className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700">
-                {isAutoPersonalizing
-                  ? "Personalizing automatically..."
-                  : "Auto-personalization active"}
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Age
-                </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">
-                  {calculatedAge !== null ? calculatedAge : "—"}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Derived from your account profile
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Country
-                    </p>
-                    <p className="mt-1 text-lg font-bold text-gray-900">
-                      {preferenceForm.location
-                        ? `${countryCodeToFlag(detectedCountryCode)} ${preferenceForm.location}`
-                        : isDetectingGeo
-                          ? "Detecting..."
-                          : geoDetectionFailed
-                            ? "Unavailable"
-                            : "—"}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={detectGeoDetails}
-                    disabled={isDetectingGeo}
-                    className="h-8 px-2"
-                    title="Refresh location"
-                  >
-                    <LocateFixed className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Region
-                </p>
-                <div className="mt-1 flex items-center gap-2 text-lg font-bold text-gray-900">
-                  <Globe2 className="h-4 w-4 text-gray-500" />
-                  <span>
-                    {preferenceForm.continent ||
-                      (isDetectingGeo
-                        ? "Detecting..."
-                        : geoDetectionFailed
-                          ? "Unavailable"
-                          : "—")}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <p className="mt-2 text-xs text-gray-500">
-              {isDetectingGeo
-                ? "Refreshing your profile signals..."
-                : geoDetectionFailed
-                  ? "Location signal is temporarily unavailable. You can retry using the refresh icon."
-                  : "Profile signals are captured automatically to power more relevant recommendations."}
-            </p>
-
-            <div className="mt-5">
-              <p className="mb-2 text-sm font-semibold text-gray-700">
-                Preferred Categories
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((category) => {
-                  const selected = preferenceForm.preferred_categories.includes(
-                    category.id,
-                  );
-
-                  return (
-                    <button
-                      key={category.id}
-                      type="button"
-                      onClick={() =>
-                        setPreferenceForm((prev) => ({
-                          ...prev,
-                          preferred_categories: selected
-                            ? prev.preferred_categories.filter(
-                                (id) => id !== category.id,
-                              )
-                            : [...prev.preferred_categories, category.id],
-                        }))
-                      }
-                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                        selected
-                          ? "border-teal-500 bg-teal-50 text-teal-700"
-                          : "border-gray-200 bg-white text-gray-700 hover:border-teal-300"
-                      }`}
-                    >
-                      {category.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <h4 className="mb-3 text-lg font-bold text-gray-900">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h4 className="text-lg font-bold text-gray-900">
                 Exclusive Suggestions for You
               </h4>
-              {personalizedProducts.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600">
-                  Building your exclusive suggestions from your profile,
-                  location, and category interests...
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {personalizedProducts.slice(0, 4).map((product) => (
-                    <Card
-                      key={`pref-${product.id}`}
-                      className="border shadow-sm"
-                    >
-                      <CardHeader className="p-0">
-                        <img
-                          src={
-                            product.image ||
-                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-                          }
-                          alt={product.name}
-                          className="h-36 w-full rounded-t-lg object-cover"
-                        />
-                      </CardHeader>
-                      <CardContent className="p-3">
-                        <p className="line-clamp-1 font-semibold text-gray-900">
-                          {product.name}
-                        </p>
-                        <p className="text-sm font-bold text-teal-700">
-                          ${product.price}
-                        </p>
-                        <Button
-                          onClick={(e) => addToCart(product, e.currentTarget)}
-                          size="sm"
-                          className="mt-2 w-full"
-                        >
-                          Add to Cart
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+              {isAutoPersonalizing && (
+                <span className="text-xs font-semibold text-teal-700">
+                  Refreshing...
+                </span>
               )}
             </div>
+            {personalizedProducts.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+                Preparing your personalized picks...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {personalizedProducts.slice(0, 4).map((product) => (
+                  <Card key={`pref-${product.id}`} className="border shadow-sm">
+                    <CardHeader className="p-0">
+                      <img
+                        src={
+                          product.image ||
+                          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+                        }
+                        alt={product.name}
+                        className="h-36 w-full rounded-t-lg object-cover"
+                      />
+                    </CardHeader>
+                    <CardContent className="p-3">
+                      <p className="line-clamp-1 font-semibold text-gray-900">
+                        {product.name}
+                      </p>
+                      <p className="text-sm font-bold text-teal-700">
+                        ${product.price}
+                      </p>
+                      <Button
+                        onClick={(e) => addToCart(product, e.currentTarget)}
+                        size="sm"
+                        className="mt-2 w-full"
+                      >
+                        Add to Cart
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -1347,6 +1217,17 @@ export function CustomerDashboard() {
             <p className="text-sm font-semibold bg-gradient-to-r from-gray-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent mb-2 tracking-wide">
               Soft Style Smart Shopping
             </p>
+            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-teal-500/40 bg-teal-500/10 px-4 py-1.5 text-sm font-semibold text-teal-300 shadow-lg shadow-teal-900/20">
+              <Globe2 className="h-4 w-4" />
+              {(detectedCountryName || preferenceForm.location) &&
+              (detectedContinent || preferenceForm.continent)
+                ? `${countryCodeToFlag(detectedCountryCode)} You're from ${detectedCountryName || preferenceForm.location}, ${detectedContinent || preferenceForm.continent}`
+                : isDetectingGeo
+                  ? "Detecting your region..."
+                  : geoDetectionFailed
+                    ? "Region unavailable right now"
+                    : "Welcome from around the world"}
+            </div>
             <p className="text-xs text-gray-500">© 2026 All rights reserved.</p>
           </div>
         </div>
