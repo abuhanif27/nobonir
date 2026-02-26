@@ -788,11 +788,11 @@ export function CustomerDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md shadow-sm border-b sticky top-0 z-50">
+      <header className="sticky top-0 z-50 border-b bg-white/80 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-600 blur-lg opacity-70 animate-pulse"></div>
@@ -801,7 +801,7 @@ export function CustomerDashboard() {
                 </div>
               </div>
               <div>
-                <h1 className="text-3xl font-black tracking-tight">
+                <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
                   <span className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-700 bg-clip-text text-transparent drop-shadow-sm">
                     No
                   </span>
@@ -814,7 +814,7 @@ export function CustomerDashboard() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:justify-end lg:gap-3">
               {isAuthenticated ? (
                 <>
                   <Link to="/cart">
@@ -918,7 +918,7 @@ export function CustomerDashboard() {
                 <>
                   <Badge
                     variant="secondary"
-                    className="hidden sm:flex gap-1.5 py-1.5 px-3"
+                    className="hidden gap-1.5 py-1.5 px-3 md:flex"
                   >
                     <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
                     Browsing as Guest
@@ -971,7 +971,7 @@ export function CustomerDashboard() {
       </header>
 
       {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-700 text-white py-16 mb-8">
+      <div className="relative mb-8 overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-700 py-12 text-white sm:py-16">
         {/* Animated Background Circles */}
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
         <div
@@ -987,19 +987,19 @@ export function CustomerDashboard() {
           <div className="text-center max-w-3xl mx-auto">
             <div className="mb-6 flex items-center justify-center gap-3">
               <Sparkles className="h-10 w-10 text-yellow-300 animate-pulse" />
-              <h2 className="text-5xl md:text-6xl font-black tracking-tight">
+              <h2 className="text-4xl font-black tracking-tight sm:text-5xl md:text-6xl">
                 <span className="bg-gradient-to-r from-white via-cyan-100 to-blue-100 bg-clip-text text-transparent drop-shadow-lg">
                   Discover
                 </span>
               </h2>
               <Sparkles className="h-10 w-10 text-yellow-300 animate-pulse" />
             </div>
-            <p className="text-2xl font-light text-white/95 mb-8 tracking-wide">
+            <p className="mb-8 text-lg font-light tracking-wide text-white/95 sm:text-2xl">
               Find exactly what you need with intelligent search
             </p>
 
             {/* Enhanced Search */}
-            <div className="flex gap-3 max-w-2xl mx-auto">
+            <div className="mx-auto flex max-w-2xl flex-col gap-3 sm:flex-row">
               <div className="relative flex-1 group">
                 <div className="absolute inset-0 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-500 opacity-0 group-focus-within:opacity-100 blur-xl transition-opacity duration-300 rounded-2xl"></div>
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
@@ -1009,13 +1009,13 @@ export function CustomerDashboard() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="relative pl-12 h-14 text-lg text-gray-900 placeholder:text-gray-500 caret-teal-600 bg-white/98 backdrop-blur-md border-0 shadow-2xl focus-visible:ring-2 focus-visible:ring-white/50 rounded-2xl font-medium"
+                  className="relative h-14 rounded-2xl border-0 bg-white/98 pl-12 text-base font-medium text-gray-900 caret-teal-600 placeholder:text-gray-500 shadow-2xl backdrop-blur-md focus-visible:ring-2 focus-visible:ring-white/50 sm:text-lg"
                 />
               </div>
               <Button
                 onClick={handleSearch}
                 size="lg"
-                className="h-14 px-8 bg-white text-teal-600 hover:bg-gray-50 font-bold shadow-2xl hover:shadow-xl transition-all hover:scale-105"
+                className="h-14 bg-white px-8 font-bold text-teal-600 shadow-2xl transition-all hover:scale-105 hover:bg-gray-50 hover:shadow-xl"
               >
                 <Sparkles className="mr-2 h-5 w-5 text-yellow-500" />
                 Search

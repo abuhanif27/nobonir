@@ -242,11 +242,11 @@ export function ProfilePage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-10">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-6 sm:py-10 dark:from-slate-950 dark:to-slate-900">
       <div className="mx-auto max-w-6xl space-y-6">
         {/* Header with Profile Picture */}
         <Card className="border-none shadow-lg">
-          <CardContent className="p-8">
+          <CardContent className="p-5 sm:p-8">
             <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
               {/* Profile Picture */}
               <div className="relative">
@@ -315,28 +315,34 @@ export function ProfilePage() {
               </div>
 
               {/* Edit Button */}
-              <div className="flex gap-2">
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                 <Link to="/">
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" className="w-full gap-2 sm:w-auto">
                     <ShoppingCart className="h-4 w-4" />
                     Back to Shopping
                   </Button>
                 </Link>
                 {!isEditing ? (
-                  <Button onClick={() => setIsEditing(true)} className="gap-2">
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    className="w-full gap-2 sm:w-auto"
+                  >
                     <Edit2 className="h-4 w-4" />
                     Edit Profile
                   </Button>
                 ) : (
                   <>
-                    <Button onClick={handleSaveProfile} className="gap-2">
+                    <Button
+                      onClick={handleSaveProfile}
+                      className="w-full gap-2 sm:w-auto"
+                    >
                       <Save className="h-4 w-4" />
                       Save
                     </Button>
                     <Button
                       onClick={handleCancelEdit}
                       variant="outline"
-                      className="gap-2"
+                      className="w-full gap-2 sm:w-auto"
                     >
                       <X className="h-4 w-4" />
                       Cancel

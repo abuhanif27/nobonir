@@ -196,7 +196,7 @@ export function CartPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div
         className={`fixed inset-0 z-50 flex items-center justify-center px-4 transition-all duration-300 ${
           clearConfirmOpen
@@ -251,10 +251,12 @@ export function CartPage() {
       </div>
 
       {/* Header */}
-      <header className="bg-white shadow">
+      <header className="bg-card shadow">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-bold text-foreground">
+              Shopping Cart
+            </h1>
             <Link to="/">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -289,7 +291,7 @@ export function CartPage() {
             {/* Cart Items */}
             <div className="lg:col-span-2">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardHeader className="flex flex-col items-start justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
                   <CardTitle>Cart Items ({cartItems.length})</CardTitle>
                   <Button
                     variant="outline"
@@ -303,79 +305,81 @@ export function CartPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {cartItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-4 rounded-lg border p-4"
-                    >
-                      <img
-                        src={
-                          item.product.image ||
-                          item.product.image_url ||
-                          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop"
-                        }
-                        alt={item.product.name}
-                        className="h-20 w-20 rounded object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src =
-                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop";
-                        }}
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{item.product.name}</h3>
-                        <p className="text-sm text-gray-600">
-                          ${item.product.price} each
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Stock: {item.product.stock}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="inline-flex items-center rounded-md border bg-white">
+                    <div key={item.id} className="rounded-lg border p-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                        <img
+                          src={
+                            item.product.image ||
+                            item.product.image_url ||
+                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop"
+                          }
+                          alt={item.product.name}
+                          className="h-20 w-20 rounded object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src =
+                              "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop";
+                          }}
+                        />
+                        <div className="flex-1">
+                          <h3 className="font-semibold">{item.product.name}</h3>
+                          <p className="text-sm text-gray-600">
+                            ${item.product.price} each
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Stock: {item.product.stock}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="inline-flex items-center rounded-md border bg-white">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 px-2 rounded-r-none"
+                              onClick={() =>
+                                updateQuantity(item.id, item.quantity - 1)
+                              }
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <span className="w-10 text-center text-sm font-semibold">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 px-2 rounded-l-none"
+                              onClick={() =>
+                                updateQuantity(
+                                  item.id,
+                                  Math.min(
+                                    item.product.stock,
+                                    item.quantity + 1,
+                                  ),
+                                )
+                              }
+                              disabled={item.quantity >= item.product.stock}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
                           <Button
-                            type="button"
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            className="h-9 px-2 rounded-r-none"
-                            onClick={() =>
-                              updateQuantity(item.id, item.quantity - 1)
-                            }
+                            onClick={() => removeItem(item.id)}
                           >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <span className="w-10 text-center text-sm font-semibold">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-9 px-2 rounded-l-none"
-                            onClick={() =>
-                              updateQuantity(
-                                item.id,
-                                Math.min(item.product.stock, item.quantity + 1),
-                              )
-                            }
-                            disabled={item.quantity >= item.product.stock}
-                          >
-                            <Plus className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeItem(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">
-                          $
-                          {(
-                            parseFloat(item.product.price) * item.quantity
-                          ).toFixed(2)}
-                        </p>
+                        <div className="text-left sm:text-right">
+                          <p className="font-semibold">
+                            $
+                            {(
+                              parseFloat(item.product.price) * item.quantity
+                            ).toFixed(2)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   ))}

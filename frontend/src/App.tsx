@@ -10,55 +10,60 @@ import { ProductPage } from "@/pages/ProductPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { WishlistPage } from "@/pages/WishlistPage";
+import { ThemeProvider } from "@/lib/theme";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 function App() {
   const { isAuthenticated, isAdmin } = useAuthStore();
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public routes - accessible to all */}
-        <Route
-          path="/"
-          element={
-            isAuthenticated && isAdmin ? (
-              <Navigate to="/admin" replace />
-            ) : (
-              <CustomerDashboard />
-            )
-          }
-        />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/product/:id" element={<ProductPage />} />
-        <Route
-          path="/login"
-          element={
-            !isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            !isAuthenticated ? <RegisterPage /> : <Navigate to="/" replace />
-          }
-        />
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes - accessible to all */}
+          <Route
+            path="/"
+            element={
+              isAuthenticated && isAdmin ? (
+                <Navigate to="/admin" replace />
+              ) : (
+                <CustomerDashboard />
+              )
+            }
+          />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/product/:id" element={<ProductPage />} />
+          <Route
+            path="/login"
+            element={
+              !isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              !isAuthenticated ? <RegisterPage /> : <Navigate to="/" replace />
+            }
+          />
 
-        {/* Protected customer routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/wishlist" element={<WishlistPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-        </Route>
+          {/* Protected customer routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/wishlist" element={<WishlistPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
 
-        {/* Admin routes */}
-        <Route element={<ProtectedRoute requireAdmin />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-        </Route>
+          {/* Admin routes */}
+          <Route element={<ProtectedRoute requireAdmin />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+          </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <ThemeToggle />
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

@@ -187,9 +187,9 @@ export function OrdersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50">
-      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 p-2.5 shadow-lg">
               <Package className="h-6 w-6 text-white" />
@@ -397,7 +397,7 @@ export function OrdersPage() {
 
                     {expanded && (
                       <div className="overflow-hidden rounded-lg border">
-                        <div className="grid grid-cols-[1fr_auto_auto] gap-3 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <div className="hidden grid-cols-[1fr_auto_auto] gap-3 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
                           <span>Item</span>
                           <span>Qty</span>
                           <span>Subtotal</span>
@@ -406,15 +406,15 @@ export function OrdersPage() {
                           {order.items.map((item) => (
                             <div
                               key={item.id}
-                              className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 text-sm"
+                              className="grid grid-cols-1 gap-1 px-4 py-3 text-sm sm:grid-cols-[1fr_auto_auto] sm:gap-3"
                             >
                               <span className="font-medium text-slate-800">
                                 {item.product_name}
                               </span>
-                              <span className="text-slate-600">
+                              <span className="text-slate-600 sm:text-right">
                                 x{item.quantity}
                               </span>
-                              <span className="font-semibold text-slate-900">
+                              <span className="font-semibold text-slate-900 sm:text-right">
                                 {formatMoney(
                                   toAmount(item.unit_price) * item.quantity,
                                 )}

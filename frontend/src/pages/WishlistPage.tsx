@@ -197,9 +197,9 @@ export function WishlistPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-orange-50 to-cyan-50">
-      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-orange-50 to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 p-2.5 shadow-lg">
               <Heart className="h-6 w-6 text-white" />
@@ -273,8 +273,8 @@ export function WishlistPage() {
 
         <Card className="mb-6 border-0 bg-white shadow-sm">
           <CardContent className="pt-6 space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-[220px]">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+              <div className="relative w-full flex-1 sm:min-w-[220px]">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={query}
@@ -289,7 +289,7 @@ export function WishlistPage() {
                   movingAll ||
                   filteredItems.every((item) => item.product.stock <= 0)
                 }
-                className="gap-2 bg-gradient-to-r from-teal-500 to-cyan-600"
+                className="w-full gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 sm:w-auto"
               >
                 <Sparkles className="h-4 w-4" />
                 {movingAll ? "Moving..." : "Move All Available to Cart"}

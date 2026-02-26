@@ -146,7 +146,7 @@ export function ProductPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-gray-600">Loading product...</p>
       </div>
     );
@@ -154,7 +154,7 @@ export function ProductPage() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
           <Card>
             <CardContent className="py-12 text-center">
@@ -178,9 +178,9 @@ export function ProductPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-      <header className="bg-white/80 backdrop-blur-md shadow-sm border-b">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <header className="bg-white/80 backdrop-blur-md shadow-sm border-b dark:bg-slate-900/80 dark:border-slate-800">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <Button variant="outline" onClick={() => navigate(-1)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -199,7 +199,7 @@ export function ProductPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-2">
           <Card className="overflow-hidden border-0 shadow-xl">
             <img
@@ -212,14 +212,14 @@ export function ProductPage() {
             />
           </Card>
 
-          <Card className="border-0 shadow-xl bg-white/90">
-            <CardContent className="p-8">
+          <Card className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85">
+            <CardContent className="p-5 sm:p-8">
               <Badge variant="secondary" className="mb-4 gap-1.5">
                 <Tag className="h-3 w-3" />
                 {product.category.name}
               </Badge>
 
-              <h1 className="text-4xl font-black text-gray-900 mb-4">
+              <h1 className="mb-4 text-3xl font-black text-gray-900 dark:text-slate-100 sm:text-4xl">
                 {product.name}
               </h1>
 

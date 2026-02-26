@@ -19,12 +19,77 @@
   --radius: 0.9rem;
 }
 
+.dark {
+  --background: 222 47% 8%;
+  --foreground: 210 40% 96%;
+  --card: 222 35% 12%;
+  --card-foreground: 210 40% 96%;
+  --primary: 183 88% 44%;
+  --primary-foreground: 222 47% 8%;
+  --secondary: 217 20% 20%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 217 20% 18%;
+  --muted-foreground: 215 20% 72%;
+  --border: 217 20% 24%;
+  --input: 217 20% 24%;
+  --ring: 183 88% 44%;
+}
+
 * {
   @apply border-border;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  min-width: 0;
 }
 
 body {
   @apply bg-background text-foreground antialiased;
   margin: 0;
   min-width: 320px;
+}
+
+@layer base {
+  .dark .bg-white,
+  .dark .bg-white\/90,
+  .dark .bg-white\/80,
+  .dark .bg-white\/85,
+  .dark .bg-white\/95,
+  .dark .bg-gray-50,
+  .dark .bg-gray-100,
+  .dark .bg-slate-50 {
+    background-color: rgb(15 23 42) !important;
+  }
+
+  .dark .text-gray-900,
+  .dark .text-slate-900 {
+    color: rgb(241 245 249) !important;
+  }
+
+  .dark .text-gray-700,
+  .dark .text-gray-600,
+  .dark .text-gray-500,
+  .dark .text-slate-700,
+  .dark .text-slate-600,
+  .dark .text-slate-500,
+  .dark .text-slate-400 {
+    color: rgb(148 163 184) !important;
+  }
+
+  .dark .border-gray-100,
+  .dark .border-gray-200,
+  .dark .border-gray-300,
+  .dark .border-slate-100,
+  .dark .border-slate-200,
+  .dark .border-slate-300 {
+    border-color: rgb(51 65 85) !important;
+  }
 }
