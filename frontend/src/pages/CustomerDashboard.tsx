@@ -22,6 +22,9 @@ import {
   Tag,
   Trophy,
   ChevronDown,
+  Globe2,
+  Wand2,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface Product {
@@ -35,6 +38,18 @@ interface Product {
     id: number;
     name: string;
   };
+}
+
+interface CategoryOption {
+  id: number;
+  name: string;
+}
+
+interface PreferenceForm {
+  age: string;
+  location: string;
+  continent: string;
+  preferred_categories: number[];
 }
 
 // Demo products with beautiful images
@@ -188,6 +203,18 @@ export function CustomerDashboard() {
     message: string;
   } | null>(null);
   const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [preferenceForm, setPreferenceForm] = useState<PreferenceForm>({
+    age: "",
+    location: "",
+    continent: "",
+    preferred_categories: [],
+  });
+  const [personalizedProducts, setPersonalizedProducts] = useState<Product[]>(
+    [],
+  );
+  const [isSavingPreference, setIsSavingPreference] = useState(false);
+  const [isTrainingPreference, setIsTrainingPreference] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -228,6 +255,14 @@ export function CustomerDashboard() {
     refreshCartCount();
     setIsInitialLoad(false);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    loadPreferenceData();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isUserMenuOpen) {
@@ -314,6 +349,90 @@ export function CustomerDashboard() {
       setCartCount(apiCount > 0 ? apiCount : getLocalCartCount());
     } catch {
       setCartCount(getLocalCartCount());
+    }
+  };
+
+  const loadPreferenceData = async () => {
+    try {
+      const [categoriesResponse, preferenceResponse, recommendationResponse] =
+        await Promise.all([
+          api.get("/products/categories/"),
+          api.get("/ai/preferences/"),
+          api.get("/ai/recommendations/personalized/"),
+        ]);
+
+      const categoryItems = Array.isArray(categoriesResponse.data)
+        ? categoriesResponse.data
+        : categoriesResponse.data?.results || [];
+
+      setCategories(
+        categoryItems.map((item: any) => ({ id: item.id, name: item.name })),
+      );
+
+      setPreferenceForm({
+        age: preferenceResponse.data?.age
+          ? String(preferenceResponse.data.age)
+          : "",
+        location: preferenceResponse.data?.location || "",
+        continent: preferenceResponse.data?.continent || "",
+        preferred_categories:
+          preferenceResponse.data?.preferred_categories || [],
+      });
+
+      setPersonalizedProducts(
+        normalizeProducts(recommendationResponse.data || []).filter(
+          (product) => product.stock > 0,
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to load preference data:", error);
+    }
+  };
+
+  const savePreferences = async () => {
+    setIsSavingPreference(true);
+    try {
+      await api.put("/ai/preferences/", {
+        age: preferenceForm.age ? Number(preferenceForm.age) : null,
+        location: preferenceForm.location,
+        continent: preferenceForm.continent,
+        preferred_categories: preferenceForm.preferred_categories,
+      });
+
+      setWishlistToast({
+        type: "success",
+        message: "Preferences saved",
+      });
+    } catch (error: any) {
+      setWishlistToast({
+        type: "error",
+        message: error.response?.data?.detail || "Failed to save preferences",
+      });
+    } finally {
+      setIsSavingPreference(false);
+    }
+  };
+
+  const trainAndSuggest = async () => {
+    setIsTrainingPreference(true);
+    try {
+      const response = await api.post("/ai/preferences/train/");
+      setPersonalizedProducts(
+        normalizeProducts(response.data?.recommendations || []).filter(
+          (product) => product.stock > 0,
+        ),
+      );
+      setWishlistToast({
+        type: "success",
+        message: "Model trained. Suggestions updated.",
+      });
+    } catch (error: any) {
+      setWishlistToast({
+        type: "error",
+        message: error.response?.data?.detail || "Failed to train suggestions",
+      });
+    } finally {
+      setIsTrainingPreference(false);
     }
   };
 
@@ -724,6 +843,186 @@ export function CustomerDashboard() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+        {isAuthenticated && (
+          <section className="mb-10 rounded-2xl border bg-white/85 p-6 shadow-lg backdrop-blur-sm">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-2xl font-black text-gray-900">
+                  <SlidersHorizontal className="h-6 w-6 text-teal-600" />
+                  Personal Preferences Segment
+                </h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  Set age, location, continent, and category interests to train
+                  suggestions from available store products.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={savePreferences}
+                  disabled={isSavingPreference}
+                  variant="outline"
+                >
+                  {isSavingPreference ? "Saving..." : "Save Preferences"}
+                </Button>
+                <Button
+                  onClick={trainAndSuggest}
+                  disabled={isTrainingPreference}
+                  className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700"
+                >
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  {isTrainingPreference ? "Training..." : "Train & Suggest"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Age
+                </label>
+                <Input
+                  type="number"
+                  min={10}
+                  max={100}
+                  value={preferenceForm.age}
+                  onChange={(e) =>
+                    setPreferenceForm((prev) => ({
+                      ...prev,
+                      age: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g. 25"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Location
+                </label>
+                <Input
+                  value={preferenceForm.location}
+                  onChange={(e) =>
+                    setPreferenceForm((prev) => ({
+                      ...prev,
+                      location: e.target.value,
+                    }))
+                  }
+                  placeholder="City or country"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Continent
+                </label>
+                <div className="relative">
+                  <Globe2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <select
+                    value={preferenceForm.continent}
+                    onChange={(e) =>
+                      setPreferenceForm((prev) => ({
+                        ...prev,
+                        continent: e.target.value,
+                      }))
+                    }
+                    className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm"
+                  >
+                    <option value="">Select continent</option>
+                    <option value="Asia">Asia</option>
+                    <option value="Europe">Europe</option>
+                    <option value="North America">North America</option>
+                    <option value="South America">South America</option>
+                    <option value="Africa">Africa</option>
+                    <option value="Oceania">Oceania</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <p className="mb-2 text-sm font-semibold text-gray-700">
+                Preferred Categories
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => {
+                  const selected = preferenceForm.preferred_categories.includes(
+                    category.id,
+                  );
+
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() =>
+                        setPreferenceForm((prev) => ({
+                          ...prev,
+                          preferred_categories: selected
+                            ? prev.preferred_categories.filter(
+                                (id) => id !== category.id,
+                              )
+                            : [...prev.preferred_categories, category.id],
+                        }))
+                      }
+                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        selected
+                          ? "border-teal-500 bg-teal-50 text-teal-700"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-teal-300"
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h4 className="mb-3 text-lg font-bold text-gray-900">
+                Suggested for You (Available Now)
+              </h4>
+              {personalizedProducts.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+                  No personalized suggestions yet. Save preferences and click
+                  Train & Suggest.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {personalizedProducts.slice(0, 4).map((product) => (
+                    <Card
+                      key={`pref-${product.id}`}
+                      className="border shadow-sm"
+                    >
+                      <CardHeader className="p-0">
+                        <img
+                          src={
+                            product.image ||
+                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+                          }
+                          alt={product.name}
+                          className="h-36 w-full rounded-t-lg object-cover"
+                        />
+                      </CardHeader>
+                      <CardContent className="p-3">
+                        <p className="line-clamp-1 font-semibold text-gray-900">
+                          {product.name}
+                        </p>
+                        <p className="text-sm font-bold text-teal-700">
+                          ${product.price}
+                        </p>
+                        <Button
+                          onClick={(e) => addToCart(product, e.currentTarget)}
+                          size="sm"
+                          className="mt-2 w-full"
+                        >
+                          Add to Cart
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Products */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24">

@@ -1,7 +1,12 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from ai_engine.services.recommendation_service import get_recommendations_for_user
+from ai_engine.services.recommendation_service import (
+	get_personalized_recommendations_for_user,
+	get_recommendations_for_user,
+	train_user_preference_model,
+)
+from ai_engine.models import UserPreference
 from ai_engine.services.search_service import semantic_product_search
 from cart.models import WishlistItem
 from products.models import Category, Product
@@ -21,6 +26,18 @@ class AIRecommendationTests(TestCase):
 	def test_recommendations_returns_products(self):
 		results = get_recommendations_for_user(self.user, limit=2)
 		self.assertGreaterEqual(len(results), 1)
+
+	def test_personalized_recommendations_include_in_stock_only(self):
+		self.p2.stock = 0
+		self.p2.save(update_fields=["stock"])
+		results = get_personalized_recommendations_for_user(self.user, limit=5)
+		self.assertTrue(all(product.stock > 0 for product in results))
+
+	def test_training_creates_weights(self):
+		preference, _ = UserPreference.objects.get_or_create(user=self.user)
+		preference.preferred_categories.set([self.p1.category])
+		trained = train_user_preference_model(self.user)
+		self.assertTrue(bool(trained.trained_category_weights))
 
 
 class AISearchTests(TestCase):
