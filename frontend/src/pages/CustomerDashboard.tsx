@@ -214,6 +214,7 @@ export function CustomerDashboard() {
   );
   const [activeSuggestionCategory, setActiveSuggestionCategory] =
     useState("All");
+  const [suggestionStartIndex, setSuggestionStartIndex] = useState(0);
   const [isAutoPersonalizing, setIsAutoPersonalizing] = useState(false);
   const [isPreferenceHydrated, setIsPreferenceHydrated] = useState(false);
   const [isDetectingGeo, setIsDetectingGeo] = useState(false);
@@ -221,7 +222,6 @@ export function CustomerDashboard() {
   const [detectedCountryName, setDetectedCountryName] = useState("");
   const [detectedContinent, setDetectedContinent] = useState("");
   const [geoDetectionFailed, setGeoDetectionFailed] = useState(false);
-  const suggestionCarouselRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const lastAutoPersonalizeKeyRef = useRef("");
 
@@ -314,6 +314,18 @@ export function CustomerDashboard() {
     );
   }, [personalizedProducts, activeSuggestionCategory]);
 
+  const suggestionWindowProducts = useMemo(() => {
+    if (visibleSuggestions.length === 0) {
+      return [];
+    }
+
+    const windowSize = Math.min(3, visibleSuggestions.length);
+    return Array.from({ length: windowSize }, (_, offset) => {
+      const index = (suggestionStartIndex + offset) % visibleSuggestions.length;
+      return visibleSuggestions[index];
+    });
+  }, [visibleSuggestions, suggestionStartIndex]);
+
   useEffect(() => {
     if (
       activeSuggestionCategory !== "All" &&
@@ -324,13 +336,17 @@ export function CustomerDashboard() {
   }, [activeSuggestionCategory, suggestionCategories]);
 
   useEffect(() => {
-    const carousel = suggestionCarouselRef.current;
-    if (!carousel) {
+    setSuggestionStartIndex(0);
+  }, [activeSuggestionCategory]);
+
+  useEffect(() => {
+    if (visibleSuggestions.length === 0) {
+      setSuggestionStartIndex(0);
       return;
     }
 
-    carousel.scrollTo({ left: 0, behavior: "smooth" });
-  }, [activeSuggestionCategory]);
+    setSuggestionStartIndex((prev) => prev % visibleSuggestions.length);
+  }, [visibleSuggestions.length]);
 
   useEffect(() => {
     loadProducts();
@@ -853,15 +869,16 @@ export function CustomerDashboard() {
   };
 
   const scrollSuggestionCarousel = (direction: "left" | "right") => {
-    const carousel = suggestionCarouselRef.current;
-    if (!carousel) {
+    if (visibleSuggestions.length <= 1) {
       return;
     }
 
-    const delta = Math.max(carousel.clientWidth * 0.8, 260);
-    carousel.scrollBy({
-      left: direction === "right" ? delta : -delta,
-      behavior: "smooth",
+    setSuggestionStartIndex((prev) => {
+      if (direction === "right") {
+        return (prev + 1) % visibleSuggestions.length;
+      }
+
+      return (prev - 1 + visibleSuggestions.length) % visibleSuggestions.length;
     });
   };
 
@@ -1308,6 +1325,7 @@ export function CustomerDashboard() {
                     variant="outline"
                     onClick={() => scrollSuggestionCarousel("left")}
                     aria-label="Previous suggestions"
+                    disabled={visibleSuggestions.length <= 1}
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -1317,21 +1335,19 @@ export function CustomerDashboard() {
                     variant="outline"
                     onClick={() => scrollSuggestionCarousel("right")}
                     aria-label="Next suggestions"
+                    disabled={visibleSuggestions.length <= 1}
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
 
-                <div
-                  ref={suggestionCarouselRef}
-                  className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
-                >
-                  {visibleSuggestions.map((product) => (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {suggestionWindowProducts.map((product, cardIndex) => (
                     <Card
-                      key={`pref-${product.id}`}
+                      key={`pref-${product.id}-${cardIndex}`}
                       className="border shadow-sm"
                     >
-                      <CardHeader className="p-0 min-w-[240px] snap-start sm:min-w-[260px] lg:min-w-[280px]">
+                      <CardHeader className="p-0">
                         <img
                           src={
                             product.image ||
