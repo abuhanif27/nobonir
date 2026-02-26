@@ -186,6 +186,8 @@ const DEMO_PRODUCTS: Product[] = [
   },
 ];
 
+const SUGGESTION_CAROUSEL_AUTOPLAY_MS = 3000;
+
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
@@ -347,6 +349,18 @@ export function CustomerDashboard() {
 
     setSuggestionStartIndex((prev) => prev % visibleSuggestions.length);
   }, [visibleSuggestions.length]);
+
+  useEffect(() => {
+    if (visibleSuggestions.length <= 1) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setSuggestionStartIndex((prev) => (prev + 1) % visibleSuggestions.length);
+    }, SUGGESTION_CAROUSEL_AUTOPLAY_MS);
+
+    return () => window.clearInterval(timer);
+  }, [visibleSuggestions.length, activeSuggestionCategory]);
 
   useEffect(() => {
     loadProducts();
