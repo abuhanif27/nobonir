@@ -23,6 +23,11 @@ type PersistedCurrencyState = {
   rates: Record<string, number>;
 };
 
+type GeoResolution = {
+  countryCode: string;
+  currencyCode: string;
+};
+
 const REGION_FALLBACK_CURRENCY: Record<string, string> = {
   BD: "BDT",
   US: "USD",
@@ -151,7 +156,16 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const normalizeCountryCode = (data: any) =>
       String(data?.country_code || data?.countryCode || "").toUpperCase();
 
-    const resolveCountryCode = async () => {
+    const normalizeCurrencyCode = (data: any) =>
+      String(
+        data?.currency_code ||
+          data?.currencyCode ||
+          data?.currency?.code ||
+          data?.currency ||
+          "",
+      ).toUpperCase();
+
+    const resolveGeoContext = async (): Promise<GeoResolution> => {
       try {
         const response = await fetch("https://ipwho.is/", {
           cache: "no-store",
@@ -160,8 +174,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           const data = await response.json();
           if (data?.success) {
             const code = normalizeCountryCode(data);
-            if (code) {
-              return code;
+            const currency = normalizeCurrencyCode(data);
+            if (code || currency) {
+              return { countryCode: code, currencyCode: currency };
             }
           }
         }
@@ -176,8 +191,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const data = await response.json();
           const code = normalizeCountryCode(data);
-          if (code) {
-            return code;
+          const currency = normalizeCurrencyCode(data);
+          if (code || currency) {
+            return { countryCode: code, currencyCode: currency };
           }
         }
       } catch {
@@ -193,8 +209,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           },
         });
         const code = normalizeCountryCode(response.data);
-        if (code) {
-          return code;
+        const currency = normalizeCurrencyCode(response.data);
+        if (code || currency) {
+          return { countryCode: code, currencyCode: currency };
         }
       } catch {
         // Continue to backend fallback
@@ -205,14 +222,15 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           params: { _ts: Date.now() },
         });
         const code = normalizeCountryCode(response.data);
-        if (code) {
-          return code;
+        const currency = normalizeCurrencyCode(response.data);
+        if (code || currency) {
+          return { countryCode: code, currencyCode: currency };
         }
       } catch {
         // Final fallback happens below
       }
 
-      return "";
+      return { countryCode: "", currencyCode: "" };
     };
 
     const fetchRates = async () => {
@@ -239,7 +257,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
     const fetchGeoAndCurrency = async () => {
       try {
-        const nextCountry = await resolveCountryCode();
+        const geo = await resolveGeoContext();
+        const nextCountry = geo.countryCode;
+        const nextCurrency = geo.currencyCode;
 
         if (!isMounted) {
           return;
@@ -264,15 +284,27 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
               if (firstCurrency) {
                 setCurrencyCode(firstCurrency.toUpperCase());
+              } else if (nextCurrency) {
+                setCurrencyCode(nextCurrency);
               } else {
                 setCurrencyCode(REGION_FALLBACK_CURRENCY[nextCountry] || "USD");
               }
             } else {
-              setCurrencyCode(REGION_FALLBACK_CURRENCY[nextCountry] || "USD");
+              if (nextCurrency) {
+                setCurrencyCode(nextCurrency);
+              } else {
+                setCurrencyCode(REGION_FALLBACK_CURRENCY[nextCountry] || "USD");
+              }
             }
           } catch {
-            setCurrencyCode(REGION_FALLBACK_CURRENCY[nextCountry] || "USD");
+            if (nextCurrency) {
+              setCurrencyCode(nextCurrency);
+            } else {
+              setCurrencyCode(REGION_FALLBACK_CURRENCY[nextCountry] || "USD");
+            }
           }
+        } else if (nextCurrency) {
+          setCurrencyCode(nextCurrency);
         } else {
           setCurrencyCode(getFallbackCurrencyFromLocale());
         }
