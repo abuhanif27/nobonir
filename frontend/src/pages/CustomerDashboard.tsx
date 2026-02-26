@@ -23,7 +23,6 @@ import {
   Trophy,
   ChevronDown,
   Globe2,
-  Wand2,
   SlidersHorizontal,
   LocateFixed,
 } from "lucide-react";
@@ -214,12 +213,13 @@ export function CustomerDashboard() {
   const [personalizedProducts, setPersonalizedProducts] = useState<Product[]>(
     [],
   );
-  const [isSavingPreference, setIsSavingPreference] = useState(false);
-  const [isTrainingPreference, setIsTrainingPreference] = useState(false);
+  const [isAutoPersonalizing, setIsAutoPersonalizing] = useState(false);
+  const [isPreferenceHydrated, setIsPreferenceHydrated] = useState(false);
   const [isDetectingGeo, setIsDetectingGeo] = useState(false);
   const [detectedCountryCode, setDetectedCountryCode] = useState("");
   const [geoDetectionFailed, setGeoDetectionFailed] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const lastAutoPersonalizeKeyRef = useRef("");
 
   const getAgeFromBirthDate = (dateOfBirth?: string) => {
     if (!dateOfBirth) {
@@ -304,6 +304,60 @@ export function CustomerDashboard() {
     loadPreferenceData();
     detectGeoDetails();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isPreferenceHydrated || isDetectingGeo) {
+      return;
+    }
+
+    const payload = {
+      age:
+        calculatedAge !== null
+          ? calculatedAge
+          : preferenceForm.age
+            ? Number(preferenceForm.age)
+            : null,
+      location: preferenceForm.location.trim(),
+      continent: preferenceForm.continent.trim(),
+      preferred_categories: [...preferenceForm.preferred_categories].sort(
+        (left, right) => left - right,
+      ),
+    };
+
+    const key = JSON.stringify(payload);
+    if (key === lastAutoPersonalizeKeyRef.current) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsAutoPersonalizing(true);
+      try {
+        await api.put("/ai/preferences/", payload);
+        const response = await api.post("/ai/preferences/train/");
+        setPersonalizedProducts(
+          normalizeProducts(response.data?.recommendations || []).filter(
+            (product) => product.stock > 0,
+          ),
+        );
+        lastAutoPersonalizeKeyRef.current = key;
+      } catch (error) {
+        console.error("Automatic personalization failed:", error);
+      } finally {
+        setIsAutoPersonalizing(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [
+    isAuthenticated,
+    isPreferenceHydrated,
+    isDetectingGeo,
+    calculatedAge,
+    preferenceForm.age,
+    preferenceForm.location,
+    preferenceForm.continent,
+    preferenceForm.preferred_categories,
+  ]);
 
   useEffect(() => {
     if (calculatedAge === null) {
@@ -406,38 +460,46 @@ export function CustomerDashboard() {
 
   const loadPreferenceData = async () => {
     try {
-      const [categoriesResponse, preferenceResponse, recommendationResponse] =
-        await Promise.all([
+      const [categoriesResult, preferenceResult, recommendationsResult] =
+        await Promise.allSettled([
           api.get("/products/categories/"),
           api.get("/ai/preferences/"),
           api.get("/ai/recommendations/personalized/"),
         ]);
 
-      const categoryItems = Array.isArray(categoriesResponse.data)
-        ? categoriesResponse.data
-        : categoriesResponse.data?.results || [];
+      if (categoriesResult.status === "fulfilled") {
+        const categoryItems = Array.isArray(categoriesResult.value.data)
+          ? categoriesResult.value.data
+          : categoriesResult.value.data?.results || [];
 
-      setCategories(
-        categoryItems.map((item: any) => ({ id: item.id, name: item.name })),
-      );
+        setCategories(
+          categoryItems.map((item: any) => ({ id: item.id, name: item.name })),
+        );
+      }
 
-      setPreferenceForm({
-        age: preferenceResponse.data?.age
-          ? String(preferenceResponse.data.age)
-          : "",
-        location: preferenceResponse.data?.location || "",
-        continent: preferenceResponse.data?.continent || "",
-        preferred_categories:
-          preferenceResponse.data?.preferred_categories || [],
-      });
+      if (preferenceResult.status === "fulfilled") {
+        setPreferenceForm({
+          age: preferenceResult.value.data?.age
+            ? String(preferenceResult.value.data.age)
+            : "",
+          location: preferenceResult.value.data?.location || "",
+          continent: preferenceResult.value.data?.continent || "",
+          preferred_categories:
+            preferenceResult.value.data?.preferred_categories || [],
+        });
+      }
 
-      setPersonalizedProducts(
-        normalizeProducts(recommendationResponse.data || []).filter(
-          (product) => product.stock > 0,
-        ),
-      );
+      if (recommendationsResult.status === "fulfilled") {
+        setPersonalizedProducts(
+          normalizeProducts(recommendationsResult.value.data || []).filter(
+            (product) => product.stock > 0,
+          ),
+        );
+      }
     } catch (error) {
       console.error("Failed to load preference data:", error);
+    } finally {
+      setIsPreferenceHydrated(true);
     }
   };
 
@@ -462,58 +524,6 @@ export function CustomerDashboard() {
       setGeoDetectionFailed(true);
     } finally {
       setIsDetectingGeo(false);
-    }
-  };
-
-  const savePreferences = async () => {
-    setIsSavingPreference(true);
-    try {
-      await api.put("/ai/preferences/", {
-        age:
-          calculatedAge !== null
-            ? calculatedAge
-            : preferenceForm.age
-              ? Number(preferenceForm.age)
-              : null,
-        location: preferenceForm.location,
-        continent: preferenceForm.continent,
-        preferred_categories: preferenceForm.preferred_categories,
-      });
-
-      setWishlistToast({
-        type: "success",
-        message: "Preferences saved",
-      });
-    } catch (error: any) {
-      setWishlistToast({
-        type: "error",
-        message: error.response?.data?.detail || "Failed to save preferences",
-      });
-    } finally {
-      setIsSavingPreference(false);
-    }
-  };
-
-  const trainAndSuggest = async () => {
-    setIsTrainingPreference(true);
-    try {
-      const response = await api.post("/ai/preferences/train/");
-      setPersonalizedProducts(
-        normalizeProducts(response.data?.recommendations || []).filter(
-          (product) => product.stock > 0,
-        ),
-      );
-      setWishlistToast({
-        type: "success",
-        message: "Model trained. Suggestions updated.",
-      });
-    } catch (error: any) {
-      setWishlistToast({
-        type: "error",
-        message: error.response?.data?.detail || "Failed to train suggestions",
-      });
-    } finally {
-      setIsTrainingPreference(false);
     }
   };
 
@@ -930,29 +940,17 @@ export function CustomerDashboard() {
               <div>
                 <h3 className="flex items-center gap-2 text-2xl font-black text-gray-900">
                   <SlidersHorizontal className="h-6 w-6 text-teal-600" />
-                  Personal Preferences Segment
+                  AI Personalization Profile
                 </h3>
                 <p className="mt-1 text-sm text-gray-600">
-                  Set age, location, continent, and category interests to train
-                  suggestions from available store products.
+                  Your preferences are saved and trained automatically while you
+                  browse.
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={savePreferences}
-                  disabled={isSavingPreference}
-                  variant="outline"
-                >
-                  {isSavingPreference ? "Saving..." : "Save Preferences"}
-                </Button>
-                <Button
-                  onClick={trainAndSuggest}
-                  disabled={isTrainingPreference}
-                  className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700"
-                >
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  {isTrainingPreference ? "Training..." : "Train & Suggest"}
-                </Button>
+              <div className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700">
+                {isAutoPersonalizing
+                  ? "Personalizing automatically..."
+                  : "Auto-personalization active"}
               </div>
             </div>
 
@@ -1074,12 +1072,12 @@ export function CustomerDashboard() {
 
             <div className="mt-6">
               <h4 className="mb-3 text-lg font-bold text-gray-900">
-                Suggested for You (Available Now)
+                Exclusive Suggestions for You
               </h4>
               {personalizedProducts.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600">
-                  No personalized suggestions yet. Save preferences and click
-                  Train & Suggest.
+                  Building your exclusive suggestions from your profile,
+                  location, and category interests...
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
