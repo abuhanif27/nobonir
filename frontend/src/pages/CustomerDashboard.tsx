@@ -1473,14 +1473,14 @@ export function CustomerDashboard() {
             <p className="mb-2 bg-gradient-to-r from-gray-400 via-teal-400 to-cyan-400 bg-clip-text text-xs font-semibold tracking-wide text-transparent sm:text-sm">
               Soft Style Smart Shopping
             </p>
-            <div className="mx-auto mb-3 inline-flex w-full max-w-md items-center gap-2 rounded-full border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-teal-300 shadow-lg shadow-teal-900/20 sm:px-4">
+            <div className="mx-auto mb-3 inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-full border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-teal-300 shadow-lg shadow-teal-900/20 sm:w-auto sm:max-w-none sm:justify-start sm:px-5">
               <Globe2 className="h-4 w-4 shrink-0" />
-              <span className="text-base leading-none">
+              <span className="text-sm leading-none sm:text-base">
                 {detectedCountryName
                   ? countryCodeToFlag(detectedCountryCode)
                   : "🌍"}
               </span>
-              <span className="text-left text-xs font-semibold leading-tight sm:text-sm">
+              <span className="text-center text-xs font-semibold leading-tight sm:text-left sm:text-sm">
                 {detectedCountryName && detectedContinent
                   ? `You're from ${detectedCountryName}, ${detectedContinent}`
                   : detectedCountryName
