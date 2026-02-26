@@ -37,7 +37,11 @@ interface WishlistItem {
   id: number;
   product: WishlistProduct;
   created_at: string;
+  isLocal?: boolean;
 }
+
+const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
+const DEMO_CART_KEY = "nobonir_demo_cart";
 
 const parseAmount = (value: string | number) => {
   const parsed = Number(value);
@@ -56,6 +60,73 @@ export function WishlistPage() {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
 
+  const getLocalWishlistItems = (): WishlistItem[] => {
+    const raw = localStorage.getItem(DEMO_WISHLIST_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed
+        .filter((item) => item?.product?.id)
+        .map((item) => ({
+          id: Number(item.id) || -Number(item.product.id),
+          created_at: item.created_at || new Date().toISOString(),
+          isLocal: true,
+          product: {
+            id: Number(item.product.id),
+            name: String(item.product.name || "Unnamed product"),
+            description: String(item.product.description || ""),
+            price: item.product.price ?? 0,
+            stock: Number(item.product.stock ?? 0),
+            image: item.product.image,
+            image_url: item.product.image_url,
+            category: item.product.category,
+          },
+        }));
+    } catch {
+      return [];
+    }
+  };
+
+  const setLocalWishlistItems = (nextItems: WishlistItem[]) => {
+    const localOnly = nextItems.filter((item) => item.isLocal);
+    localStorage.setItem(DEMO_WISHLIST_KEY, JSON.stringify(localOnly));
+  };
+
+  const addLocalItemToCart = (item: WishlistItem) => {
+    const raw = localStorage.getItem(DEMO_CART_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const safeParsed = Array.isArray(parsed) ? parsed : [];
+    const existingIndex = safeParsed.findIndex(
+      (cartItem: any) => cartItem?.product?.id === item.product.id,
+    );
+
+    if (existingIndex >= 0) {
+      safeParsed[existingIndex].quantity += 1;
+    } else {
+      safeParsed.push({
+        id: item.product.id,
+        quantity: 1,
+        isLocal: true,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          image: item.product.image || item.product.image_url,
+          stock: item.product.stock,
+        },
+      });
+    }
+
+    localStorage.setItem(DEMO_CART_KEY, JSON.stringify(safeParsed));
+  };
+
   const loadWishlist = async (silent = false) => {
     if (silent) {
       setRefreshing(true);
@@ -67,9 +138,23 @@ export function WishlistPage() {
     try {
       const response = await api.get("/cart/wishlist/");
       const data = Array.isArray(response.data) ? response.data : [];
-      setItems(data);
+      const localItems = getLocalWishlistItems();
+      const apiProductIds = new Set(
+        data
+          .map((item: WishlistItem) => item?.product?.id)
+          .filter((productId: number | undefined) => Boolean(productId)),
+      );
+      const merged = [
+        ...data,
+        ...localItems.filter((item) => !apiProductIds.has(item.product.id)),
+      ];
+      setItems(merged);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to load wishlist");
+      const localItems = getLocalWishlistItems();
+      setItems(localItems);
+      if (localItems.length === 0) {
+        setError(err.response?.data?.detail || "Failed to load wishlist");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -132,6 +217,14 @@ export function WishlistPage() {
   }, [items]);
 
   const removeItem = async (itemId: number) => {
+    const targetItem = items.find((item) => item.id === itemId);
+    if (targetItem?.isLocal || itemId < 0) {
+      const nextItems = items.filter((item) => item.id !== itemId);
+      setItems(nextItems);
+      setLocalWishlistItems(nextItems);
+      return;
+    }
+
     setWorkingItemId(itemId);
     try {
       await api.delete(`/cart/wishlist/${itemId}/`);
@@ -145,6 +238,14 @@ export function WishlistPage() {
 
   const addItemToCart = async (item: WishlistItem) => {
     if (item.product.stock <= 0) {
+      return;
+    }
+
+    if (item.isLocal || item.id < 0) {
+      addLocalItemToCart(item);
+      const nextItems = items.filter((row) => row.id !== item.id);
+      setItems(nextItems);
+      setLocalWishlistItems(nextItems);
       return;
     }
 
@@ -170,19 +271,28 @@ export function WishlistPage() {
     }
 
     setMovingAll(true);
+    const movedIds = new Set<number>();
     try {
       for (const item of movable) {
+        if (item.isLocal || item.id < 0) {
+          addLocalItemToCart(item);
+          movedIds.add(item.id);
+          continue;
+        }
+
         await api.post("/cart/items/", {
           product_id: item.product.id,
           quantity: 1,
         });
         await api.delete(`/cart/wishlist/${item.id}/`);
+        movedIds.add(item.id);
       }
-      setItems((current) =>
-        current.filter(
-          (item) => !movable.some((moved) => moved.id === item.id),
-        ),
-      );
+
+      setItems((current) => {
+        const next = current.filter((item) => !movedIds.has(item.id));
+        setLocalWishlistItems(next);
+        return next;
+      });
     } catch (err: any) {
       alert(err.response?.data?.detail || "Failed to move all items");
       await loadWishlist(true);

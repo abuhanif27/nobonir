@@ -189,6 +189,7 @@ const DEMO_PRODUCTS: Product[] = [
 ];
 
 const SUGGESTION_CAROUSEL_AUTOPLAY_MS = 3000;
+const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -887,9 +888,79 @@ export function CustomerDashboard() {
         message: "Added to wishlist",
       });
     } catch (error: any) {
+      const addToLocalDemoWishlist = () => {
+        const selectedProduct = products.find((item) => item.id === productId);
+        if (!selectedProduct) {
+          return { ok: false, reason: "missing" as const };
+        }
+
+        if (selectedProduct.stock <= 0) {
+          return { ok: false, reason: "out_of_stock" as const };
+        }
+
+        const existingRaw = localStorage.getItem(DEMO_WISHLIST_KEY);
+        const existing = existingRaw ? JSON.parse(existingRaw) : [];
+        const alreadyExists = Array.isArray(existing)
+          ? existing.some(
+              (item: any) => item?.product?.id === selectedProduct.id,
+            )
+          : false;
+
+        if (alreadyExists) {
+          return { ok: true, reason: "already_exists" as const };
+        }
+
+        const safeExisting = Array.isArray(existing) ? existing : [];
+        safeExisting.push({
+          id: -selectedProduct.id,
+          isLocal: true,
+          created_at: new Date().toISOString(),
+          product: {
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            description: selectedProduct.description,
+            price: selectedProduct.price,
+            stock: selectedProduct.stock,
+            image: selectedProduct.image,
+            category: selectedProduct.category,
+          },
+        });
+
+        localStorage.setItem(DEMO_WISHLIST_KEY, JSON.stringify(safeExisting));
+        return { ok: true, reason: "added" as const };
+      };
+
+      const apiMessage = String(error?.response?.data?.detail || "");
+      const isMissingProductError =
+        apiMessage.toLowerCase().includes("no product matches") ||
+        error?.response?.status === 404;
+
+      if (isMissingProductError) {
+        const localResult = addToLocalDemoWishlist();
+        if (localResult.ok && sourceElement) {
+          animateFlyToCart({
+            fromElement: sourceElement,
+            toSelector: '[data-user-menu-trigger="true"]',
+            imageSrc,
+          });
+        }
+
+        setWishlistToast({
+          type: localResult.ok ? "success" : "error",
+          message: localResult.ok
+            ? localResult.reason === "already_exists"
+              ? "Already saved in wishlist"
+              : "Added to wishlist"
+            : localResult.reason === "out_of_stock"
+              ? "This product is out of stock and can't be added to wishlist."
+              : "This product is not available in the live catalog yet, so it can't be added to wishlist.",
+        });
+        return;
+      }
+
       setWishlistToast({
         type: "error",
-        message: error.response?.data?.detail || "Failed to add to wishlist",
+        message: apiMessage || "Failed to add to wishlist",
       });
     }
   };
@@ -924,9 +995,9 @@ export function CustomerDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 pt-20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 sm:pt-24">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-white/80 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
+      <header className="fixed inset-x-0 top-0 z-50 border-b bg-white/80 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
@@ -1362,8 +1433,6 @@ export function CustomerDashboard() {
                 className="space-y-4"
                 onMouseEnter={() => setIsSuggestionInteracting(true)}
                 onMouseLeave={() => setIsSuggestionInteracting(false)}
-                onFocusCapture={() => setIsSuggestionInteracting(true)}
-                onBlurCapture={() => setIsSuggestionInteracting(false)}
                 onKeyDown={(event) => {
                   if (event.key === "ArrowLeft") {
                     event.preventDefault();
