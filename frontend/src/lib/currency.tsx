@@ -62,6 +62,101 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
+    const getPublicIp = async () => {
+      try {
+        const response = await fetch("https://api64.ipify.org?format=json");
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.ip) {
+            return String(data.ip);
+          }
+        }
+      } catch {
+        // Continue to next provider
+      }
+
+      try {
+        const response = await fetch("https://ifconfig.co/json");
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.ip) {
+            return String(data.ip);
+          }
+        }
+      } catch {
+        // Continue without explicit public ip
+      }
+
+      return "";
+    };
+
+    const normalizeCountryCode = (data: any) =>
+      String(data?.country_code || data?.countryCode || "").toUpperCase();
+
+    const resolveCountryCode = async () => {
+      try {
+        const response = await fetch("https://ipwho.is/", {
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.success) {
+            const code = normalizeCountryCode(data);
+            if (code) {
+              return code;
+            }
+          }
+        }
+      } catch {
+        // Continue to next fallback
+      }
+
+      try {
+        const response = await fetch("https://ipapi.co/json/", {
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const code = normalizeCountryCode(data);
+          if (code) {
+            return code;
+          }
+        }
+      } catch {
+        // Continue to backend lookups
+      }
+
+      try {
+        const publicIp = await getPublicIp();
+        const response = await api.get("/ai/geo-detect/", {
+          params: {
+            ...(publicIp ? { ip: publicIp } : {}),
+            _ts: Date.now(),
+          },
+        });
+        const code = normalizeCountryCode(response.data);
+        if (code) {
+          return code;
+        }
+      } catch {
+        // Continue to backend fallback
+      }
+
+      try {
+        const response = await api.get("/ai/geo-detect/", {
+          params: { _ts: Date.now() },
+        });
+        const code = normalizeCountryCode(response.data);
+        if (code) {
+          return code;
+        }
+      } catch {
+        // Final fallback happens below
+      }
+
+      return "";
+    };
+
     const fetchRates = async () => {
       try {
         const response = await fetch(
@@ -86,10 +181,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
     const fetchGeoAndCurrency = async () => {
       try {
-        const geoResponse = await api.get("/ai/geo-detect/");
-        const nextCountry = String(
-          geoResponse.data?.country_code || "",
-        ).toUpperCase();
+        const nextCountry = await resolveCountryCode();
 
         if (nextCountry) {
           setCountryCode(nextCountry);
@@ -119,9 +211,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           } catch {
             setCurrencyCode(REGION_FALLBACK_CURRENCY[nextCountry] || "USD");
           }
+        } else {
+          setCurrencyCode(getFallbackCurrencyFromLocale());
         }
       } catch {
         // Keep locale-based fallback if geo is unavailable
+        setCurrencyCode(getFallbackCurrencyFromLocale());
       } finally {
         if (isMounted) {
           setIsCurrencyLoading(false);

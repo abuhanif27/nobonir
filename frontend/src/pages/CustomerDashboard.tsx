@@ -543,10 +543,49 @@ export function CustomerDashboard() {
     };
 
     try {
+      let browserGeo: any = null;
+
+      try {
+        const browserResponse = await fetch("https://ipwho.is/", {
+          cache: "no-store",
+        });
+        if (browserResponse.ok) {
+          const browserData = await browserResponse.json();
+          if (browserData?.success) {
+            browserGeo = browserData;
+          }
+        }
+      } catch {
+        browserGeo = null;
+      }
+
+      if (!browserGeo) {
+        try {
+          const browserResponse = await fetch("https://ipapi.co/json/", {
+            cache: "no-store",
+          });
+          if (browserResponse.ok) {
+            const browserData = await browserResponse.json();
+            browserGeo = browserData;
+          }
+        } catch {
+          browserGeo = null;
+        }
+      }
+
+      if (browserGeo && applyGeoData(browserGeo)) {
+        return;
+      }
+
       try {
         const getPublicIp = async () => {
           try {
-            const response = await fetch("https://api64.ipify.org?format=json");
+            const response = await fetch(
+              "https://api64.ipify.org?format=json",
+              {
+                cache: "no-store",
+              },
+            );
             if (response.ok) {
               const data = await response.json();
               if (data?.ip) {
@@ -558,7 +597,9 @@ export function CustomerDashboard() {
           }
 
           try {
-            const response = await fetch("https://ifconfig.co/json");
+            const response = await fetch("https://ifconfig.co/json", {
+              cache: "no-store",
+            });
             if (response.ok) {
               const data = await response.json();
               if (data?.ip) {
@@ -574,46 +615,22 @@ export function CustomerDashboard() {
 
         const publicIp = await getPublicIp();
         const response = await api.get("/ai/geo-detect/", {
-          params: publicIp ? { ip: publicIp } : undefined,
+          params: {
+            ...(publicIp ? { ip: publicIp } : {}),
+            _ts: Date.now(),
+          },
         });
 
         if (applyGeoData(response.data)) {
           return;
         }
       } catch {
-        // Continue to direct browser geo fallback
+        // Continue to backend no-ip fallback
       }
 
-      let browserGeo: any = null;
-      try {
-        const browserResponse = await fetch("https://ipwho.is/");
-        if (browserResponse.ok) {
-          const browserData = await browserResponse.json();
-          if (browserData?.success) {
-            browserGeo = browserData;
-          }
-        }
-      } catch {
-        browserGeo = null;
-      }
-
-      if (!browserGeo) {
-        try {
-          const browserResponse = await fetch("https://ipapi.co/json/");
-          if (browserResponse.ok) {
-            const browserData = await browserResponse.json();
-            browserGeo = browserData;
-          }
-        } catch {
-          browserGeo = null;
-        }
-      }
-
-      if (browserGeo && applyGeoData(browserGeo)) {
-        return;
-      }
-
-      const fallbackResponse = await api.get("/ai/geo-detect/");
+      const fallbackResponse = await api.get("/ai/geo-detect/", {
+        params: { _ts: Date.now() },
+      });
       if (!applyGeoData(fallbackResponse.data)) {
         setGeoDetectionFailed(true);
       }
