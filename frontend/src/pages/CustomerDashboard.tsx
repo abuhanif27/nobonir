@@ -812,7 +812,7 @@ export function CustomerDashboard() {
                     Bonir
                   </span>
                 </h1>
-                <p className="mt-0.5 truncate bg-gradient-to-r from-gray-600 via-teal-600 to-cyan-600 bg-clip-text text-[10px] font-semibold leading-tight tracking-wide text-transparent sm:text-xs">
+                <p className="mt-0.5 hidden truncate bg-gradient-to-r from-gray-600 via-teal-600 to-cyan-600 bg-clip-text text-[10px] font-semibold leading-tight tracking-wide text-transparent sm:block sm:text-xs">
                   Soft Style Smart Shopping
                 </p>
               </div>
@@ -1470,7 +1470,7 @@ export function CustomerDashboard() {
                 Bonir
               </span>
             </h3>
-            <p className="mb-2 bg-gradient-to-r from-gray-400 via-teal-400 to-cyan-400 bg-clip-text text-xs font-semibold tracking-wide text-transparent sm:text-sm">
+            <p className="mb-2 hidden bg-gradient-to-r from-gray-400 via-teal-400 to-cyan-400 bg-clip-text text-xs font-semibold tracking-wide text-transparent sm:block sm:text-sm">
               Soft Style Smart Shopping
             </p>
             <div className="mx-auto mb-3 inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-full border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-teal-300 shadow-lg shadow-teal-900/20 sm:w-auto sm:max-w-none sm:justify-start sm:px-5">
