@@ -102,8 +102,6 @@ export function ProductPage() {
           const selected = JSON.parse(selectedRaw);
           if (String(selected.id) === String(id)) {
             setProduct(selected);
-            setLoading(false);
-            return;
           }
         } catch {
           // ignore invalid cache
@@ -113,8 +111,13 @@ export function ProductPage() {
       try {
         const response = await api.get(`/products/products/${id}/`);
         setProduct(response.data);
+        sessionStorage.setItem(
+          "nobonir_selected_product",
+          JSON.stringify(response.data),
+        );
       } catch (error) {
         console.error("Failed to load product details:", error);
+        setProduct(null);
       } finally {
         setLoading(false);
       }
