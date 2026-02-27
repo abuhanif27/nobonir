@@ -58,3 +58,46 @@ class RegisterAPITests(APITestCase):
 		self.assertIn("refresh", response.data)
 		self.assertIn("user", response.data)
 		self.assertEqual(response.data["user"]["email"], "login@example.com")
+
+
+class AdminUserGuardTests(APITestCase):
+	def setUp(self):
+		self.main_admin = User.objects.create_user(
+			username="mainadmin",
+			email="mainadmin@example.com",
+			password="StrongPass123!",
+			role="ADMIN",
+			is_active=True,
+			is_staff=True,
+			is_superuser=True,
+		)
+		self.client.force_authenticate(user=self.main_admin)
+
+	def test_cannot_deactivate_last_main_admin(self):
+		response = self.client.patch(
+			f"/api/accounts/users/{self.main_admin.id}/",
+			{"role": "CUSTOMER"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertIn("required", response.data.get("detail", "").lower())
+
+	def test_can_deactivate_main_admin_when_another_exists(self):
+		other_admin = User.objects.create_user(
+			username="otheradmin",
+			email="otheradmin@example.com",
+			password="StrongPass123!",
+			role="ADMIN",
+			is_active=True,
+			is_staff=True,
+			is_superuser=True,
+		)
+
+		response = self.client.patch(
+			f"/api/accounts/users/{other_admin.id}/",
+			{"is_active": False},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)

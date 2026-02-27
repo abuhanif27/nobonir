@@ -115,11 +115,46 @@ class UserAdminDetailAPIView(generics.RetrieveUpdateAPIView):
 	queryset = User.objects.all()
 	serializer_class = AdminUserUpdateSerializer
 
+	@staticmethod
+	def _is_main_admin(user):
+		return bool(user.role == User.Role.ADMIN and user.is_superuser and user.is_active)
+
+	def _would_break_last_main_admin(self, instance, payload):
+		if not self._is_main_admin(instance):
+			return False
+
+		next_role = payload.get("role", instance.role)
+		next_active = payload.get("is_active", instance.is_active)
+		next_is_staff = payload.get("is_staff", instance.is_staff)
+
+		still_main_admin = (
+			next_role == User.Role.ADMIN
+			and bool(next_active)
+			and bool(next_is_staff)
+			and instance.is_superuser
+		)
+		if still_main_admin:
+			return False
+
+		main_admin_count = User.objects.filter(
+			role=User.Role.ADMIN,
+			is_superuser=True,
+			is_active=True,
+		).count()
+
+		return main_admin_count <= 1
+
 	def patch(self, request, *args, **kwargs):
 		instance = self.get_object()
 
 		if request.user.id == instance.id and request.data.get("is_active") is False:
 			return Response({"detail": "You cannot deactivate your own account."}, status=status.HTTP_400_BAD_REQUEST)
+
+		if self._would_break_last_main_admin(instance, request.data):
+			return Response(
+				{"detail": "At least one active main super admin is required."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
 
 		response = super().patch(request, *args, **kwargs)
 		return Response(AdminUserSerializer(self.get_object()).data, status=response.status_code)
