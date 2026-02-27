@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ShoppingCart,
@@ -18,6 +19,7 @@ import {
   Banknote,
   ShieldCheck,
   Truck,
+  TicketPercent,
 } from "lucide-react";
 
 interface CartItem {
@@ -34,6 +36,15 @@ interface CartItem {
   isLocal?: boolean;
 }
 
+interface CouponPreview {
+  code: string;
+  discount_percent: number;
+  subtotal: string;
+  discount: string;
+  total: string;
+  expires_at: string;
+}
+
 export function CartPage() {
   const { isAuthenticated } = useAuthStore();
   const { formatPrice } = useCurrency();
@@ -46,6 +57,12 @@ export function CartPage() {
   const [billingAddress, setBillingAddress] = useState("");
   const [useShippingAsBilling, setUseShippingAsBilling] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<"CARD" | "COD">("CARD");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(
+    null,
+  );
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponNotice, setCouponNotice] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState("");
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
@@ -233,6 +250,7 @@ export function CartPage() {
         shipping_address: shippingAddress.trim(),
         billing_address: resolvedBillingAddress,
         payment_method: paymentMethod,
+        coupon_code: couponPreview?.code || "",
       });
 
       const orderId = orderResponse.data?.id;
@@ -274,6 +292,8 @@ export function CartPage() {
 
       setShippingAddress("");
       setBillingAddress("");
+      setCouponCode("");
+      setCouponPreview(null);
 
       window.location.href = checkoutUrl;
     } catch (error: any) {
@@ -285,13 +305,46 @@ export function CartPage() {
     }
   };
 
+  const applyCoupon = async () => {
+    if (!isAuthenticated) {
+      setCouponNotice("Please login to use coupons.");
+      return;
+    }
+
+    if (!couponCode.trim()) {
+      setCouponNotice("Please enter a coupon code.");
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponNotice("");
+
+    try {
+      const response = await api.post("/orders/coupon/validate/", {
+        coupon_code: couponCode.trim(),
+      });
+
+      setCouponPreview(response.data);
+      setCouponCode(response.data.code);
+      setCouponNotice(`Coupon ${response.data.code} applied successfully.`);
+    } catch (error: any) {
+      setCouponPreview(null);
+      setCouponNotice(
+        error.response?.data?.detail || "Unable to apply coupon.",
+      );
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
   const total = cartItems.reduce(
     (sum, item) => sum + parseFloat(item.product.price) * item.quantity,
     0,
   );
 
   const deliveryFee = 0;
-  const grandTotal = total + deliveryFee;
+  const discountAmount = couponPreview ? parseFloat(couponPreview.discount) : 0;
+  const grandTotal = Math.max(0, total + deliveryFee - discountAmount);
 
   const paymentMethodMeta = {
     CARD: {
@@ -516,6 +569,15 @@ export function CartPage() {
                       <span>Subtotal</span>
                       <span>{formatPrice(total)}</span>
                     </div>
+                    {discountAmount > 0 && (
+                      <div className="mb-2 flex items-center justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                        <span className="inline-flex items-center gap-1.5">
+                          <TicketPercent className="h-4 w-4" />
+                          Coupon ({couponPreview?.code})
+                        </span>
+                        <span>-{formatPrice(discountAmount)}</span>
+                      </div>
+                    )}
                     <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
                         <Truck className="h-4 w-4" />
@@ -530,6 +592,37 @@ export function CartPage() {
                       <span>Total</span>
                       <span>{formatPrice(grandTotal)}</span>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Coupon Code</label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter coupon (e.g. NOBONIR)"
+                        value={couponCode}
+                        onChange={(e) => {
+                          setCouponCode(e.target.value.toUpperCase());
+                          setCouponNotice("");
+                          setCouponPreview(null);
+                        }}
+                        disabled={!isAuthenticated || couponLoading}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={applyCoupon}
+                        disabled={!isAuthenticated || couponLoading}
+                      >
+                        {couponLoading ? "Applying..." : "Apply"}
+                      </Button>
+                    </div>
+                    {couponNotice && (
+                      <p
+                        className={`text-xs ${couponPreview ? "text-emerald-600 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}
+                      >
+                        {couponNotice}
+                      </p>
+                    )}
                   </div>
 
                   {!isAuthenticated && (

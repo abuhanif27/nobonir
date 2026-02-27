@@ -4,8 +4,8 @@ from rest_framework.views import APIView
 
 from common.permissions import IsAdminRole, IsCustomerRole
 from .models import Order
-from .serializers import CheckoutSerializer, OrderSerializer
-from .services import create_order_from_cart
+from .serializers import CheckoutSerializer, CouponValidateSerializer, OrderSerializer
+from .services import create_order_from_cart, get_coupon_preview
 
 
 class CheckoutAPIView(APIView):
@@ -19,10 +19,24 @@ class CheckoutAPIView(APIView):
 				request.user,
 				serializer.validated_data["shipping_address"],
 				serializer.validated_data.get("billing_address", ""),
+				serializer.validated_data.get("coupon_code", ""),
 			)
 		except ValueError as exc:
 			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 		return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+
+class CouponValidateAPIView(APIView):
+	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+
+	def post(self, request):
+		serializer = CouponValidateSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		try:
+			preview = get_coupon_preview(request.user, serializer.validated_data["coupon_code"])
+		except ValueError as exc:
+			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+		return Response(preview, status=status.HTTP_200_OK)
 
 
 class MyOrderListAPIView(APIView):
