@@ -738,6 +738,7 @@ export function AdminDashboard() {
                                 <TableHead>Orders</TableHead>
                                 <TableHead>Paid</TableHead>
                                 <TableHead>View→Cart</TableHead>
+                                <TableHead>Order→Paid</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -764,6 +765,12 @@ export function AdminDashboard() {
                                   <TableCell>
                                     {formatRate(
                                       item.rates.view_to_add_to_cart_pct,
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatRate(
+                                      item.rates
+                                        .order_created_to_payment_success_pct,
                                     )}
                                   </TableCell>
                                 </TableRow>
