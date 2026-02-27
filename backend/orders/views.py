@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.utils.dateparse import parse_date
 
 from common.permissions import IsAdminRole, IsCustomerRole
+from analytics.services import track_analytics_event
 from .models import Coupon, Order
 from .serializers import AdminCouponSerializer, AdminOrderSerializer, CheckoutSerializer, CouponValidateSerializer, OrderSerializer
 from .services import create_order_from_cart, get_coupon_preview
@@ -25,6 +26,18 @@ class CheckoutAPIView(APIView):
 			)
 		except ValueError as exc:
 			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+		track_analytics_event(
+			event_name="order_created",
+			source="backend",
+			request=request,
+			user=request.user,
+			metadata={
+				"order_id": order.id,
+				"payment_method": serializer.validated_data.get("payment_method", "CARD"),
+				"coupon_code": serializer.validated_data.get("coupon_code", ""),
+				"total_amount": str(order.total_amount),
+			},
+		)
 		return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
 

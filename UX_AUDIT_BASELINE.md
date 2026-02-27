@@ -161,3 +161,50 @@ Interpretation:
 - Metrics were captured in local development environment; production values will differ.
 - Lighthouse was run with `lighthouse@11.7.1` due Node compatibility in current environment.
 - Conversion rates here are proxies from persisted relational data, not true event analytics.
+
+## Instrumentation Implemented (2026-02-27)
+
+The following analytics event pipeline is now implemented in code.
+
+### Backend event storage
+
+- New app: `backend/analytics/`
+- New model: `AnalyticsEvent`
+  - Fields: `event_name`, `source`, `user`, `session_key`, `path`, `metadata`, `created_at`
+- API endpoint: `POST /api/analytics/events/`
+  - Accepts frontend events for anonymous or authenticated sessions.
+
+### Events now captured
+
+Frontend emitted:
+
+- `view_product` (on product detail page load)
+- `add_to_cart` (on product page add-to-cart action)
+- `begin_checkout` (when checkout is initiated after validation)
+
+Backend emitted:
+
+- `order_created` (when order is successfully created from checkout)
+- `payment_success` (when payment is successfully processed to PAID)
+- `review_submitted` (when review is created)
+
+### Where instrumentation was added
+
+- Frontend helper: `frontend/src/lib/analytics.ts`
+- Frontend hooks:
+  - `frontend/src/pages/ProductPage.tsx`
+  - `frontend/src/pages/CartPage.tsx`
+- Backend tracking hooks:
+  - `backend/orders/views.py`
+  - `backend/payments/services.py`
+  - `backend/reviews/views.py`
+- Backend wiring:
+  - `backend/backend/settings/base.py`
+  - `backend/backend/urls.py`
+
+### Querying baseline events
+
+You can now compute robust funnel metrics from `analytics_analyticsevent` using event sequences by `user` or `session_key`:
+
+- `view_product` → `add_to_cart` → `begin_checkout` → `order_created` → `payment_success`
+- Delivered purchase → `review_submitted`

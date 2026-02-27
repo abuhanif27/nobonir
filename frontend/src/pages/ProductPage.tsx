@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export function ProductPage() {
   const [productLoadError, setProductLoadError] = useState<
     "not-found" | "unavailable" | null
   >(null);
+  const trackedProductViewRef = useRef<number | null>(null);
 
   const fetchProductDetail = async (productId: string) => {
     const endpoints = [
@@ -279,6 +281,18 @@ export function ProductPage() {
       return;
     }
 
+    if (trackedProductViewRef.current === product.id) {
+      return;
+    }
+
+    trackedProductViewRef.current = product.id;
+    void trackEvent("view_product", {
+      product_id: product.id,
+      category_id: product.category?.id,
+      price: product.price,
+      stock: product.stock,
+    });
+
     if (window.location.hash === "#share-feedback") {
       window.setTimeout(() => {
         document
@@ -335,16 +349,26 @@ export function ProductPage() {
       localStorage.setItem(key, JSON.stringify(existing));
     };
 
+    let cartMode: "server" | "local" = "server";
+
     try {
       await api.post("/cart/items/", {
         product_id: product.id,
         quantity,
       });
-      await refreshCartCount();
     } catch {
+      cartMode = "local";
       addToLocalDemoCart();
-      await refreshCartCount();
     }
+
+    await refreshCartCount();
+    void trackEvent("add_to_cart", {
+      product_id: product.id,
+      quantity,
+      stock: product.stock,
+      cart_mode: cartMode,
+      is_authenticated: isAuthenticated,
+    });
   };
 
   const submitReview = async () => {

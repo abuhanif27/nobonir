@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -269,6 +270,17 @@ export function CartPage() {
       setPaymentNotice("Please enter your billing address.");
       return;
     }
+
+    void trackEvent("begin_checkout", {
+      payment_method: paymentMethod,
+      coupon_code: couponPreview?.code || "",
+      item_count: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+      cart_total: cartItems.reduce(
+        (sum, item) => sum + parseFloat(item.product.price) * item.quantity,
+        0,
+      ),
+      is_authenticated: isAuthenticated,
+    });
 
     setCheckoutLoading(true);
     setPaymentNotice("");

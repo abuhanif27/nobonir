@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from orders.models import Order
 from orders.models import Coupon, CouponUsage
 from products.models import Product
+from analytics.services import track_analytics_event
 from .models import Payment
 
 
@@ -64,6 +65,19 @@ def process_payment(order: Order, method: str, success: bool, transaction_id: st
 
         order.status = Order.Status.PAID
         order.save(update_fields=["status", "updated_at"])
+
+        track_analytics_event(
+            event_name="payment_success",
+            source="backend",
+            user=order.user,
+            metadata={
+                "order_id": order.id,
+                "payment_method": method,
+                "payment_id": payment.id,
+                "amount": str(payment.amount),
+                "transaction_id": payment.transaction_id,
+            },
+        )
     else:
         order.status = Order.Status.CANCELLED
         order.save(update_fields=["status", "updated_at"])

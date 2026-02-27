@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from common.permissions import IsAdminRole
 from common.permissions import IsCustomerRole
+from analytics.services import track_analytics_event
 from orders.models import Order, OrderItem
 from .models import Review
 from .serializers import AdminReviewSerializer, MyReviewSerializer, ReviewSerializer
@@ -27,7 +28,18 @@ class ReviewListCreateAPIView(generics.ListCreateAPIView):
 		return [permissions.AllowAny()]
 
 	def perform_create(self, serializer):
-		serializer.save(user=self.request.user)
+		review = serializer.save(user=self.request.user)
+		track_analytics_event(
+			event_name="review_submitted",
+			source="backend",
+			request=self.request,
+			user=self.request.user,
+			metadata={
+				"review_id": review.id,
+				"product_id": review.product_id,
+				"rating": review.rating,
+			},
+		)
 
 
 class MyReviewListAPIView(generics.ListAPIView):
