@@ -992,7 +992,7 @@ export function CustomerDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 pt-20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 sm:pt-24">
       {/* Header */}
-      <header className="fixed inset-x-0 top-0 z-50 border-b bg-white/80 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/80 shadow-sm backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
@@ -1089,7 +1089,7 @@ export function CustomerDashboard() {
                       type="button"
                       onClick={() => setIsUserMenuOpen((prev) => !prev)}
                       data-user-menu-trigger="true"
-                      className="flex items-center gap-2 rounded-full border border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 transition-colors hover:from-teal-100 hover:to-cyan-100 dark:border-slate-700 dark:bg-gradient-to-r dark:from-slate-800 dark:to-slate-700 dark:hover:from-slate-700 dark:hover:to-slate-600"
+                      className="flex items-center gap-2 rounded-full border border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 text-foreground transition-colors hover:from-teal-100 hover:to-cyan-100"
                     >
                       <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
                         {userImageSrc ? (
@@ -1109,18 +1109,18 @@ export function CustomerDashboard() {
                           {user?.first_name?.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="max-w-24 truncate text-sm font-medium text-slate-700 dark:text-slate-100">
+                      <span className="max-w-24 truncate text-sm font-medium text-foreground">
                         {user?.first_name || "Profile"}
                       </span>
-                      <ChevronDown className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     </button>
 
                     {isUserMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-52 rounded-xl border bg-white shadow-lg p-2 z-50">
+                      <div className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-border bg-card shadow-lg p-2">
                         <Link
                           to="/profile"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted"
                         >
                           <User className="h-4 w-4" />
                           My Profile
@@ -1128,7 +1128,7 @@ export function CustomerDashboard() {
                         <Link
                           to="/orders"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted"
                         >
                           <Package className="h-4 w-4" />
                           Orders
@@ -1136,7 +1136,7 @@ export function CustomerDashboard() {
                         <Link
                           to="/wishlist"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted"
                         >
                           <Heart className="h-4 w-4" />
                           Wishlist
@@ -1211,7 +1211,7 @@ export function CustomerDashboard() {
           </div>
 
           {isMobileMenuOpen && (
-            <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900 lg:hidden">
+            <div className="mt-3 rounded-xl border border-border bg-card p-3 shadow-lg lg:hidden">
               <div className="grid grid-cols-2 gap-2">
                 <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)}>
                   <Button
@@ -1356,14 +1356,14 @@ export function CustomerDashboard() {
             <div className="mx-auto flex max-w-2xl flex-col gap-3 sm:flex-row">
               <div className="relative flex-1 group">
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-500 opacity-0 blur-xl transition-opacity duration-300 group-focus-within:opacity-100 dark:from-cyan-500 dark:via-blue-500 dark:to-violet-500"></div>
-                <Search className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-slate-300" />
+                <Search className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
                   placeholder="Try 'wireless headphones' or 'summer dress'..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="relative h-14 rounded-2xl border border-white/40 bg-white/95 pl-12 text-base font-medium text-gray-900 caret-teal-600 placeholder:text-gray-500 shadow-2xl backdrop-blur-md focus-visible:ring-2 focus-visible:ring-white/60 dark:border-slate-600/70 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus-visible:ring-cyan-400/40 sm:text-lg"
+                  className="relative h-14 rounded-2xl border border-border/50 bg-background/95 pl-12 text-base font-medium text-foreground caret-teal-600 placeholder:text-muted-foreground shadow-2xl backdrop-blur-md focus-visible:ring-2 focus-visible:ring-white/60 sm:text-lg"
                 />
               </div>
               <Button
@@ -1382,9 +1382,9 @@ export function CustomerDashboard() {
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         {isAuthenticated && (
-          <section className="mb-10 rounded-2xl border bg-white/85 p-6 shadow-lg backdrop-blur-sm">
+          <section className="mb-10 rounded-2xl border border-border bg-card/85 p-6 shadow-lg backdrop-blur-sm">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h4 className="text-lg font-bold text-gray-900">
+              <h4 className="text-lg font-bold text-foreground">
                 Exclusive Suggestions for You
               </h4>
               {isAutoPersonalizing && (
@@ -1416,11 +1416,11 @@ export function CustomerDashboard() {
             )}
 
             {personalizedProducts.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+              <div className="rounded-lg border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
                 Preparing your personalized picks...
               </div>
             ) : visibleSuggestions.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+              <div className="rounded-lg border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
                 No suggestions in this category yet. Try another category.
               </div>
             ) : (
@@ -1449,7 +1449,7 @@ export function CustomerDashboard() {
                     {isSuggestionAutoplayPaused ? "Paused" : "Auto Playing"}
                   </Badge>
 
-                  <div className="inline-flex items-center gap-1 rounded-full border border-teal-200/70 bg-white/90 p-1.5 shadow-md backdrop-blur-sm">
+                  <div className="inline-flex items-center gap-1 rounded-full border border-teal-200/70 bg-background/90 p-1.5 shadow-md backdrop-blur-sm">
                     <Button
                       type="button"
                       size="icon"
@@ -1514,10 +1514,10 @@ export function CustomerDashboard() {
                         />
                       </CardHeader>
                       <CardContent className="p-3">
-                        <p className="line-clamp-1 font-semibold text-gray-900">
+                        <p className="line-clamp-1 font-semibold text-foreground">
                           {product.name}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {product.category.name}
                         </p>
                         <p className="text-sm font-bold text-teal-700">
@@ -1547,7 +1547,7 @@ export function CustomerDashboard() {
                           className={`h-2.5 rounded-full transition-all duration-300 ${
                             isActive
                               ? "w-7 bg-teal-600"
-                              : "w-2.5 bg-slate-300 hover:bg-slate-400"
+                              : "w-2.5 bg-muted-foreground/40 hover:bg-muted-foreground/60"
                           }`}
                           aria-label={`Go to suggestion ${index + 1}`}
                         />
@@ -1565,7 +1565,7 @@ export function CustomerDashboard() {
           <div className="flex flex-col items-center justify-center py-24">
             <div className="relative">
               {/* Multiple spinning rings */}
-              <div className="h-24 w-24 rounded-full border-4 border-gray-200/50"></div>
+              <div className="h-24 w-24 rounded-full border-4 border-border/40"></div>
               <div className="absolute top-0 left-0 h-24 w-24 rounded-full border-4 border-t-teal-500 border-r-cyan-500 border-b-transparent border-l-transparent animate-spin"></div>
               <div
                 className="absolute top-2 left-2 h-20 w-20 rounded-full border-4 border-t-blue-500 border-r-transparent border-b-purple-500 border-l-transparent animate-spin"
@@ -1586,14 +1586,14 @@ export function CustomerDashboard() {
           <div className="flex flex-col items-center justify-center py-24">
             <div className="relative mb-8">
               <div className="absolute inset-0 bg-gradient-to-br from-teal-400 to-cyan-500 blur-2xl opacity-20 rounded-full"></div>
-              <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 p-10 rounded-full shadow-xl">
-                <ShoppingBag className="h-24 w-24 text-gray-400" />
+              <div className="relative bg-gradient-to-br from-muted to-muted p-10 rounded-full shadow-xl">
+                <ShoppingBag className="h-24 w-24 text-muted-foreground" />
               </div>
             </div>
-            <h3 className="text-3xl font-black text-gray-900 mb-3">
+            <h3 className="mb-3 text-3xl font-black text-foreground">
               No Products Found
             </h3>
-            <p className="text-gray-600 mb-8 text-center max-w-md text-lg">
+            <p className="mb-8 max-w-md text-center text-lg text-muted-foreground">
               {search ? (
                 <>
                   We couldn't find any products matching "
@@ -1623,14 +1623,14 @@ export function CustomerDashboard() {
           <>
             <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 sm:text-3xl">
+                <h3 className="text-2xl font-black text-foreground sm:text-3xl">
                   {search
                     ? "🔍 Search Results"
                     : isTopSellingView
                       ? "🏆 Top Selling Products"
                       : "✨ All Products"}
                 </h3>
-                <p className="mt-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                <p className="mt-2 text-sm font-medium text-muted-foreground">
                   Found {products.length}{" "}
                   {products.length === 1
                     ? "amazing product"
@@ -1656,7 +1656,7 @@ export function CustomerDashboard() {
               {products.map((product) => (
                 <Card
                   key={product.id}
-                  className="group relative overflow-hidden rounded-2xl border-0 bg-white shadow-lg transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl dark:bg-slate-900"
+                  className="group relative overflow-hidden rounded-2xl border-0 bg-card shadow-lg transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl"
                 >
                   {/* Hover Gradient Border Effect */}
                   <div
@@ -1665,7 +1665,7 @@ export function CustomerDashboard() {
                   ></div>
 
                   <CardHeader className="p-0">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-muted to-muted">
                       <img
                         src={
                           product.image ||
@@ -1684,7 +1684,7 @@ export function CustomerDashboard() {
                       <div className="absolute top-3 right-3">
                         <Badge
                           variant="secondary"
-                          className="bg-white/95 backdrop-blur-md text-gray-700 gap-1.5 shadow-lg font-semibold"
+                          className="bg-background/95 backdrop-blur-md text-foreground gap-1.5 shadow-lg font-semibold"
                         >
                           <Tag className="h-3 w-3" />
                           {product.category.name}
@@ -1702,11 +1702,11 @@ export function CustomerDashboard() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="bg-gradient-to-br from-white to-gray-50 p-5 dark:from-slate-900 dark:to-slate-900 sm:p-6">
-                    <CardTitle className="mb-2 line-clamp-1 text-base font-bold text-slate-900 transition-all duration-300 group-hover:bg-gradient-to-r group-hover:from-teal-600 group-hover:to-cyan-600 group-hover:bg-clip-text group-hover:text-transparent dark:text-slate-100 sm:text-lg">
+                  <CardContent className="bg-gradient-to-br from-background to-muted/30 p-5 sm:p-6">
+                    <CardTitle className="mb-2 line-clamp-1 text-base font-bold text-foreground transition-all duration-300 group-hover:bg-gradient-to-r group-hover:from-teal-600 group-hover:to-cyan-600 group-hover:bg-clip-text group-hover:text-transparent sm:text-lg">
                       {product.name}
                     </CardTitle>
-                    <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                    <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                       {product.description}
                     </p>
                     <div className="mb-5 flex items-baseline justify-between">
