@@ -18,6 +18,7 @@ import {
   Tag,
   Edit2,
   Trash2,
+  X,
 } from "lucide-react";
 
 interface Product {
@@ -43,6 +44,11 @@ interface ProductReview {
   created_at: string;
 }
 
+type ReviewNotice = {
+  message: string;
+  type: "success" | "error" | "info";
+};
+
 export function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -57,7 +63,7 @@ export function ProductPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewHoverRating, setReviewHoverRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
-  const [reviewNotice, setReviewNotice] = useState("");
+  const [reviewNotice, setReviewNotice] = useState<ReviewNotice | null>(null);
   const [savingReview, setSavingReview] = useState(false);
   const [isEditingReview, setIsEditingReview] = useState(false);
   const [userReviewId, setUserReviewId] = useState<number | null>(null);
@@ -223,6 +229,18 @@ export function ProductPage() {
     checkReviewEligibility();
   }, [isAuthenticated, id]);
 
+  useEffect(() => {
+    if (!reviewNotice) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setReviewNotice(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [reviewNotice]);
+
   const currentProductId = Number(product?.id || 0);
   const hasReviewedProduct = myReviews.some(
     (review) => Number(review.product) === currentProductId,
@@ -309,27 +327,34 @@ export function ProductPage() {
     }
 
     if (!isAuthenticated) {
-      setReviewNotice("Please sign in to submit a review.");
+      setReviewNotice({
+        message: "Please sign in to submit a review.",
+        type: "info",
+      });
       return;
     }
 
     if (!hasReviewedProduct && !canReviewProduct) {
-      setReviewNotice(
-        "You can review only products from your delivered orders.",
-      );
+      setReviewNotice({
+        message: "You can review only products from your delivered orders.",
+        type: "error",
+      });
       return;
     }
 
     setSavingReview(true);
-    setReviewNotice("");
+    setReviewNotice(null);
     try {
-      if (isEditingReview && userReviewId) {
+      if ((isEditingReview || hasReviewedProduct) && userReviewId) {
         // Update existing review
         await api.patch(`/reviews/my/${userReviewId}/`, {
           rating: reviewRating,
           comment: reviewComment,
         });
-        setReviewNotice("Review updated successfully.");
+        setReviewNotice({
+          message: "Review updated successfully.",
+          type: "success",
+        });
       } else {
         // Create new review
         await api.post("/reviews/", {
@@ -337,7 +362,10 @@ export function ProductPage() {
           rating: reviewRating,
           comment: reviewComment,
         });
-        setReviewNotice("Review submitted successfully.");
+        setReviewNotice({
+          message: "Review submitted successfully.",
+          type: "success",
+        });
       }
 
       setReviewComment("");
@@ -357,11 +385,13 @@ export function ProductPage() {
         setMyReviews(myResponse.data.results || myResponse.data || []);
       }
     } catch (error: any) {
-      setReviewNotice(
-        error.response?.data?.detail ||
+      setReviewNotice({
+        message:
+          error.response?.data?.detail ||
           error.response?.data?.product?.[0] ||
           "Unable to submit review.",
-      );
+        type: "error",
+      });
     } finally {
       setSavingReview(false);
     }
@@ -375,10 +405,13 @@ export function ProductPage() {
     }
 
     setSavingReview(true);
-    setReviewNotice("");
+    setReviewNotice(null);
     try {
       await api.delete(`/reviews/my/${userReviewId}/`);
-      setReviewNotice("Review deleted successfully.");
+      setReviewNotice({
+        message: "Review deleted successfully.",
+        type: "success",
+      });
       setReviewComment("");
       setReviewRating(5);
       setIsEditingReview(false);
@@ -396,9 +429,10 @@ export function ProductPage() {
         setMyReviews(myResponse.data.results || myResponse.data || []);
       }
     } catch (error: any) {
-      setReviewNotice(
-        error.response?.data?.detail || "Unable to delete review.",
-      );
+      setReviewNotice({
+        message: error.response?.data?.detail || "Unable to delete review.",
+        type: "error",
+      });
     } finally {
       setSavingReview(false);
     }
@@ -667,13 +701,23 @@ export function ProductPage() {
 
               {reviewNotice && (
                 <div
-                  className={`mt-3 rounded-lg px-4 py-3 text-sm ${
-                    /successfully/i.test(reviewNotice)
-                      ? "border border-green-500/30 bg-green-500/10 text-green-300"
-                      : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                  className={`mt-3 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+                    reviewNotice.type === "success"
+                      ? "border-emerald-300/70 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      : reviewNotice.type === "error"
+                        ? "border-amber-300/70 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+                        : "border-blue-300/70 bg-blue-50 text-blue-800 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300"
                   }`}
                 >
-                  {reviewNotice}
+                  <p>{reviewNotice.message}</p>
+                  <button
+                    type="button"
+                    onClick={() => setReviewNotice(null)}
+                    className="inline-flex rounded-md p-1 opacity-80 transition hover:opacity-100"
+                    aria-label="Dismiss message"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               )}
 
@@ -779,13 +823,15 @@ export function ProductPage() {
                       : "Submitting..."
                     : isEditingReview
                       ? "Update Review"
-                      : isAuthenticated &&
-                          !hasReviewedProduct &&
-                          !canReviewProduct
-                        ? "Delivered Order Required"
-                        : isAuthenticated
-                          ? "Submit Review"
-                          : "Login to Review"}
+                      : hasReviewedProduct
+                        ? "Use Edit Review"
+                        : isAuthenticated &&
+                            !hasReviewedProduct &&
+                            !canReviewProduct
+                          ? "Delivered Order Required"
+                          : isAuthenticated
+                            ? "Submit Review"
+                            : "Login to Review"}
                 </Button>
 
                 {isAuthenticated && hasReviewedProduct && (
