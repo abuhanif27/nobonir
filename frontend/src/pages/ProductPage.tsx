@@ -57,6 +57,28 @@ export function ProductPage() {
   const [reviewNotice, setReviewNotice] = useState("");
   const [savingReview, setSavingReview] = useState(false);
 
+  const fetchProductDetail = async (productId: string) => {
+    const endpoints = [
+      `/products/${productId}/`,
+      `/products/products/${productId}/`,
+    ];
+
+    let lastError: any = null;
+    for (const endpoint of endpoints) {
+      try {
+        const response = await api.get(endpoint);
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        if (error?.response?.status !== 404) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
+  };
+
   const getLocalCartCount = () => {
     const raw = localStorage.getItem("nobonir_demo_cart");
     if (!raw) {
@@ -109,11 +131,11 @@ export function ProductPage() {
       }
 
       try {
-        const response = await api.get(`/products/products/${id}/`);
-        setProduct(response.data);
+        const productData = await fetchProductDetail(String(id));
+        setProduct(productData);
         sessionStorage.setItem(
           "nobonir_selected_product",
-          JSON.stringify(response.data),
+          JSON.stringify(productData),
         );
       } catch (error) {
         console.error("Failed to load product details:", error);
