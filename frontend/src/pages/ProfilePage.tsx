@@ -120,11 +120,15 @@ export function ProfilePage() {
       const orderItems = getItems(ordersRes.data);
       const wishlistItems = getItems(wishlistRes.data);
       const cartItems = getItems(cartRes.data);
+      const cartQuantity = cartItems.reduce(
+        (total: number, item: any) => total + Number(item?.quantity ?? 0),
+        0,
+      );
 
       setStats({
         totalOrders: orderItems.length,
         wishlistCount: wishlistItems.length,
-        cartCount: cartItems.length,
+        cartCount: cartQuantity,
       });
     } catch (error) {
       console.error("Failed to load stats:", error);
