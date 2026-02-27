@@ -120,6 +120,8 @@ const getStatusIcon = (status: OrderStatus) => {
 export function OrdersPage() {
   const { formatPrice } = useCurrency();
   const location = useLocation();
+  const paymentQuery = new URLSearchParams(location.search).get("payment");
+  const isCardPaymentSuccess = paymentQuery === "success";
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -240,9 +242,29 @@ export function OrdersPage() {
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {paymentNotice && (
-          <Card className="mb-6 border-emerald-200 bg-emerald-50 shadow-sm">
+          <Card
+            className={`mb-6 shadow-sm ${
+              isCardPaymentSuccess
+                ? "border-emerald-300 bg-emerald-50"
+                : "border-emerald-200 bg-emerald-50"
+            }`}
+          >
             <CardContent className="py-4 text-sm text-emerald-800">
-              {paymentNotice}
+              {isCardPaymentSuccess ? (
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-emerald-100 p-2">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 animate-pulse" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-emerald-900">
+                      Payment Successful
+                    </p>
+                    <p>{paymentNotice}</p>
+                  </div>
+                </div>
+              ) : (
+                paymentNotice
+              )}
             </CardContent>
           </Card>
         )}

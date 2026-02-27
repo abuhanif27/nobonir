@@ -20,6 +20,7 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  hasHydrated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (
     email: string,
@@ -30,6 +31,7 @@ interface AuthState {
   logout: () => void;
   refreshAccessToken: () => Promise<void>;
   fetchMe: () => Promise<void>;
+  setHasHydrated: (value: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -40,6 +42,11 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       isAdmin: false,
+      hasHydrated: false,
+
+      setHasHydrated: (value: boolean) => {
+        set({ hasHydrated: value });
+      },
 
       login: async (email: string, password: string) => {
         const response = await api.post("/auth/token/", {
@@ -117,10 +124,14 @@ export const useAuthStore = create<AuthState>()(
 
           set({
             user,
+            isAuthenticated: true,
             isAdmin: user.role === "ADMIN",
           });
-        } catch (error) {
-          get().logout();
+        } catch (error: any) {
+          const status = error?.response?.status;
+          if (status === 401 || status === 403) {
+            get().logout();
+          }
           throw error;
         }
       },
@@ -133,17 +144,41 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
       }),
       onRehydrateStorage: () => (state) => {
+        if (!state) {
+          return;
+        }
+
         // Restore authorization header on page reload
         if (state?.accessToken) {
           api.defaults.headers.common["Authorization"] =
             `Bearer ${state.accessToken}`;
-          state.fetchMe().catch(() => {
-            // Token expired, try to refresh
-            state.refreshAccessToken().catch(() => {
-              state.logout();
+          state
+            .fetchMe()
+            .catch((error: any) => {
+              const status = error?.response?.status;
+
+              // Token expired, try to refresh
+              if (status === 401 || status === 403) {
+                state
+                  .refreshAccessToken()
+                  .catch(() => {
+                    state.logout();
+                  })
+                  .finally(() => {
+                    state.setHasHydrated(true);
+                  });
+                return;
+              }
+
+              state.setHasHydrated(true);
+            })
+            .finally(() => {
+              state.setHasHydrated(true);
             });
-          });
+          return;
         }
+
+        state.setHasHydrated(true);
       },
     },
   ),
