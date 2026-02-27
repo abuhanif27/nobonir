@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlowStateCard } from "@/components/ui/flow-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -52,6 +53,7 @@ export function AdminProductFormPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState<ProductPayload>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
+  const [formLoadError, setFormLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const title = useMemo(
@@ -59,39 +61,45 @@ export function AdminProductFormPage() {
     [isEditMode],
   );
 
-  useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      try {
-        const categoriesResponse = await api.get("/products/categories/");
-        const categoryItems =
-          categoriesResponse.data.results || categoriesResponse.data;
-        setCategories(categoryItems);
+  const loadForm = async () => {
+    setLoading(true);
+    setFormLoadError(null);
 
-        if (isEditMode && id) {
-          const productResponse = await api.get(`/products/products/${id}/`);
-          const product = productResponse.data;
-          setForm({
-            category_id: String(product.category?.id || ""),
-            name: product.name || "",
-            slug: product.slug || "",
-            description: product.description || "",
-            price: String(product.price || ""),
-            stock: String(product.stock ?? 0),
-            image_url: product.image_url || "",
-            is_active: Boolean(product.is_active),
-          });
-        }
-      } catch (error: any) {
-        showError(
-          error.response?.data?.detail || "Failed to load product form",
-        );
-      } finally {
-        setLoading(false);
+    try {
+      const categoriesResponse = await api.get("/products/categories/");
+      const categoryItems =
+        categoriesResponse.data.results || categoriesResponse.data;
+      setCategories(categoryItems);
+
+      if (isEditMode && id) {
+        const productResponse = await api.get(`/products/products/${id}/`);
+        const product = productResponse.data;
+        setForm({
+          category_id: String(product.category?.id || ""),
+          name: product.name || "",
+          slug: product.slug || "",
+          description: product.description || "",
+          price: String(product.price || ""),
+          stock: String(product.stock ?? 0),
+          image_url: product.image_url || "",
+          is_active: Boolean(product.is_active),
+        });
+        return;
       }
-    };
 
-    init();
+      setForm(EMPTY_FORM);
+    } catch (error: any) {
+      const message =
+        error.response?.data?.detail || "Failed to load product form";
+      setFormLoadError(message);
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadForm();
   }, [id, isEditMode]);
 
   const onSubmit = async () => {
@@ -160,7 +168,21 @@ export function AdminProductFormPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <FlowStateCard
+                message="Loading product form..."
+                contentClassName="py-8"
+              />
+            ) : formLoadError ? (
+              <FlowStateCard
+                title="Unable to load product form"
+                message={formLoadError}
+                messageClassName="text-rose-600"
+                actionLabel="Try Again"
+                onAction={() => {
+                  void loadForm();
+                }}
+                contentClassName="py-8"
+              />
             ) : (
               <>
                 <div className="grid gap-4 md:grid-cols-2">

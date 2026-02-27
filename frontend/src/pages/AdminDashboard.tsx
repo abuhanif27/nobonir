@@ -6,6 +6,7 @@ import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
 import {
   Table,
   TableBody,
@@ -129,6 +130,8 @@ export function AdminDashboard() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
   const [orderFilters, setOrderFilters] = useState({
     status: "ALL",
     dateFrom: "",
@@ -146,13 +149,17 @@ export function AdminDashboard() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingCoupons, setLoadingCoupons] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [couponsError, setCouponsError] = useState<string | null>(null);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [savingReviewId, setSavingReviewId] = useState<number | null>(null);
   const [analyticsDays, setAnalyticsDays] = useState<number>(7);
   const [analyticsSummary, setAnalyticsSummary] =
     useState<AnalyticsSummaryResponse | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [newCoupon, setNewCoupon] = useState({
     code: "",
     discount_percent: 10,
@@ -184,11 +191,16 @@ export function AdminDashboard() {
 
   const loadProducts = async () => {
     setLoadingProducts(true);
+    setProductsError(null);
     try {
       const response = await api.get("/products/products/");
       setProducts(response.data.results || response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load products:", error);
+      setProducts([]);
+      setProductsError(
+        error.response?.data?.detail || "Failed to load products.",
+      );
     } finally {
       setLoadingProducts(false);
     }
@@ -203,6 +215,7 @@ export function AdminDashboard() {
     } = orderFilters,
   ) => {
     setLoadingOrders(true);
+    setOrdersError(null);
     try {
       const params: Record<string, string> = {};
       if (filters.status !== "ALL") {
@@ -226,9 +239,10 @@ export function AdminDashboard() {
           fetchedOrders.map((order: AdminOrder) => [order.id, order.status]),
         ),
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load orders:", error);
       setOrders([]);
+      setOrdersError(error.response?.data?.detail || "Failed to load orders.");
     } finally {
       setLoadingOrders(false);
     }
@@ -236,12 +250,16 @@ export function AdminDashboard() {
 
   const loadCoupons = async () => {
     setLoadingCoupons(true);
+    setCouponsError(null);
     try {
       const response = await api.get("/orders/admin/coupons/");
       setCoupons(response.data.results || response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load coupons:", error);
       setCoupons([]);
+      setCouponsError(
+        error.response?.data?.detail || "Failed to load coupons.",
+      );
     } finally {
       setLoadingCoupons(false);
     }
@@ -249,12 +267,14 @@ export function AdminDashboard() {
 
   const loadUsers = async () => {
     setLoadingUsers(true);
+    setUsersError(null);
     try {
       const response = await api.get("/accounts/users/");
       setUsers(response.data.results || response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load users:", error);
       setUsers([]);
+      setUsersError(error.response?.data?.detail || "Failed to load users.");
     } finally {
       setLoadingUsers(false);
     }
@@ -262,12 +282,16 @@ export function AdminDashboard() {
 
   const loadReviews = async () => {
     setLoadingReviews(true);
+    setReviewsError(null);
     try {
       const response = await api.get("/reviews/admin/");
       setReviews(response.data.results || response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load reviews:", error);
       setReviews([]);
+      setReviewsError(
+        error.response?.data?.detail || "Failed to load reviews.",
+      );
     } finally {
       setLoadingReviews(false);
     }
@@ -275,14 +299,18 @@ export function AdminDashboard() {
 
   const loadAnalyticsSummary = async (days = analyticsDays) => {
     setLoadingAnalytics(true);
+    setAnalyticsError(null);
     try {
       const response = await api.get("/analytics/summary/", {
         params: { days },
       });
       setAnalyticsSummary(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load analytics summary:", error);
       setAnalyticsSummary(null);
+      setAnalyticsError(
+        error.response?.data?.detail || "Failed to load analytics summary.",
+      );
     } finally {
       setLoadingAnalytics(false);
     }
@@ -615,13 +643,22 @@ export function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 {loadingAnalytics ? (
-                  <p className="text-sm text-muted-foreground">
-                    Loading funnel analytics...
-                  </p>
+                  <FlowStateBanner
+                    tone="info"
+                    message="Loading funnel analytics..."
+                  />
+                ) : analyticsError ? (
+                  <FlowStateBanner
+                    tone="error"
+                    message={analyticsError}
+                    actionLabel="Try Again"
+                    onAction={() => loadAnalyticsSummary(analyticsDays)}
+                  />
                 ) : !analyticsSummary ? (
-                  <p className="text-sm text-muted-foreground">
-                    Analytics summary is unavailable.
-                  </p>
+                  <FlowStateBanner
+                    tone="warning"
+                    message="Analytics summary is unavailable."
+                  />
                 ) : (
                   <div className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -881,13 +918,20 @@ export function AdminDashboard() {
                 </div>
 
                 {loadingOrders ? (
-                  <p className="text-center text-muted-foreground">
-                    Loading orders...
-                  </p>
+                  <FlowStateBanner tone="info" message="Loading orders..." />
+                ) : ordersError ? (
+                  <FlowStateBanner
+                    tone="error"
+                    message={ordersError}
+                    actionLabel="Try Again"
+                    onAction={() => loadOrders()}
+                  />
                 ) : orders.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No orders found for the selected filters.
-                  </p>
+                  <FlowStateCard
+                    title="No orders found"
+                    message="No orders found for the selected filters."
+                    contentClassName="py-8"
+                  />
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
@@ -1095,13 +1139,20 @@ export function AdminDashboard() {
               </div>
 
               {loadingCoupons ? (
-                <p className="text-center text-muted-foreground">
-                  Loading coupons...
-                </p>
+                <FlowStateBanner tone="info" message="Loading coupons..." />
+              ) : couponsError ? (
+                <FlowStateBanner
+                  tone="error"
+                  message={couponsError}
+                  actionLabel="Try Again"
+                  onAction={loadCoupons}
+                />
               ) : coupons.length === 0 ? (
-                <p className="text-center text-muted-foreground py-6">
-                  No coupons found.
-                </p>
+                <FlowStateCard
+                  title="No coupons found"
+                  message="Create a new coupon to get started."
+                  contentClassName="py-8"
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -1168,13 +1219,20 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent>
               {loadingUsers ? (
-                <p className="text-center text-muted-foreground">
-                  Loading users...
-                </p>
+                <FlowStateBanner tone="info" message="Loading users..." />
+              ) : usersError ? (
+                <FlowStateBanner
+                  tone="error"
+                  message={usersError}
+                  actionLabel="Try Again"
+                  onAction={loadUsers}
+                />
               ) : users.length === 0 ? (
-                <p className="text-center text-muted-foreground py-6">
-                  No users found.
-                </p>
+                <FlowStateCard
+                  title="No users found"
+                  message="No users are available right now."
+                  contentClassName="py-8"
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -1276,7 +1334,20 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent>
               {loadingProducts ? (
-                <p className="text-center text-muted-foreground">Loading...</p>
+                <FlowStateBanner tone="info" message="Loading products..." />
+              ) : productsError ? (
+                <FlowStateBanner
+                  tone="error"
+                  message={productsError}
+                  actionLabel="Try Again"
+                  onAction={loadProducts}
+                />
+              ) : products.length === 0 ? (
+                <FlowStateCard
+                  title="No products found"
+                  message="Add products to start managing inventory."
+                  contentClassName="py-8"
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -1346,13 +1417,20 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent>
               {loadingReviews ? (
-                <p className="text-center text-muted-foreground">
-                  Loading reviews...
-                </p>
+                <FlowStateBanner tone="info" message="Loading reviews..." />
+              ) : reviewsError ? (
+                <FlowStateBanner
+                  tone="error"
+                  message={reviewsError}
+                  actionLabel="Try Again"
+                  onAction={loadReviews}
+                />
               ) : reviews.length === 0 ? (
-                <p className="text-center text-muted-foreground py-6">
-                  No reviews found.
-                </p>
+                <FlowStateCard
+                  title="No reviews found"
+                  message="Customer reviews will appear here for moderation."
+                  contentClassName="py-8"
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
