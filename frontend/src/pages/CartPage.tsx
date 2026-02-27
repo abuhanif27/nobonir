@@ -245,6 +245,15 @@ export function CartPage() {
           order_id: orderId,
         });
 
+        sessionStorage.setItem(
+          "nobonir_flash_notice",
+          JSON.stringify({
+            variant: "cod",
+            message:
+              "Order placed with Cash on Delivery. Please keep payment ready upon delivery.",
+          }),
+        );
+
         setShippingAddress("");
         setBillingAddress("");
         navigate("/orders?payment=cod");

@@ -153,6 +153,25 @@ export function OrdersPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const paymentParam = params.get("payment");
+    const sessionFlashRaw = sessionStorage.getItem("nobonir_flash_notice");
+
+    if (!paymentParam && sessionFlashRaw) {
+      try {
+        const sessionFlash = JSON.parse(sessionFlashRaw) as {
+          variant?: "card" | "cod";
+          message?: string;
+        };
+
+        if (sessionFlash.message) {
+          setPaymentNoticeVariant(sessionFlash.variant ?? "cod");
+          setPaymentNotice(sessionFlash.message);
+          sessionStorage.removeItem("nobonir_flash_notice");
+          return;
+        }
+      } catch {
+        sessionStorage.removeItem("nobonir_flash_notice");
+      }
+    }
 
     if (paymentParam === "success") {
       setPaymentNoticeVariant("card");
