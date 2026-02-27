@@ -989,17 +989,20 @@ export function CustomerDashboard() {
     setIsSuggestionAutoplayEnabled((prev) => !prev);
   };
 
-  const cartNavButtonClass = "gap-2 relative";
-  const cartCountBadgeClass =
-    "absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center";
-  const userMenuItemClass =
-    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted";
-  const desktopSignUpButtonClass =
-    "gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700";
-  const mobileNavOutlineButtonClass = "w-full justify-start";
-  const mobileSignUpButtonClass = `${mobileNavOutlineButtonClass} bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700`;
-  const productAddToCartButtonClass =
-    "w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold";
+  const styles = {
+    cartNavButton: "gap-2 relative",
+    cartCountBadge:
+      "absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center",
+    userMenuItem:
+      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-muted",
+    desktopSignUpButton:
+      "gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700",
+    mobileNavOutlineButton: "w-full justify-start",
+    mobileSignUpButton:
+      "w-full justify-start bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700",
+    productAddToCartButton:
+      "w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold",
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 pt-20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 sm:pt-24">
@@ -1075,13 +1078,13 @@ export function CustomerDashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={cartNavButtonClass}
+                      className={styles.cartNavButton}
                       data-cart-nav="true"
                     >
                       <ShoppingCart className="h-4 w-4" />
                       <span className="hidden sm:inline">Cart</span>
                       {cartCount > 0 && (
-                        <span className={cartCountBadgeClass}>
+                        <span className={styles.cartCountBadge}>
                           {cartCount > 99 ? "99+" : cartCount}
                         </span>
                       )}
@@ -1132,7 +1135,7 @@ export function CustomerDashboard() {
                         <Link
                           to="/profile"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className={userMenuItemClass}
+                          className={styles.userMenuItem}
                         >
                           <User className="h-4 w-4" />
                           My Profile
@@ -1140,7 +1143,7 @@ export function CustomerDashboard() {
                         <Link
                           to="/orders"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className={userMenuItemClass}
+                          className={styles.userMenuItem}
                         >
                           <Package className="h-4 w-4" />
                           Orders
@@ -1148,7 +1151,7 @@ export function CustomerDashboard() {
                         <Link
                           to="/wishlist"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className={userMenuItemClass}
+                          className={styles.userMenuItem}
                         >
                           <Heart className="h-4 w-4" />
                           Wishlist
@@ -1181,13 +1184,13 @@ export function CustomerDashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={cartNavButtonClass}
+                      className={styles.cartNavButton}
                       data-cart-nav="true"
                     >
                       <ShoppingCart className="h-4 w-4" />
                       <span className="hidden sm:inline">Cart</span>
                       {cartCount > 0 && (
-                        <span className={cartCountBadgeClass}>
+                        <span className={styles.cartCountBadge}>
                           {cartCount > 99 ? "99+" : cartCount}
                         </span>
                       )}
@@ -1209,10 +1212,7 @@ export function CustomerDashboard() {
                     </Button>
                   </Link>
                   <Link to="/register">
-                    <Button
-                      size="sm"
-                      className={desktopSignUpButtonClass}
-                    >
+                    <Button size="sm" className={styles.desktopSignUpButton}>
                       <UserPlus className="h-4 w-4" />
                       Sign Up
                     </Button>
@@ -1229,7 +1229,7 @@ export function CustomerDashboard() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className={mobileNavOutlineButtonClass}
+                    className={styles.mobileNavOutlineButton}
                   >
                     <ShoppingCart className="mr-2 h-4 w-4" />
                     Cart
@@ -1256,7 +1256,7 @@ export function CustomerDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className={mobileNavOutlineButtonClass}
+                        className={styles.mobileNavOutlineButton}
                       >
                         <User className="mr-2 h-4 w-4" />
                         Profile
@@ -1269,7 +1269,7 @@ export function CustomerDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className={mobileNavOutlineButtonClass}
+                        className={styles.mobileNavOutlineButton}
                       >
                         <Package className="mr-2 h-4 w-4" />
                         Orders
@@ -1282,7 +1282,7 @@ export function CustomerDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className={mobileNavOutlineButtonClass}
+                        className={styles.mobileNavOutlineButton}
                       >
                         <Heart className="mr-2 h-4 w-4" />
                         Wishlist
@@ -1310,7 +1310,7 @@ export function CustomerDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className={mobileNavOutlineButtonClass}
+                        className={styles.mobileNavOutlineButton}
                       >
                         <LogIn className="mr-2 h-4 w-4" />
                         Login
@@ -1320,10 +1320,7 @@ export function CustomerDashboard() {
                       to="/register"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <Button
-                        size="sm"
-                        className={mobileSignUpButtonClass}
-                      >
+                      <Button size="sm" className={styles.mobileSignUpButton}>
                         <UserPlus className="mr-2 h-4 w-4" />
                         Sign Up
                       </Button>
@@ -1741,7 +1738,7 @@ export function CustomerDashboard() {
                     <div className="space-y-2">
                       <Button
                         onClick={(e) => addToCart(product, e.currentTarget)}
-                        className={productAddToCartButtonClass}
+                        className={styles.productAddToCartButton}
                         disabled={product.stock === 0}
                       >
                         <ShoppingCart className="mr-2 h-4 w-4" />
