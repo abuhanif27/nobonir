@@ -504,23 +504,70 @@ export function ProductPage() {
           <Card className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85">
             <CardContent className="p-5 sm:p-6">
               <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">
-                Write a Review
+                Share Your Feedback
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Reviews are allowed after product delivery.
+                Help other customers by sharing your experience with this
+                product.
               </p>
 
-              {reviewNotice && (
-                <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+              {!isAuthenticated && (
+                <div className="mt-4 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+                  <p className="font-medium">Sign in to review</p>
+                  <p className="mt-1">
+                    You must be logged in to leave a review.
+                  </p>
+                </div>
+              )}
+
+              {isAuthenticated && !hasReviewedProduct && (
+                <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                  <p className="font-medium">Verified purchase required</p>
+                  <p className="mt-1">
+                    You can review this product after receiving a delivered
+                    order containing it.
+                  </p>
+                </div>
+              )}
+
+              {isAuthenticated && hasReviewedProduct && (
+                <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+                  <p className="font-medium">✓ You've reviewed this product</p>
+                  <p className="mt-1">
+                    Thank you for sharing your feedback. Each product can only
+                    be reviewed once.
+                  </p>
+                </div>
+              )}
+
+              {reviewNotice && !isAuthenticated && !hasReviewedProduct && (
+                <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
                   {reviewNotice}
                 </div>
               )}
 
-              <div className="mt-4 space-y-3">
+              <div
+                className={`mt-6 space-y-4 ${!isAuthenticated || hasReviewedProduct ? "opacity-50 pointer-events-none" : ""}`}
+              >
                 <div>
-                  <label className="text-sm font-medium">Rating</label>
-                  <div className="mt-2 rounded-lg border border-border/60 bg-background/40 p-3">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                      Your Rating
+                    </label>
+                    <span className="text-sm font-medium text-amber-500">
+                      {reviewRating === 5
+                        ? "⭐ Excellent"
+                        : reviewRating === 4
+                          ? "⭐ Good"
+                          : reviewRating === 3
+                            ? "⭐ Fair"
+                            : reviewRating === 2
+                              ? "⭐ Poor"
+                              : "⭐ Terrible"}
+                    </span>
+                  </div>
+                  <div className="mt-3 rounded-lg border border-border/60 bg-background/40 p-4">
+                    <div className="flex items-center gap-2">
                       {Array.from({ length: 5 }).map((_, index) => {
                         const value = index + 1;
                         const active =
@@ -538,13 +585,13 @@ export function ProductPage() {
                               hasReviewedProduct ||
                               savingReview
                             }
-                            className="rounded p-1 transition-transform duration-200 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="rounded-lg p-2 transition-transform duration-200 hover:scale-125 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
                           >
                             <Star
-                              className={`h-6 w-6 transition-all duration-200 ${
+                              className={`h-7 w-7 transition-all duration-200 ${
                                 active
-                                  ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.45)]"
+                                  ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]"
                                   : "text-slate-400"
                               }`}
                             />
@@ -552,20 +599,32 @@ export function ProductPage() {
                         );
                       })}
                     </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {reviewRating} out of 5 selected
-                    </p>
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Comment</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                      Your Review
+                    </label>
+                    <span className="text-xs text-muted-foreground">
+                      {reviewComment.length}/500
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Share your honest thoughts about quality, value, and overall
+                    experience.
+                  </p>
                   <Textarea
                     rows={4}
+                    placeholder="What did you like? What could be improved? (Optional)"
                     value={reviewComment}
-                    onChange={(event) => setReviewComment(event.target.value)}
+                    onChange={(event) =>
+                      setReviewComment(event.target.value.slice(0, 500))
+                    }
                     disabled={
                       !isAuthenticated || hasReviewedProduct || savingReview
                     }
+                    className="mt-2"
                   />
                 </div>
                 <Button
@@ -573,6 +632,7 @@ export function ProductPage() {
                   disabled={
                     !isAuthenticated || hasReviewedProduct || savingReview
                   }
+                  className="w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
                 >
                   {savingReview
                     ? "Submitting..."
