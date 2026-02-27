@@ -60,6 +60,26 @@ const extractImageCandidates = (value?: string) => {
     .filter(Boolean);
 };
 
+const getRatingLabel = (rating: number) => {
+  if (rating === 5) {
+    return "⭐ Excellent";
+  }
+
+  if (rating === 4) {
+    return "⭐ Good";
+  }
+
+  if (rating === 3) {
+    return "⭐ Fair";
+  }
+
+  if (rating === 2) {
+    return "⭐ Poor";
+  }
+
+  return "⭐ Terrible";
+};
+
 export function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -559,6 +579,7 @@ export function ProductPage() {
       ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
         reviews.length
       : 0;
+  const reviewRatingLabel = getRatingLabel(reviewRating);
 
   return (
     <div className="ds-page bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -594,7 +615,11 @@ export function ProductPage() {
             </div>
 
             {galleryImages.length > 1 && (
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+              <div
+                className="grid grid-cols-4 gap-2 sm:grid-cols-5"
+                role="radiogroup"
+                aria-label="Product image gallery"
+              >
                 {galleryImages.map((image, index) => {
                   const isActive = image === productImage;
 
@@ -608,6 +633,7 @@ export function ProductPage() {
                           : "border-border/60"
                       }`}
                       onClick={() => setSelectedImage(image)}
+                      aria-pressed={isActive}
                       aria-label={`View product image ${index + 1}`}
                     >
                       <img
@@ -655,10 +681,15 @@ export function ProductPage() {
                     className="rounded-r-none"
                     onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
                     disabled={quantity <= 1}
+                    aria-label="Decrease quantity"
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
-                  <span className="w-12 text-center font-semibold">
+                  <span
+                    className="w-12 text-center font-semibold"
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
                     {quantity}
                   </span>
                   <Button
@@ -672,6 +703,7 @@ export function ProductPage() {
                       )
                     }
                     disabled={quantity >= product.stock || product.stock === 0}
+                    aria-label="Increase quantity"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -698,7 +730,7 @@ export function ProductPage() {
 
         <div className="mt-6 grid gap-4 lg:mt-8 lg:grid-cols-2 lg:gap-6">
           <Card id="share-feedback" className="bg-card/95 shadow-xl">
-            <CardContent className="p-5 sm:p-6">
+            <CardContent className="p-5 sm:p-6" aria-busy={reviewsLoading}>
               <h3 className="text-xl font-bold text-foreground">
                 Customer Reviews
               </h3>
@@ -756,10 +788,14 @@ export function ProductPage() {
                         </p>
                       </div>
                       <div className="mt-1 inline-flex items-center gap-1 text-amber-500">
+                        <span className="sr-only">
+                          Rated {review.rating} out of 5
+                        </span>
                         {Array.from({ length: 5 }).map((_, index) => (
                           <Star
                             key={`star-${review.id}-${index}`}
                             className={`h-4 w-4 ${index < review.rating ? "fill-current" : "opacity-30"}`}
+                            aria-hidden="true"
                           />
                         ))}
                       </div>
@@ -834,6 +870,10 @@ export function ProductPage() {
                       </span>
                     </div>
                     <div className="mt-2 inline-flex items-center gap-1 text-amber-400">
+                      <span className="sr-only">
+                        Your current rating is {currentUserReview?.rating || 0}{" "}
+                        out of 5
+                      </span>
                       {Array.from({ length: 5 }).map((_, index) => (
                         <Star
                           key={`current-user-review-star-${index}`}
@@ -842,6 +882,7 @@ export function ProductPage() {
                               ? "fill-current"
                               : "opacity-35"
                           }`}
+                          aria-hidden="true"
                         />
                       ))}
                     </div>
@@ -885,19 +926,15 @@ export function ProductPage() {
                       Your Rating
                     </label>
                     <span className="text-sm font-medium text-amber-500">
-                      {reviewRating === 5
-                        ? "⭐ Excellent"
-                        : reviewRating === 4
-                          ? "⭐ Good"
-                          : reviewRating === 3
-                            ? "⭐ Fair"
-                            : reviewRating === 2
-                              ? "⭐ Poor"
-                              : "⭐ Terrible"}
+                      {reviewRatingLabel}
                     </span>
                   </div>
                   <div className="mt-3 rounded-lg border border-border/60 bg-background/40 p-4">
-                    <div className="flex items-center gap-2">
+                    <div
+                      className="flex items-center gap-2"
+                      role="radiogroup"
+                      aria-label="Choose rating from 1 to 5 stars"
+                    >
                       {Array.from({ length: 5 }).map((_, index) => {
                         const value = index + 1;
                         const active =
@@ -910,7 +947,40 @@ export function ProductPage() {
                             onMouseEnter={() => setReviewHoverRating(value)}
                             onMouseLeave={() => setReviewHoverRating(0)}
                             onClick={() => setReviewRating(value)}
+                            onKeyDown={(event) => {
+                              if (
+                                event.key === "ArrowRight" ||
+                                event.key === "ArrowUp"
+                              ) {
+                                event.preventDefault();
+                                setReviewRating((prev) =>
+                                  Math.min(5, prev + 1),
+                                );
+                              }
+
+                              if (
+                                event.key === "ArrowLeft" ||
+                                event.key === "ArrowDown"
+                              ) {
+                                event.preventDefault();
+                                setReviewRating((prev) =>
+                                  Math.max(1, prev - 1),
+                                );
+                              }
+
+                              if (event.key === "Home") {
+                                event.preventDefault();
+                                setReviewRating(1);
+                              }
+
+                              if (event.key === "End") {
+                                event.preventDefault();
+                                setReviewRating(5);
+                              }
+                            }}
                             disabled={reviewFormLocked}
+                            role="radio"
+                            aria-checked={reviewRating === value}
                             className="rounded-lg p-2 transition-transform duration-200 hover:scale-125 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
                           >
@@ -932,11 +1002,18 @@ export function ProductPage() {
                     <label className="text-sm font-semibold text-foreground">
                       Your Review
                     </label>
-                    <span className="text-xs text-muted-foreground">
+                    <span
+                      className="text-xs text-muted-foreground"
+                      id="review-character-count"
+                      aria-live="polite"
+                    >
                       {reviewComment.length}/500
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p
+                    className="mt-1 text-xs text-muted-foreground"
+                    id="review-help-text"
+                  >
                     Share your honest thoughts about quality, value, and overall
                     experience.
                   </p>
@@ -947,6 +1024,7 @@ export function ProductPage() {
                     onChange={(event) =>
                       setReviewComment(event.target.value.slice(0, 500))
                     }
+                    aria-describedby="review-help-text review-character-count"
                     disabled={reviewFormLocked}
                     className="mt-2"
                   />
