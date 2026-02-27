@@ -162,6 +162,8 @@ class OrderInvoiceAPITests(APITestCase):
 		self.assertIn("Customer Email: invoice@example.com", content)
 		self.assertIn("Payment Method: Cash on Delivery", content)
 		self.assertNotIn("Client IP:", content)
+		self.assertIn("Currency: BDT (converted from USD)", content)
+		self.assertIn("Total: BDT 26,620.00", content)
 
 	def test_non_owner_cannot_download_invoice(self):
 		self.client.force_authenticate(user=self.other_user)

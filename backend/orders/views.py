@@ -96,6 +96,16 @@ CURRENCY_SYMBOLS = {
 	"ZAR": "R",
 }
 
+def get_invoice_rate_table():
+	rates = {"USD": Decimal("1")}
+	raw_rates = getattr(settings, "INVOICE_USD_TO_RATES", {}) or {}
+	for code, value in raw_rates.items():
+		try:
+			rates[str(code).strip().upper()] = Decimal(str(value).strip())
+		except Exception:
+			continue
+	return rates
+
 
 def get_client_ip(request):
 	forwarded = (request.META.get("HTTP_X_FORWARDED_FOR") or "").strip()
@@ -161,6 +171,11 @@ def build_invoice_context(request):
 	client_ip = get_client_ip(request)
 	country_code = infer_country_code(request, client_ip)
 	currency_code = CURRENCY_BY_COUNTRY.get(country_code, "USD")
+	base_currency = (
+		(getattr(settings, "INVOICE_BASE_CURRENCY", "USD") or "USD")
+		.strip()
+		.upper()
+	)
 	region = country_code
 	if client_ip:
 		try:
@@ -174,7 +189,26 @@ def build_invoice_context(request):
 		"country": country_code,
 		"region": region,
 		"currency": currency_code,
+		"base_currency": base_currency,
 	}
+
+
+def convert_amount(amount, from_currency: str, to_currency: str):
+	value = Decimal(amount)
+	from_code = (from_currency or "USD").upper()
+	to_code = (to_currency or "USD").upper()
+
+	if from_code == to_code:
+		return value
+
+	rate_table = get_invoice_rate_table()
+	from_rate = rate_table.get(from_code)
+	to_rate = rate_table.get(to_code)
+	if not from_rate or not to_rate:
+		return value
+
+	usd_value = value / from_rate
+	return usd_value * to_rate
 
 
 def get_customer_name(order: Order):
@@ -206,8 +240,14 @@ def get_order_payment_method(order: Order):
 
 def build_invoice_lines(order: Order, context: dict):
 	currency_code = context["currency"]
+	base_currency = context["base_currency"]
 	customer_name = get_customer_name(order)
 	payment_method = get_order_payment_method(order)
+
+	def display_money(amount):
+		converted = convert_amount(amount, base_currency, currency_code)
+		return money_string(converted, currency_code)
+
 	invoice_lines = [
 		"Nobonir Invoice",
 		f"Invoice Date: {timezone.localtime(timezone.now()).strftime('%b %d, %Y, %I:%M %p')}",
@@ -218,7 +258,7 @@ def build_invoice_lines(order: Order, context: dict):
 		f"Order Status: {order.get_status_display()}",
 		f"Placed On: {timezone.localtime(order.created_at).strftime('%b %d, %Y, %I:%M %p')}",
 		f"Region: {context['region']} ({context['country']})",
-		f"Currency: {currency_code}",
+		f"Currency: {currency_code} (converted from {base_currency})",
 		"",
 		"Items:",
 	]
@@ -226,15 +266,15 @@ def build_invoice_lines(order: Order, context: dict):
 	for item in order.items.all():
 		subtotal = Decimal(item.unit_price) * item.quantity
 		invoice_lines.append(
-			f"- {item.product_name} | Qty: {item.quantity} | Unit: {money_string(item.unit_price, currency_code)} | Subtotal: {money_string(subtotal, currency_code)}"
+			f"- {item.product_name} | Qty: {item.quantity} | Unit: {display_money(item.unit_price)} | Subtotal: {display_money(subtotal)}"
 		)
 
 	invoice_lines.extend(
 		[
 			"",
-			f"Subtotal: {money_string(order.subtotal_amount, currency_code)}",
-			f"Discount: -{money_string(order.discount_amount, currency_code)}",
-			f"Total: {money_string(order.total_amount, currency_code)}",
+			f"Subtotal: {display_money(order.subtotal_amount)}",
+			f"Discount: -{display_money(order.discount_amount)}",
+			f"Total: {display_money(order.total_amount)}",
 			f"Coupon: {order.coupon_code or 'None'}",
 			"",
 			"Shipping Address:",
@@ -268,6 +308,7 @@ def draw_brand_logo(pdf, x: float, y: float, size: float):
 def build_invoice_pdf_response(order: Order, request):
 	context = build_invoice_context(request)
 	currency_code = context["currency"]
+	base_currency = context["base_currency"]
 	customer_name = get_customer_name(order)
 	payment_method = get_order_payment_method(order)
 	response = HttpResponse(content_type="application/pdf")
@@ -275,10 +316,10 @@ def build_invoice_pdf_response(order: Order, request):
 
 	pdf = canvas.Canvas(response, pagesize=A4)
 	width, height = A4
-	left = 34
-	right = width - 34
+	left = 40
+	right = width - 40
 	content_width = right - left
-	y = height - 34
+	y = height - 44
 
 	for font_name in ["Helvetica", "Helvetica-Bold"]:
 		if font_name not in pdfmetrics.getRegisteredFontNames():
@@ -287,7 +328,7 @@ def build_invoice_pdf_response(order: Order, request):
 			except Exception:
 				pass
 
-	def draw_rect_block(x, top_y, block_width, block_height, fill_hex, stroke_hex=None, radius=8):
+	def draw_rect_block(x, top_y, block_width, block_height, fill_hex, stroke_hex=None, radius=6):
 		pdf.setFillColor(colors.HexColor(fill_hex))
 		if stroke_hex:
 			pdf.setStrokeColor(colors.HexColor(stroke_hex))
@@ -296,138 +337,163 @@ def build_invoice_pdf_response(order: Order, request):
 			pdf.roundRect(x, top_y - block_height, block_width, block_height, radius, stroke=0, fill=1)
 
 	def draw_label_value(label, value, x, top_y, width_box):
-		draw_rect_block(x, top_y, width_box, 48, "#f8fafc", "#e2e8f0", 8)
-		pdf.setFillColor(colors.HexColor("#475569"))
+		draw_rect_block(x, top_y, width_box, 42, "#ffffff", "#e5e7eb", 6)
+		pdf.setFillColor(colors.HexColor("#6b7280"))
 		pdf.setFont("Helvetica", 8)
-		pdf.drawString(x + 10, top_y - 15, label)
-		pdf.setFillColor(colors.HexColor("#0f172a"))
+		pdf.drawString(x + 9, top_y - 14, label)
+		pdf.setFillColor(colors.HexColor("#111827"))
 		pdf.setFont("Helvetica-Bold", 10)
-		pdf.drawString(x + 10, top_y - 31, value)
+		pdf.drawString(x + 9, top_y - 28, value)
 
 	def fit_text(text: str, max_chars: int):
 		if len(text) <= max_chars:
 			return text
 		return f"{text[: max_chars - 1]}…"
 
+	def display_money(amount):
+		converted = convert_amount(amount, base_currency, currency_code)
+		return money_string(converted, currency_code)
+
+	def split_email(email: str):
+		clean = (email or "").strip()
+		if len(clean) <= 24:
+			return clean, ""
+		if "@" not in clean:
+			return fit_text(clean, 24), ""
+		local, domain = clean.split("@", 1)
+		first_line = f"{fit_text(local, 17)}@"
+		second_line = fit_text(domain, 22)
+		return first_line, second_line
+
 	def draw_table_header(current_y):
-		draw_rect_block(left, current_y, content_width, 26, "#e0f2fe", "#bae6fd", 7)
-		pdf.setFillColor(colors.HexColor("#0c4a6e"))
-		pdf.setFont("Helvetica-Bold", 10)
-		pdf.drawString(left + 12, current_y - 17, "ITEM")
-		pdf.drawString(left + 300, current_y - 17, "QTY")
-		pdf.drawString(left + 352, current_y - 17, "UNIT")
-		pdf.drawRightString(right - 12, current_y - 17, "SUBTOTAL")
-		return current_y - 30
+		pdf.setStrokeColor(colors.HexColor("#22d3ee"))
+		pdf.setLineWidth(1)
+		pdf.line(left, current_y - 2, right, current_y - 2)
+		pdf.setFillColor(colors.HexColor("#0f172a"))
+		pdf.setFont("Helvetica-Bold", 9)
+		pdf.drawString(left + 2, current_y - 16, "ITEM")
+		pdf.drawString(left + 308, current_y - 16, "QTY")
+		pdf.drawString(left + 360, current_y - 16, "UNIT")
+		pdf.drawRightString(right, current_y - 16, "SUBTOTAL")
+		return current_y - 24
 
 	def ensure_space(current_y, needed):
 		if current_y - needed >= 52:
 			return current_y
 		pdf.showPage()
-		return height - 34
+		return height - 44
 
 	pdf.setTitle(f"Invoice Order #{order.id}")
-	draw_rect_block(left, y, content_width, 112, "#0f172a", radius=14)
 	pdf.setStrokeColor(colors.HexColor("#22d3ee"))
-	pdf.setLineWidth(1.2)
-	pdf.line(left + 14, y - 56, right - 14, y - 56)
-	logo_drawn = draw_brand_logo(pdf, left + 14, y - 14, 38)
-	title_x = left + 62 if logo_drawn else left + 18
+	pdf.setLineWidth(2)
+	pdf.line(left, y + 6, right, y + 6)
 
-	pdf.setFillColor(colors.white)
-	pdf.setFont("Helvetica-Bold", 22)
-	pdf.drawString(title_x, y - 26, "Nobonir")
-	pdf.setFont("Helvetica", 11)
-	pdf.setFillColor(colors.HexColor("#cbd5e1"))
-	pdf.drawString(title_x, y - 45, "Official Tax Invoice")
+	logo_drawn = draw_brand_logo(pdf, left, y + 2, 26)
+	title_x = left + 34 if logo_drawn else left
 
+	pdf.setFillColor(colors.HexColor("#0f172a"))
+	pdf.setFont("Helvetica-Bold", 21)
+	pdf.drawString(title_x, y - 12, "Nobonir")
 	pdf.setFont("Helvetica", 10)
-	pdf.setFillColor(colors.HexColor("#e2e8f0"))
-	pdf.drawRightString(right - 12, y - 24, f"Invoice #{order.id}")
-	pdf.drawRightString(
-		right - 12,
-		y - 42,
-		timezone.localtime(timezone.now()).strftime('%b %d, %Y, %I:%M %p'),
-	)
+	pdf.setFillColor(colors.HexColor("#475569"))
+	pdf.drawString(title_x, y - 28, "Invoice")
 
-	y -= 126
+	pdf.setFillColor(colors.HexColor("#111827"))
+	pdf.setFont("Helvetica-Bold", 10)
+	pdf.drawRightString(right, y - 12, f"Invoice #{order.id}")
+	pdf.setFont("Helvetica", 9)
+	pdf.setFillColor(colors.HexColor("#6b7280"))
+	pdf.drawRightString(right, y - 27, timezone.localtime(timezone.now()).strftime('%b %d, %Y %I:%M %p'))
+
+	y -= 50
+	pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
+	pdf.setLineWidth(1)
+	pdf.line(left, y, right, y)
+	y -= 16
+
 	box_w = (content_width - 12) / 2
 	draw_label_value("Region", fit_text(f"{context['region']} ({context['country']})", 26), left, y, box_w)
 	draw_label_value("Currency", currency_code, left + box_w + 12, y, box_w)
-	y -= 58
+	y -= 50
 	draw_label_value("Customer", fit_text(customer_name, 28), left, y, box_w)
 	draw_label_value("Payment", fit_text(payment_method, 28), left + box_w + 12, y, box_w)
-	y -= 58
+	y -= 50
 
-	draw_rect_block(left, y, content_width, 74, "#f8fafc", "#e2e8f0", 10)
-	pdf.setFillColor(colors.HexColor("#334155"))
+	draw_rect_block(left, y, content_width, 66, "#ffffff", "#e5e7eb", 6)
+	pdf.setFillColor(colors.HexColor("#6b7280"))
 	pdf.setFont("Helvetica", 9)
-	pdf.drawString(left + 12, y - 16, "Order Status")
-	pdf.drawString(left + 208, y - 16, "Placed On")
-	pdf.drawString(left + 430, y - 16, "Customer Email")
-	pdf.setFillColor(colors.HexColor("#0f172a"))
+	pdf.drawString(left + 10, y - 16, "Order Status")
+	pdf.drawString(left + 206, y - 16, "Placed On")
+	pdf.drawString(left + 418, y - 16, "Email")
+	pdf.setFillColor(colors.HexColor("#111827"))
 	pdf.setFont("Helvetica-Bold", 11)
-	pdf.drawString(left + 12, y - 36, fit_text(order.get_status_display(), 14))
-	pdf.drawString(left + 208, y - 36, timezone.localtime(order.created_at).strftime('%b %d, %Y %I:%M %p'))
-	pdf.drawString(left + 430, y - 36, fit_text(order.user.email, 24))
-	pdf.setFont("Helvetica", 9)
-	pdf.setFillColor(colors.HexColor("#475569"))
-	pdf.drawString(left + 12, y - 54, f"Email: {fit_text(order.user.email, 44)}")
-	y -= 92
+	pdf.drawString(left + 10, y - 34, fit_text(order.get_status_display(), 14))
+	pdf.drawString(left + 206, y - 34, timezone.localtime(order.created_at).strftime('%b %d, %Y %I:%M %p'))
+	email_line1, email_line2 = split_email(order.user.email)
+	pdf.drawString(left + 418, y - 32, email_line1)
+	if email_line2:
+		pdf.setFont("Helvetica", 8)
+		pdf.setFillColor(colors.HexColor("#6b7280"))
+		pdf.drawString(left + 418, y - 45, email_line2)
+	y -= 82
 
 	y = draw_table_header(y)
 
 	for index, item in enumerate(order.items.all()):
 		y = ensure_space(y, 30)
-		if y > height - 40:
+		if y > height - 50:
 			y = draw_table_header(y - 8)
 
 		if y < 145:
 			pdf.showPage()
-			y = draw_table_header(height - 42)
-		row_bg = "#ffffff" if index % 2 == 0 else "#f8fafc"
-		draw_rect_block(left, y, content_width, 24, row_bg, "#e2e8f0", 4)
+			y = draw_table_header(height - 48)
+		row_bg = "#ffffff" if index % 2 == 0 else "#f9fafb"
+		draw_rect_block(left, y, content_width, 24, row_bg, "#e5e7eb", 4)
 		subtotal = Decimal(item.unit_price) * item.quantity
-		pdf.setFillColor(colors.HexColor("#0f172a"))
+		pdf.setFillColor(colors.HexColor("#111827"))
 		pdf.setFont("Helvetica", 9)
 		pdf.drawString(left + 10, y - 16, fit_text(item.product_name, 44))
-		pdf.drawString(left + 295, y - 16, str(item.quantity))
-		pdf.drawString(left + 350, y - 16, money_string(item.unit_price, currency_code))
-		pdf.drawRightString(right - 12, y - 16, money_string(subtotal, currency_code))
+		pdf.drawString(left + 308, y - 16, str(item.quantity))
+		pdf.drawString(left + 360, y - 16, display_money(item.unit_price))
+		pdf.drawRightString(right, y - 16, display_money(subtotal))
 		y -= 26
 
-	y -= 8
-	y = ensure_space(y, 115)
-	if y > height - 40:
-		y = height - 42
-	draw_rect_block(left + 300, y, content_width - 300, 102, "#eff6ff", "#bfdbfe", 10)
-	pdf.setFillColor(colors.HexColor("#334155"))
+	y -= 10
+	y = ensure_space(y, 112)
+	if y > height - 50:
+		y = height - 50
+	draw_rect_block(left + 290, y, content_width - 290, 98, "#ffffff", "#e5e7eb", 6)
+	pdf.setFillColor(colors.HexColor("#6b7280"))
 	pdf.setFont("Helvetica", 10)
-	pdf.drawString(left + 312, y - 20, "Subtotal")
-	pdf.drawString(left + 312, y - 40, "Discount")
-	pdf.drawString(left + 312, y - 60, "Coupon")
+	pdf.drawString(left + 302, y - 20, "Subtotal")
+	pdf.drawString(left + 302, y - 40, "Discount")
+	pdf.drawString(left + 302, y - 60, "Coupon")
+	pdf.setStrokeColor(colors.HexColor("#22d3ee"))
+	pdf.line(left + 300, y - 70, right - 10, y - 70)
+	pdf.setFillColor(colors.HexColor("#111827"))
 	pdf.setFont("Helvetica-Bold", 12)
-	pdf.drawString(left + 312, y - 82, "Total")
+	pdf.drawString(left + 302, y - 84, "Total")
 	pdf.setFont("Helvetica", 10)
-	pdf.drawRightString(right - 10, y - 20, money_string(order.subtotal_amount, currency_code))
-	pdf.drawRightString(right - 10, y - 40, f"-{money_string(order.discount_amount, currency_code)}")
-	pdf.drawRightString(right - 10, y - 60, order.coupon_code or "None")
+	pdf.drawRightString(right - 12, y - 20, display_money(order.subtotal_amount))
+	pdf.drawRightString(right - 12, y - 40, f"-{display_money(order.discount_amount)}")
+	pdf.drawRightString(right - 12, y - 60, order.coupon_code or "None")
 	pdf.setFont("Helvetica-Bold", 12)
-	pdf.drawRightString(right - 10, y - 82, money_string(order.total_amount, currency_code))
-	y -= 118
+	pdf.drawRightString(right - 12, y - 84, display_money(order.total_amount))
+	y -= 114
 
-	y = ensure_space(y, 110)
-	if y > height - 40:
-		y = height - 42
-	draw_rect_block(left, y, (content_width - 12) / 2, 98, "#f8fafc", "#e2e8f0", 8)
-	draw_rect_block(left + (content_width + 12) / 2, y, (content_width - 12) / 2, 98, "#f8fafc", "#e2e8f0", 8)
+	y = ensure_space(y, 108)
+	if y > height - 50:
+		y = height - 50
+	draw_rect_block(left, y, (content_width - 12) / 2, 96, "#ffffff", "#e5e7eb", 6)
+	draw_rect_block(left + (content_width + 12) / 2, y, (content_width - 12) / 2, 96, "#ffffff", "#e5e7eb", 6)
 
-	pdf.setFillColor(colors.HexColor("#0f172a"))
+	pdf.setFillColor(colors.HexColor("#111827"))
 	pdf.setFont("Helvetica-Bold", 10)
 	pdf.drawString(left + 10, y - 16, "Shipping Address")
 	pdf.drawString(left + (content_width + 12) / 2 + 10, y - 16, "Billing Address")
 
 	pdf.setFont("Helvetica", 9)
-	pdf.setFillColor(colors.HexColor("#334155"))
+	pdf.setFillColor(colors.HexColor("#4b5563"))
 	shipping_lines = (order.shipping_address.strip() or "Not provided").splitlines() or ["Not provided"]
 	billing_lines = (order.billing_address.strip() or "Not provided").splitlines() or ["Not provided"]
 	for index, text in enumerate(shipping_lines[:4]):
@@ -435,11 +501,12 @@ def build_invoice_pdf_response(order: Order, request):
 	for index, text in enumerate(billing_lines[:4]):
 		pdf.drawString(left + (content_width + 12) / 2 + 10, y - 34 - (index * 14), fit_text(text, 40))
 
+	pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
+	pdf.line(left, 34, right, 34)
 	pdf.setFont("Helvetica", 8)
-	pdf.setFillColor(colors.HexColor("#64748b"))
-	pdf.drawCentredString(width / 2, 24, "Thank you for shopping with Nobonir • Elegant commerce, trusted delivery")
-	pdf.setFont("Helvetica", 7)
-	pdf.drawCentredString(width / 2, 14, f"Invoice generated on {timezone.localtime(timezone.now()).strftime('%b %d, %Y %I:%M %p')} • Currency {currency_code}")
+	pdf.setFillColor(colors.HexColor("#6b7280"))
+	pdf.drawString(left, 20, f"Generated {timezone.localtime(timezone.now()).strftime('%b %d, %Y %I:%M %p')}")
+	pdf.drawRightString(right, 20, f"Currency {currency_code} (from {base_currency})")
 
 	pdf.showPage()
 	pdf.save()

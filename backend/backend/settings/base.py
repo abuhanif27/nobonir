@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import timedelta
 from pathlib import Path
 
@@ -124,3 +125,65 @@ SIMPLE_JWT = {
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+INVOICE_BASE_CURRENCY = os.getenv("INVOICE_BASE_CURRENCY", "USD").strip().upper()
+
+DEFAULT_INVOICE_USD_TO_RATES = {
+    "USD": "1",
+    "BDT": "121.00",
+    "INR": "83.00",
+    "PKR": "279.00",
+    "NPR": "132.80",
+    "LKR": "304.00",
+    "CAD": "1.35",
+    "GBP": "0.79",
+    "AUD": "1.53",
+    "NZD": "1.64",
+    "SGD": "1.34",
+    "MYR": "4.70",
+    "AED": "3.67",
+    "SAR": "3.75",
+    "QAR": "3.64",
+    "KWD": "0.31",
+    "EUR": "0.92",
+    "SEK": "10.40",
+    "NOK": "10.70",
+    "DKK": "6.87",
+    "CHF": "0.88",
+    "JPY": "150.00",
+    "KRW": "1330.00",
+    "CNY": "7.20",
+    "HKD": "7.80",
+    "THB": "35.50",
+    "VND": "24500.00",
+    "BRL": "5.00",
+    "MXN": "17.00",
+    "ZAR": "18.60",
+}
+
+INVOICE_USD_TO_RATES = DEFAULT_INVOICE_USD_TO_RATES.copy()
+
+invoice_rates_json = os.getenv("INVOICE_USD_TO_RATES_JSON", "").strip()
+if invoice_rates_json:
+    try:
+        loaded = json.loads(invoice_rates_json)
+        if isinstance(loaded, dict):
+            for code, value in loaded.items():
+                code_normalized = str(code).strip().upper()
+                value_normalized = str(value).strip()
+                if code_normalized and value_normalized:
+                    INVOICE_USD_TO_RATES[code_normalized] = value_normalized
+    except json.JSONDecodeError:
+        pass
+
+invoice_rates_csv = os.getenv("INVOICE_USD_TO_RATES", "").strip()
+if invoice_rates_csv:
+    for part in invoice_rates_csv.split(","):
+        chunk = part.strip()
+        if not chunk or ":" not in chunk:
+            continue
+        code, value = chunk.split(":", 1)
+        code_normalized = code.strip().upper()
+        value_normalized = value.strip()
+        if code_normalized and value_normalized:
+            INVOICE_USD_TO_RATES[code_normalized] = value_normalized
