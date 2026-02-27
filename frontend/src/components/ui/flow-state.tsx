@@ -72,7 +72,7 @@ export function FlowStateCard({
 
 interface FlowStateBannerProps {
   message: ReactNode;
-  tone?: Tone;
+  tone: Tone;
   actionLabel?: string;
   onAction?: () => void;
   actionDisabled?: boolean;
@@ -82,7 +82,7 @@ interface FlowStateBannerProps {
 
 export function FlowStateBanner({
   message,
-  tone = "warning",
+  tone,
   actionLabel,
   onAction,
   actionDisabled,
