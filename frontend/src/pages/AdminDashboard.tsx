@@ -508,6 +508,8 @@ export function AdminDashboard() {
     { key: "reviews", label: "Reviews" },
     { key: "products", label: "Products" },
   ];
+  const formatRate = (value: number | null) =>
+    value === null ? "—" : `${value.toFixed(2)}%`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -642,68 +644,134 @@ export function AdminDashboard() {
                     Analytics summary is unavailable.
                   </p>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-                    <div className="rounded-md border p-3">
-                      <p className="text-xs text-muted-foreground">
-                        Product Views
-                      </p>
-                      <p className="text-2xl font-semibold">
-                        {analyticsSummary.totals.view_product ?? 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Base event
-                      </p>
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                      <div className="rounded-md border p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Product Views
+                        </p>
+                        <p className="text-2xl font-semibold">
+                          {analyticsSummary.totals.view_product ?? 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Base event
+                        </p>
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Add to Cart
+                        </p>
+                        <p className="text-2xl font-semibold">
+                          {analyticsSummary.totals.add_to_cart ?? 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRate(
+                            analyticsSummary.rates.view_to_add_to_cart_pct,
+                          )}{" "}
+                          from views
+                        </p>
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Begin Checkout
+                        </p>
+                        <p className="text-2xl font-semibold">
+                          {analyticsSummary.totals.begin_checkout ?? 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRate(
+                            analyticsSummary.rates
+                              .add_to_cart_to_begin_checkout_pct,
+                          )}{" "}
+                          from cart
+                        </p>
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Orders Created
+                        </p>
+                        <p className="text-2xl font-semibold">
+                          {analyticsSummary.totals.order_created ?? 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRate(
+                            analyticsSummary.rates
+                              .begin_checkout_to_order_created_pct,
+                          )}{" "}
+                          from checkout
+                        </p>
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Payment Success
+                        </p>
+                        <p className="text-2xl font-semibold">
+                          {analyticsSummary.totals.payment_success ?? 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRate(
+                            analyticsSummary.rates
+                              .order_created_to_payment_success_pct,
+                          )}{" "}
+                          from orders
+                        </p>
+                      </div>
                     </div>
-                    <div className="rounded-md border p-3">
-                      <p className="text-xs text-muted-foreground">
-                        Add to Cart
-                      </p>
-                      <p className="text-2xl font-semibold">
-                        {analyticsSummary.totals.add_to_cart ?? 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {analyticsSummary.rates.view_to_add_to_cart_pct ?? "—"}%
-                        from views
-                      </p>
-                    </div>
-                    <div className="rounded-md border p-3">
-                      <p className="text-xs text-muted-foreground">
-                        Begin Checkout
-                      </p>
-                      <p className="text-2xl font-semibold">
-                        {analyticsSummary.totals.begin_checkout ?? 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {analyticsSummary.rates
-                          .add_to_cart_to_begin_checkout_pct ?? "—"}
-                        % from cart
-                      </p>
-                    </div>
-                    <div className="rounded-md border p-3">
-                      <p className="text-xs text-muted-foreground">
-                        Orders Created
-                      </p>
-                      <p className="text-2xl font-semibold">
-                        {analyticsSummary.totals.order_created ?? 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {analyticsSummary.rates
-                          .begin_checkout_to_order_created_pct ?? "—"}
-                        % from checkout
-                      </p>
-                    </div>
-                    <div className="rounded-md border p-3">
-                      <p className="text-xs text-muted-foreground">
-                        Payment Success
-                      </p>
-                      <p className="text-2xl font-semibold">
-                        {analyticsSummary.totals.payment_success ?? 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {analyticsSummary.rates
-                          .order_created_to_payment_success_pct ?? "—"}
-                        % from orders
-                      </p>
+
+                    <div className="rounded-md border">
+                      <div className="border-b px-3 py-2">
+                        <p className="text-sm font-medium">Daily Trend</p>
+                      </div>
+                      {analyticsSummary.daily.length === 0 ? (
+                        <p className="px-3 py-3 text-sm text-muted-foreground">
+                          No analytics events in this date range.
+                        </p>
+                      ) : (
+                        <div className="max-h-56 overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Views</TableHead>
+                                <TableHead>Add</TableHead>
+                                <TableHead>Checkout</TableHead>
+                                <TableHead>Orders</TableHead>
+                                <TableHead>Paid</TableHead>
+                                <TableHead>View→Cart</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {analyticsSummary.daily.map((item) => (
+                                <TableRow key={item.date}>
+                                  <TableCell className="font-medium">
+                                    {new Date(item.date).toLocaleDateString()}
+                                  </TableCell>
+                                  <TableCell>
+                                    {item.counts.view_product ?? 0}
+                                  </TableCell>
+                                  <TableCell>
+                                    {item.counts.add_to_cart ?? 0}
+                                  </TableCell>
+                                  <TableCell>
+                                    {item.counts.begin_checkout ?? 0}
+                                  </TableCell>
+                                  <TableCell>
+                                    {item.counts.order_created ?? 0}
+                                  </TableCell>
+                                  <TableCell>
+                                    {item.counts.payment_success ?? 0}
+                                  </TableCell>
+                                  <TableCell>
+                                    {formatRate(
+                                      item.rates.view_to_add_to_cart_pct,
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
