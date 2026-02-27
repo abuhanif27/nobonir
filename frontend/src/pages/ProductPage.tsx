@@ -370,14 +370,14 @@ export function ProductPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-2">
-          <Card className="overflow-hidden border-0 shadow-xl">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="flex items-center justify-center">
             <img
               src={productImage}
               alt={product.name}
-              className="h-full w-full object-cover"
+              className="max-w-full h-auto object-contain rounded-xl shadow-xl"
             />
-          </Card>
+          </div>
 
           <Card className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85">
             <CardContent className="p-5 sm:p-8">
