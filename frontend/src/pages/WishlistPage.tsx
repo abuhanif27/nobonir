@@ -231,9 +231,9 @@ export function WishlistPage() {
     try {
       await api.delete(`/cart/wishlist/${itemId}/`);
       setItems((current) => current.filter((item) => item.id !== itemId));
-      showSuccess("Item removed from wishlist");
+      showSuccess("Wishlist item removed successfully");
     } catch (err: any) {
-      showError(err.response?.data?.detail || "Failed to remove item");
+      showError(err.response?.data?.detail || "Failed to remove wishlist item");
     } finally {
       setWorkingItemId(null);
     }
@@ -260,9 +260,11 @@ export function WishlistPage() {
       });
       await api.delete(`/cart/wishlist/${item.id}/`);
       setItems((current) => current.filter((row) => row.id !== item.id));
-      showSuccess("Item moved to cart");
+      showSuccess("Wishlist item moved to cart successfully");
     } catch (err: any) {
-      showError(err.response?.data?.detail || "Failed to move item to cart");
+      showError(
+        err.response?.data?.detail || "Failed to move wishlist item to cart",
+      );
     } finally {
       setWorkingItemId(null);
     }
@@ -297,9 +299,11 @@ export function WishlistPage() {
         setLocalWishlistItems(next);
         return next;
       });
-      showSuccess("Available items moved to cart");
+      showSuccess("Available wishlist items moved to cart successfully");
     } catch (err: any) {
-      showError(err.response?.data?.detail || "Failed to move all items");
+      showError(
+        err.response?.data?.detail || "Failed to move available wishlist items",
+      );
       await loadWishlist(true);
     } finally {
       setMovingAll(false);

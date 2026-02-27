@@ -850,7 +850,7 @@ export function CustomerDashboard() {
     imageSrc?: string,
   ) => {
     if (!isAuthenticated) {
-      showError("Please log in to add items to your wishlist");
+      showError("Please log in to add products to your wishlist");
       return;
     }
 
@@ -865,7 +865,7 @@ export function CustomerDashboard() {
         imageSrc,
       });
 
-      showSuccess("Item added to wishlist");
+      showSuccess("Product added to wishlist");
     } catch (error: any) {
       const addToLocalDemoWishlist = () => {
         const selectedProduct = products.find((item) => item.id === productId);
@@ -926,8 +926,8 @@ export function CustomerDashboard() {
 
         const localResultMessage = localResult.ok
           ? localResult.reason === "already_exists"
-            ? "Item is already in your wishlist"
-            : "Item added to wishlist"
+            ? "This product is already in your wishlist"
+            : "Product added to wishlist"
           : localResult.reason === "out_of_stock"
             ? "This product is out of stock and cannot be added to your wishlist"
             : "This product is not available in the live catalog yet and cannot be added to your wishlist";
@@ -940,7 +940,7 @@ export function CustomerDashboard() {
         return;
       }
 
-      showError(apiMessage || "Failed to add item to wishlist");
+      showError(apiMessage || "Failed to add product to wishlist");
     }
   };
 

@@ -247,7 +247,7 @@ export function CartPage() {
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
-      showError("Please log in or create an account to continue to checkout");
+      showError("Please log in or create an account to continue checkout");
       return;
     }
 
