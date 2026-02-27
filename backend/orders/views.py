@@ -64,7 +64,7 @@ CURRENCY_BY_COUNTRY = {
 }
 
 CURRENCY_SYMBOLS = {
-	"BDT": "৳",
+	"BDT": "BDT",
 	"INR": "₹",
 	"PKR": "₨",
 	"NPR": "₨",
@@ -148,6 +148,9 @@ def money_string(amount, currency_code: str):
 		formatted = f"{rounded:,.0f}"
 	else:
 		formatted = f"{rounded:,.2f}"
+
+	if currency_code in {"BDT", "AED", "SAR", "QAR", "KWD", "CHF"}:
+		return f"{currency_code} {formatted}"
 
 	if symbol == currency_code:
 		return f"{formatted} {currency_code}"
@@ -272,9 +275,10 @@ def build_invoice_pdf_response(order: Order, request):
 
 	pdf = canvas.Canvas(response, pagesize=A4)
 	width, height = A4
-	left = 36
-	right = width - 36
-	y = height - 36
+	left = 34
+	right = width - 34
+	content_width = right - left
+	y = height - 34
 
 	for font_name in ["Helvetica", "Helvetica-Bold"]:
 		if font_name not in pdfmetrics.getRegisteredFontNames():
@@ -292,78 +296,96 @@ def build_invoice_pdf_response(order: Order, request):
 			pdf.roundRect(x, top_y - block_height, block_width, block_height, radius, stroke=0, fill=1)
 
 	def draw_label_value(label, value, x, top_y, width_box):
-		draw_rect_block(x, top_y, width_box, 44, "#f8fafc", "#dbeafe", 8)
+		draw_rect_block(x, top_y, width_box, 48, "#f8fafc", "#e2e8f0", 8)
 		pdf.setFillColor(colors.HexColor("#475569"))
 		pdf.setFont("Helvetica", 8)
 		pdf.drawString(x + 10, top_y - 15, label)
 		pdf.setFillColor(colors.HexColor("#0f172a"))
-		pdf.setFont("Helvetica-Bold", 11)
-		pdf.drawString(x + 10, top_y - 30, value)
+		pdf.setFont("Helvetica-Bold", 10)
+		pdf.drawString(x + 10, top_y - 31, value)
 
 	def fit_text(text: str, max_chars: int):
 		if len(text) <= max_chars:
 			return text
 		return f"{text[: max_chars - 1]}…"
 
+	def draw_table_header(current_y):
+		draw_rect_block(left, current_y, content_width, 26, "#e0f2fe", "#bae6fd", 7)
+		pdf.setFillColor(colors.HexColor("#0c4a6e"))
+		pdf.setFont("Helvetica-Bold", 10)
+		pdf.drawString(left + 12, current_y - 17, "ITEM")
+		pdf.drawString(left + 300, current_y - 17, "QTY")
+		pdf.drawString(left + 352, current_y - 17, "UNIT")
+		pdf.drawRightString(right - 12, current_y - 17, "SUBTOTAL")
+		return current_y - 30
+
+	def ensure_space(current_y, needed):
+		if current_y - needed >= 52:
+			return current_y
+		pdf.showPage()
+		return height - 34
+
 	pdf.setTitle(f"Invoice Order #{order.id}")
-	draw_rect_block(left, y, right - left, 108, "#0f172a", radius=14)
-	logo_drawn = draw_brand_logo(pdf, left + 14, y - 14, 40)
-	title_x = left + 64 if logo_drawn else left + 18
+	draw_rect_block(left, y, content_width, 112, "#0f172a", radius=14)
+	pdf.setStrokeColor(colors.HexColor("#22d3ee"))
+	pdf.setLineWidth(1.2)
+	pdf.line(left + 14, y - 56, right - 14, y - 56)
+	logo_drawn = draw_brand_logo(pdf, left + 14, y - 14, 38)
+	title_x = left + 62 if logo_drawn else left + 18
 
 	pdf.setFillColor(colors.white)
-	pdf.setFont("Helvetica-Bold", 20)
-	pdf.drawString(title_x, y - 24, "Nobonir")
-	pdf.setFont("Helvetica", 10)
+	pdf.setFont("Helvetica-Bold", 22)
+	pdf.drawString(title_x, y - 26, "Nobonir")
+	pdf.setFont("Helvetica", 11)
 	pdf.setFillColor(colors.HexColor("#cbd5e1"))
-	pdf.drawString(title_x, y - 42, "Premium Branded Invoice")
+	pdf.drawString(title_x, y - 45, "Official Tax Invoice")
 
 	pdf.setFont("Helvetica", 10)
 	pdf.setFillColor(colors.HexColor("#e2e8f0"))
 	pdf.drawRightString(right - 12, y - 24, f"Invoice #{order.id}")
-	pdf.drawRightString(right - 12, y - 40, timezone.localtime(timezone.now()).strftime('%b %d, %Y, %I:%M %p'))
-	pdf.setStrokeColor(colors.HexColor("#1e293b"))
-	pdf.line(left + 14, y - 54, right - 14, y - 54)
+	pdf.drawRightString(
+		right - 12,
+		y - 42,
+		timezone.localtime(timezone.now()).strftime('%b %d, %Y, %I:%M %p'),
+	)
 
 	y -= 126
-	box_w = (right - left - 12) / 2
+	box_w = (content_width - 12) / 2
 	draw_label_value("Region", fit_text(f"{context['region']} ({context['country']})", 26), left, y, box_w)
 	draw_label_value("Currency", currency_code, left + box_w + 12, y, box_w)
-	y -= 56
+	y -= 58
 	draw_label_value("Customer", fit_text(customer_name, 28), left, y, box_w)
 	draw_label_value("Payment", fit_text(payment_method, 28), left + box_w + 12, y, box_w)
-	y -= 56
+	y -= 58
 
-	draw_rect_block(left, y, right - left, 72, "#f8fafc", "#e2e8f0", 10)
+	draw_rect_block(left, y, content_width, 74, "#f8fafc", "#e2e8f0", 10)
 	pdf.setFillColor(colors.HexColor("#334155"))
 	pdf.setFont("Helvetica", 9)
 	pdf.drawString(left + 12, y - 16, "Order Status")
-	pdf.drawString(left + 210, y - 16, "Placed On")
+	pdf.drawString(left + 208, y - 16, "Placed On")
 	pdf.drawString(left + 430, y - 16, "Customer Email")
 	pdf.setFillColor(colors.HexColor("#0f172a"))
 	pdf.setFont("Helvetica-Bold", 11)
 	pdf.drawString(left + 12, y - 36, fit_text(order.get_status_display(), 14))
-	pdf.drawString(left + 210, y - 36, timezone.localtime(order.created_at).strftime('%b %d, %Y %I:%M %p'))
+	pdf.drawString(left + 208, y - 36, timezone.localtime(order.created_at).strftime('%b %d, %Y %I:%M %p'))
 	pdf.drawString(left + 430, y - 36, fit_text(order.user.email, 24))
 	pdf.setFont("Helvetica", 9)
 	pdf.setFillColor(colors.HexColor("#475569"))
 	pdf.drawString(left + 12, y - 54, f"Email: {fit_text(order.user.email, 44)}")
-	y -= 88
+	y -= 92
 
-	draw_rect_block(left, y, right - left, 24, "#0ea5e9", None, 7)
-	pdf.setFillColor(colors.white)
-	pdf.setFont("Helvetica-Bold", 10)
-	pdf.drawString(left + 10, y - 16, "ITEM")
-	pdf.drawString(left + 295, y - 16, "QTY")
-	pdf.drawString(left + 350, y - 16, "UNIT")
-	pdf.drawRightString(right - 12, y - 16, "SUBTOTAL")
-	y -= 28
+	y = draw_table_header(y)
 
 	for index, item in enumerate(order.items.all()):
+		y = ensure_space(y, 30)
+		if y > height - 40:
+			y = draw_table_header(y - 8)
+
 		if y < 145:
 			pdf.showPage()
-			y = height - 40
+			y = draw_table_header(height - 42)
 		row_bg = "#ffffff" if index % 2 == 0 else "#f8fafc"
-		draw_rect_block(left, y, right - left, 24, row_bg, "#e2e8f0", 4)
+		draw_rect_block(left, y, content_width, 24, row_bg, "#e2e8f0", 4)
 		subtotal = Decimal(item.unit_price) * item.quantity
 		pdf.setFillColor(colors.HexColor("#0f172a"))
 		pdf.setFont("Helvetica", 9)
@@ -373,8 +395,11 @@ def build_invoice_pdf_response(order: Order, request):
 		pdf.drawRightString(right - 12, y - 16, money_string(subtotal, currency_code))
 		y -= 26
 
-	y -= 4
-	draw_rect_block(left + 300, y, right - left - 300, 98, "#eff6ff", "#bfdbfe", 10)
+	y -= 8
+	y = ensure_space(y, 115)
+	if y > height - 40:
+		y = height - 42
+	draw_rect_block(left + 300, y, content_width - 300, 102, "#eff6ff", "#bfdbfe", 10)
 	pdf.setFillColor(colors.HexColor("#334155"))
 	pdf.setFont("Helvetica", 10)
 	pdf.drawString(left + 312, y - 20, "Subtotal")
@@ -388,15 +413,18 @@ def build_invoice_pdf_response(order: Order, request):
 	pdf.drawRightString(right - 10, y - 60, order.coupon_code or "None")
 	pdf.setFont("Helvetica-Bold", 12)
 	pdf.drawRightString(right - 10, y - 82, money_string(order.total_amount, currency_code))
-	y -= 112
+	y -= 118
 
-	draw_rect_block(left, y, (right - left - 12) / 2, 96, "#f8fafc", "#e2e8f0", 8)
-	draw_rect_block(left + (right - left + 12) / 2, y, (right - left - 12) / 2, 96, "#f8fafc", "#e2e8f0", 8)
+	y = ensure_space(y, 110)
+	if y > height - 40:
+		y = height - 42
+	draw_rect_block(left, y, (content_width - 12) / 2, 98, "#f8fafc", "#e2e8f0", 8)
+	draw_rect_block(left + (content_width + 12) / 2, y, (content_width - 12) / 2, 98, "#f8fafc", "#e2e8f0", 8)
 
 	pdf.setFillColor(colors.HexColor("#0f172a"))
 	pdf.setFont("Helvetica-Bold", 10)
 	pdf.drawString(left + 10, y - 16, "Shipping Address")
-	pdf.drawString(left + (right - left + 12) / 2 + 10, y - 16, "Billing Address")
+	pdf.drawString(left + (content_width + 12) / 2 + 10, y - 16, "Billing Address")
 
 	pdf.setFont("Helvetica", 9)
 	pdf.setFillColor(colors.HexColor("#334155"))
@@ -405,7 +433,7 @@ def build_invoice_pdf_response(order: Order, request):
 	for index, text in enumerate(shipping_lines[:4]):
 		pdf.drawString(left + 10, y - 34 - (index * 14), fit_text(text, 40))
 	for index, text in enumerate(billing_lines[:4]):
-		pdf.drawString(left + (right - left + 12) / 2 + 10, y - 34 - (index * 14), fit_text(text, 40))
+		pdf.drawString(left + (content_width + 12) / 2 + 10, y - 34 - (index * 14), fit_text(text, 40))
 
 	pdf.setFont("Helvetica", 8)
 	pdf.setFillColor(colors.HexColor("#64748b"))
