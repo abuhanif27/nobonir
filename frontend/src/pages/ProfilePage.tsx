@@ -24,6 +24,8 @@ import {
   Calendar,
   Shield,
   Clock,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 interface AccountStats {
@@ -35,6 +37,10 @@ interface AccountStats {
 export function ProfilePage() {
   const { user, fetchMe } = useAuthStore();
   const { showError, showSuccess } = useFeedback();
+  const [profileLoading, setProfileLoading] = useState(!user);
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -76,6 +82,28 @@ export function ProfilePage() {
   }, [user]);
 
   useEffect(() => {
+    const ensureProfile = async () => {
+      if (user) {
+        setProfileLoading(false);
+        setProfileLoadError(null);
+        return;
+      }
+
+      setProfileLoading(true);
+      setProfileLoadError(null);
+      try {
+        await fetchMe();
+      } catch {
+        setProfileLoadError("Couldn’t load your profile. Please try again.");
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    ensureProfile();
+  }, [user, fetchMe]);
+
+  useEffect(() => {
     loadAccountStats();
   }, []);
 
@@ -86,6 +114,8 @@ export function ProfilePage() {
   }, [user?.profile_picture]);
 
   const loadAccountStats = async () => {
+    setStatsLoading(true);
+    setStatsError(null);
     try {
       const getItems = (payload: any) => {
         if (Array.isArray(payload)) {
@@ -120,6 +150,14 @@ export function ProfilePage() {
       });
     } catch (error) {
       console.error("Failed to load stats:", error);
+      setStatsError("Couldn’t load account activity stats.");
+      setStats({
+        totalOrders: 0,
+        wishlistCount: 0,
+        cartCount: 0,
+      });
+    } finally {
+      setStatsLoading(false);
     }
   };
 
@@ -239,6 +277,44 @@ export function ProfilePage() {
       : `${MEDIA_BASE_URL}${user.profile_picture}?v=${avatarVersion}`
     : null;
 
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-6 sm:py-10 dark:from-slate-950 dark:to-slate-900">
+        <div className="mx-auto max-w-6xl">
+          <Card className="border-none shadow-lg">
+            <CardContent className="py-16 text-center text-muted-foreground">
+              Loading your profile...
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (profileLoadError || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-6 sm:py-10 dark:from-slate-950 dark:to-slate-900">
+        <div className="mx-auto max-w-6xl">
+          <Card className="border-none shadow-lg">
+            <CardContent className="py-16 text-center">
+              <AlertTriangle className="mx-auto h-12 w-12 text-rose-500" />
+              <p className="mt-4 text-rose-600">
+                {profileLoadError || "Couldn’t load your profile right now."}
+              </p>
+              <Button
+                className="mt-4"
+                variant="outline"
+                onClick={() => fetchMe()}
+              >
+                Retry Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-6 sm:py-10 dark:from-slate-950 dark:to-slate-900">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -353,6 +429,26 @@ export function ProfilePage() {
         </Card>
 
         {/* Stats Cards */}
+        {statsError && (
+          <Card className="border-none shadow-md">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <p className="text-sm text-amber-600 dark:text-amber-300">
+                {statsError}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={loadAccountStats}
+                disabled={statsLoading}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry Stats
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-3">
           <Card className="border-none shadow-md transition-shadow hover:shadow-lg">
             <CardContent className="p-6">
@@ -363,7 +459,7 @@ export function ProfilePage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Orders</p>
                   <p className="text-2xl font-bold text-foreground">
-                    {stats.totalOrders}
+                    {statsLoading ? "..." : stats.totalOrders}
                   </p>
                 </div>
               </div>
@@ -381,7 +477,7 @@ export function ProfilePage() {
                     Wishlist Items
                   </p>
                   <p className="text-2xl font-bold text-foreground">
-                    {stats.wishlistCount}
+                    {statsLoading ? "..." : stats.wishlistCount}
                   </p>
                 </div>
               </div>
@@ -397,7 +493,7 @@ export function ProfilePage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Cart Items</p>
                   <p className="text-2xl font-bold text-foreground">
-                    {stats.cartCount}
+                    {statsLoading ? "..." : stats.cartCount}
                   </p>
                 </div>
               </div>

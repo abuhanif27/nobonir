@@ -56,6 +56,7 @@ export function CartPage() {
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cartLoadError, setCartLoadError] = useState<string | null>(null);
   const [shippingAddress, setShippingAddress] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
   const [useShippingAsBilling, setUseShippingAsBilling] = useState(true);
@@ -90,6 +91,7 @@ export function CartPage() {
   };
 
   const loadCart = async () => {
+    setCartLoadError(null);
     try {
       const response = await api.get("/cart/");
       const apiItems = response.data;
@@ -100,7 +102,13 @@ export function CartPage() {
       }
     } catch (error) {
       console.error("Failed to load cart:", error);
-      setCartItems(getLocalCartItems());
+      const fallbackItems = getLocalCartItems();
+      setCartItems(fallbackItems);
+      setCartLoadError(
+        fallbackItems.length > 0
+          ? "Couldn’t load your server cart. Showing locally saved items."
+          : "Couldn’t load your cart right now. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -472,6 +480,19 @@ export function CartPage() {
       <main className="ds-page-container">
         {loading ? (
           <p className="text-center text-muted-foreground">Loading cart...</p>
+        ) : cartLoadError && cartItems.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <AlertTriangle className="mx-auto h-16 w-16 text-rose-500/80" />
+              <h2 className="mt-4 text-xl font-semibold text-foreground">
+                Unable to load cart
+              </h2>
+              <p className="mt-2 text-muted-foreground">{cartLoadError}</p>
+              <Button className="mt-4" variant="outline" onClick={loadCart}>
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
         ) : cartItems.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -490,6 +511,21 @@ export function CartPage() {
         ) : (
           <div className="grid gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
+              {cartLoadError && (
+                <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p>{cartLoadError}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={loadCart}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Card>
                 <CardHeader className="flex flex-col items-start justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
                   <CardTitle>Cart Items ({cartItems.length})</CardTitle>

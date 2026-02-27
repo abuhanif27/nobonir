@@ -31,6 +31,7 @@ import {
   Globe2,
   Menu,
   X,
+  AlertTriangle,
 } from "lucide-react";
 
 interface Product {
@@ -200,6 +201,7 @@ export function CustomerDashboard() {
   const [products, setProducts] = useState<Product[]>(DEMO_PRODUCTS);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isTopSellingView, setIsTopSellingView] = useState(false);
@@ -721,6 +723,7 @@ export function CustomerDashboard() {
   const loadProducts = async () => {
     setLoading(true);
     setIsTopSellingView(false);
+    setProductsError(null);
     try {
       const response = await api.get("/products/");
       const apiProducts = normalizeProducts(
@@ -732,6 +735,7 @@ export function CustomerDashboard() {
       console.error("Failed to load products:", error);
       // Fallback to demo products if API fails
       setProducts(DEMO_PRODUCTS);
+      setProductsError("Couldn't load live products. Showing demo products.");
     } finally {
       setLoading(false);
     }
@@ -741,6 +745,7 @@ export function CustomerDashboard() {
     setLoading(true);
     setIsTopSellingView(true);
     setSearch("");
+    setProductsError(null);
 
     try {
       const response = await api.get("/products/top-selling/");
@@ -751,6 +756,7 @@ export function CustomerDashboard() {
     } catch (error) {
       console.error("Failed to load top selling products:", error);
       setProducts([]);
+      setProductsError("Couldn't load top selling products right now.");
     } finally {
       setLoading(false);
     }
@@ -767,6 +773,7 @@ export function CustomerDashboard() {
 
     setLoading(true);
     setIsTopSellingView(false);
+    setProductsError(null);
     try {
       const response = await api.get("/products/", {
         params: { search: query },
@@ -786,6 +793,9 @@ export function CustomerDashboard() {
           p.category.name.toLowerCase().includes(normalized),
       );
       setProducts(filtered);
+      setProductsError(
+        "Search is temporarily unavailable. Showing demo matches.",
+      );
     } finally {
       setLoading(false);
     }
@@ -1575,6 +1585,21 @@ export function CustomerDashboard() {
               Soft Style Smart Shopping
             </p>
           </div>
+        ) : productsError && products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="mb-6 rounded-full bg-rose-100 p-5 dark:bg-rose-900/30">
+              <AlertTriangle className="h-12 w-12 text-rose-600 dark:text-rose-300" />
+            </div>
+            <h3 className="mb-2 text-2xl font-black text-foreground">
+              Couldn&apos;t load products
+            </h3>
+            <p className="mb-6 max-w-md text-center text-muted-foreground">
+              {productsError}
+            </p>
+            <Button onClick={loadProducts} variant="outline">
+              Try Again
+            </Button>
+          </div>
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24">
             <div className="relative mb-8">
@@ -1614,6 +1639,21 @@ export function CustomerDashboard() {
           </div>
         ) : (
           <>
+            {productsError && (
+              <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p>{productsError}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={loadProducts}
+                  >
+                    Retry Live Products
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-2xl font-black text-foreground sm:text-3xl">

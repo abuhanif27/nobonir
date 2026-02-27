@@ -137,6 +137,8 @@ export function OrdersPage() {
   const [activeFilter, setActiveFilter] = useState<"ALL" | OrderStatus>("ALL");
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
   const [myReviews, setMyReviews] = useState<MyReview[]>([]);
+  const [myReviewsLoading, setMyReviewsLoading] = useState(true);
+  const [myReviewsError, setMyReviewsError] = useState<string | null>(null);
   const [reviewDrafts, setReviewDrafts] = useState<
     Record<number, { rating: number; comment: string }>
   >({});
@@ -166,17 +168,23 @@ export function OrdersPage() {
     loadOrders();
   }, []);
 
-  useEffect(() => {
-    const loadMyReviews = async () => {
-      try {
-        const response = await api.get("/reviews/my/");
-        const mine = response.data.results || response.data;
-        setMyReviews(Array.isArray(mine) ? mine : []);
-      } catch {
-        setMyReviews([]);
-      }
-    };
+  const loadMyReviews = async () => {
+    setMyReviewsLoading(true);
+    setMyReviewsError(null);
 
+    try {
+      const response = await api.get("/reviews/my/");
+      const mine = response.data.results || response.data;
+      setMyReviews(Array.isArray(mine) ? mine : []);
+    } catch {
+      setMyReviews([]);
+      setMyReviewsError("Couldn’t load your review status.");
+    } finally {
+      setMyReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadMyReviews();
   }, []);
 
@@ -272,9 +280,7 @@ export function OrdersPage() {
         comment: draft.comment,
       });
       showSuccess("Review submitted successfully");
-      const response = await api.get("/reviews/my/");
-      const mine = response.data.results || response.data;
-      setMyReviews(Array.isArray(mine) ? mine : []);
+      await loadMyReviews();
     } catch (error: any) {
       showError(
         error.response?.data?.detail ||
@@ -579,7 +585,26 @@ export function OrdersPage() {
 
                                 {order.status === "DELIVERED" && (
                                   <div className="sm:col-span-3 rounded-md border border-border p-3">
-                                    {hasReviewedProduct(item.product) ? (
+                                    {myReviewsLoading ? (
+                                      <p className="text-xs text-muted-foreground">
+                                        Loading review panel...
+                                      </p>
+                                    ) : myReviewsError ? (
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-xs text-rose-600">
+                                          {myReviewsError}
+                                        </p>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 px-2 text-xs"
+                                          onClick={loadMyReviews}
+                                        >
+                                          Retry
+                                        </Button>
+                                      </div>
+                                    ) : hasReviewedProduct(item.product) ? (
                                       <div className="flex flex-wrap items-center justify-between gap-2">
                                         <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
                                           You already reviewed this product.
@@ -694,8 +719,9 @@ export function OrdersPage() {
                                               saveReview(item.product)
                                             }
                                             disabled={
+                                              myReviewsLoading ||
                                               savingReviewProductId ===
-                                              item.product
+                                                item.product
                                             }
                                           >
                                             {savingReviewProductId ===

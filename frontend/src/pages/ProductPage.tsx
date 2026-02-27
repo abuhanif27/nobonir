@@ -56,7 +56,11 @@ export function ProductPage() {
   const [cartCount, setCartCount] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [myReviews, setMyReviews] = useState<ProductReview[]>([]);
+  const [myReviewsLoading, setMyReviewsLoading] = useState(false);
+  const [myReviewsError, setMyReviewsError] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewHoverRating, setReviewHoverRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
@@ -154,6 +158,47 @@ export function ProductPage() {
     }
   };
 
+  const loadPublicReviews = async (productId: string) => {
+    setReviewsLoading(true);
+    setReviewsError(null);
+
+    try {
+      const response = await api.get("/reviews/", {
+        params: { product: productId },
+      });
+      const reviewItems = response.data.results || response.data;
+      setReviews(Array.isArray(reviewItems) ? reviewItems : []);
+    } catch {
+      setReviews([]);
+      setReviewsError("Couldn’t load customer reviews.");
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const loadMyReviews = async () => {
+    if (!isAuthenticated) {
+      setMyReviews([]);
+      setMyReviewsError(null);
+      setMyReviewsLoading(false);
+      return;
+    }
+
+    setMyReviewsLoading(true);
+    setMyReviewsError(null);
+
+    try {
+      const response = await api.get("/reviews/my/");
+      const mine = response.data.results || response.data;
+      setMyReviews(Array.isArray(mine) ? mine : []);
+    } catch {
+      setMyReviews([]);
+      setMyReviewsError("Couldn’t load your review status.");
+    } finally {
+      setMyReviewsLoading(false);
+    }
+  };
+
   useEffect(() => {
     refreshCartCount();
 
@@ -167,41 +212,14 @@ export function ProductPage() {
   }, [id]);
 
   useEffect(() => {
-    const loadReviews = async () => {
-      if (!id) {
-        return;
-      }
+    if (!id) {
+      return;
+    }
 
-      try {
-        const response = await api.get("/reviews/", {
-          params: { product: id },
-        });
-        const reviewItems = response.data.results || response.data;
-        setReviews(Array.isArray(reviewItems) ? reviewItems : []);
-      } catch {
-        setReviews([]);
-      }
-    };
-
-    loadReviews();
+    loadPublicReviews(String(id));
   }, [id]);
 
   useEffect(() => {
-    const loadMyReviews = async () => {
-      if (!isAuthenticated) {
-        setMyReviews([]);
-        return;
-      }
-
-      try {
-        const response = await api.get("/reviews/my/");
-        const mine = response.data.results || response.data;
-        setMyReviews(Array.isArray(mine) ? mine : []);
-      } catch {
-        setMyReviews([]);
-      }
-    };
-
     loadMyReviews();
   }, [isAuthenticated]);
 
@@ -396,18 +414,10 @@ export function ProductPage() {
       setReviewRating(5);
       setIsEditingReview(false);
       setUserReviewId(null);
-
-      const [publicResponse, myResponse] = await Promise.all([
-        api.get("/reviews/", { params: { product: product.id } }),
-        isAuthenticated
-          ? api.get("/reviews/my/")
-          : Promise.resolve({ data: [] }),
+      await Promise.all([
+        loadPublicReviews(String(product.id)),
+        isAuthenticated ? loadMyReviews() : Promise.resolve(),
       ]);
-
-      setReviews(publicResponse.data.results || publicResponse.data || []);
-      if (isAuthenticated) {
-        setMyReviews(myResponse.data.results || myResponse.data || []);
-      }
     } catch (error: any) {
       showError(
         error.response?.data?.detail ||
@@ -420,7 +430,7 @@ export function ProductPage() {
   };
 
   const deleteReview = async () => {
-    if (!userReviewId) return;
+    if (!userReviewId || !product) return;
 
     if (!window.confirm("Are you sure you want to delete your review?")) {
       return;
@@ -434,18 +444,10 @@ export function ProductPage() {
       setReviewRating(5);
       setIsEditingReview(false);
       setUserReviewId(null);
-
-      const [publicResponse, myResponse] = await Promise.all([
-        api.get("/reviews/", { params: { product: product?.id } }),
-        isAuthenticated
-          ? api.get("/reviews/my/")
-          : Promise.resolve({ data: [] }),
+      await Promise.all([
+        loadPublicReviews(String(product.id)),
+        isAuthenticated ? loadMyReviews() : Promise.resolve(),
       ]);
-
-      setReviews(publicResponse.data.results || publicResponse.data || []);
-      if (isAuthenticated) {
-        setMyReviews(myResponse.data.results || myResponse.data || []);
-      }
     } catch (error: any) {
       showError(error.response?.data?.detail || "Failed to delete review");
     } finally {
@@ -624,14 +626,39 @@ export function ProductPage() {
               <h3 className="text-xl font-bold text-foreground">
                 Customer Reviews
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {reviews.length > 0
-                  ? `${averageRating.toFixed(1)} / 5 average from ${reviews.length} review(s)`
-                  : "No reviews yet"}
-              </p>
+              {reviewsLoading ? (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Loading customer reviews...
+                </p>
+              ) : reviewsError ? (
+                <p className="mt-1 text-sm text-rose-600">{reviewsError}</p>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {reviews.length > 0
+                    ? `${averageRating.toFixed(1)} / 5 average from ${reviews.length} review(s)`
+                    : "No reviews yet"}
+                </p>
+              )}
 
               <div className="mt-4 space-y-3">
-                {reviews.length === 0 ? (
+                {reviewsLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Fetching reviews...
+                  </p>
+                ) : reviewsError ? (
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">
+                    <p className="text-sm text-rose-600">{reviewsError}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => id && loadPublicReviews(String(id))}
+                    >
+                      Retry Reviews
+                    </Button>
+                  </div>
+                ) : reviews.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Be the first to review this product.
                   </p>
@@ -749,6 +776,27 @@ export function ProductPage() {
                 </p>
               )}
 
+              {isAuthenticated && myReviewsLoading && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Loading your review data...
+                </p>
+              )}
+
+              {isAuthenticated && myReviewsError && (
+                <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600">
+                  <p>{myReviewsError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={loadMyReviews}
+                  >
+                    Retry Review Status
+                  </Button>
+                </div>
+              )}
+
               <div className="mt-6 space-y-4">
                 <div>
                   <div className="flex items-center justify-between">
@@ -824,24 +872,32 @@ export function ProductPage() {
                 </div>
                 <Button
                   onClick={submitReview}
-                  disabled={reviewFormLocked}
+                  disabled={
+                    reviewFormLocked ||
+                    myReviewsLoading ||
+                    Boolean(myReviewsError)
+                  }
                   className="w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
                 >
                   {savingReview
                     ? isEditingReview
                       ? "Updating..."
                       : "Submitting..."
-                    : isEditingReview
-                      ? "Update Review"
-                      : hasReviewedProduct
-                        ? "Click Edit Review to Update"
-                        : isAuthenticated &&
-                            !hasReviewedProduct &&
-                            !canReviewProduct
-                          ? "Delivered Order Required"
-                          : isAuthenticated
-                            ? "Submit Review"
-                            : "Login to Review"}
+                    : myReviewsLoading
+                      ? "Loading review status..."
+                      : myReviewsError
+                        ? "Retry review status to continue"
+                        : isEditingReview
+                          ? "Update Review"
+                          : hasReviewedProduct
+                            ? "Click Edit Review to Update"
+                            : isAuthenticated &&
+                                !hasReviewedProduct &&
+                                !canReviewProduct
+                              ? "Delivered Order Required"
+                              : isAuthenticated
+                                ? "Submit Review"
+                                : "Login to Review"}
                 </Button>
 
                 {isAuthenticated && hasReviewedProduct && (
