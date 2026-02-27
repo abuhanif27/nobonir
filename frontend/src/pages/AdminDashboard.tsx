@@ -631,7 +631,24 @@ export function AdminDashboard() {
             <Card className="mb-6">
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle>Funnel Analytics</CardTitle>
+                  <div>
+                    <CardTitle>Funnel Analytics</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        Green ≥ 60%
+                      </span>
+                      {" · "}
+                      <span className="text-amber-600 dark:text-amber-400">
+                        Amber ≥ 30%
+                      </span>
+                      {" · "}
+                      <span className="text-rose-600 dark:text-rose-400">
+                        Rose &lt; 30%
+                      </span>
+                      {" · "}
+                      <span className="text-muted-foreground">Muted = N/A</span>
+                    </p>
+                  </div>
                   <select
                     value={analyticsDays}
                     onChange={(event) =>
