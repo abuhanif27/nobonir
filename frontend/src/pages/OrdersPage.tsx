@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  Download,
   Package,
   RefreshCw,
   Star,
@@ -27,6 +28,8 @@ type OrderStatus =
   | "SHIPPED"
   | "DELIVERED"
   | "CANCELLED";
+
+type TimelineStatus = Exclude<OrderStatus, "CANCELLED">;
 
 interface OrderItem {
   id: number;
@@ -46,14 +49,18 @@ interface MyReview {
 interface Order {
   id: number;
   status: OrderStatus;
+  subtotal_amount: string | number;
+  discount_amount: string | number;
+  coupon_code: string | null;
   total_amount: string | number;
   shipping_address: string;
+  billing_address: string;
   items: OrderItem[];
   created_at: string;
   updated_at: string;
 }
 
-const STATUS_STEPS: OrderStatus[] = [
+const STATUS_STEPS: TimelineStatus[] = [
   "PENDING",
   "PAID",
   "PROCESSING",
@@ -62,12 +69,20 @@ const STATUS_STEPS: OrderStatus[] = [
 ];
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
-  PENDING: "Pending",
-  PAID: "Paid",
-  PROCESSING: "Processing",
-  SHIPPED: "Shipped",
+  PENDING: "Order Received",
+  PAID: "Payment Confirmed",
+  PROCESSING: "Preparing Items",
+  SHIPPED: "On the Way",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
+};
+
+const STATUS_TIMELINE_LABELS: Record<TimelineStatus, string> = {
+  PENDING: "Order received",
+  PAID: "Payment confirmed",
+  PROCESSING: "Preparing items",
+  SHIPPED: "Out for delivery",
+  DELIVERED: "Delivered",
 };
 
 const STATUS_CLASSES: Record<OrderStatus, string> = {
@@ -81,9 +96,9 @@ const STATUS_CLASSES: Record<OrderStatus, string> = {
 
 const FILTERS: Array<{ key: "ALL" | OrderStatus; label: string }> = [
   { key: "ALL", label: "All Orders" },
-  { key: "PENDING", label: "Pending" },
-  { key: "PROCESSING", label: "Processing" },
-  { key: "SHIPPED", label: "Shipped" },
+  { key: "PENDING", label: "Order Received" },
+  { key: "PROCESSING", label: "Preparing" },
+  { key: "SHIPPED", label: "On the Way" },
   { key: "DELIVERED", label: "Delivered" },
   { key: "CANCELLED", label: "Cancelled" },
 ];
@@ -126,6 +141,11 @@ const getStatusIcon = (status: OrderStatus) => {
     return <XCircle className="h-4 w-4" />;
   }
   return <Clock3 className="h-4 w-4" />;
+};
+
+const formatAddress = (value?: string | null) => {
+  const normalized = (value || "").trim();
+  return normalized || "Not provided";
 };
 
 export function OrdersPage() {
@@ -294,6 +314,50 @@ export function OrdersPage() {
     }
   };
 
+  const downloadInvoice = (order: Order) => {
+    try {
+      const invoiceLines = [
+        `Nobonir Invoice`,
+        `Invoice Date: ${formatDate(new Date().toISOString())}`,
+        `Order ID: #${order.id}`,
+        `Order Status: ${STATUS_LABELS[order.status]}`,
+        `Placed On: ${formatDate(order.created_at)}`,
+        "",
+        "Items:",
+        ...order.items.map(
+          (item) =>
+            `- ${item.product_name} | Qty: ${item.quantity} | Unit: ${formatPrice(item.unit_price)} | Subtotal: ${formatPrice(toAmount(item.unit_price) * item.quantity)}`,
+        ),
+        "",
+        `Subtotal: ${formatPrice(order.subtotal_amount)}`,
+        `Discount: -${formatPrice(order.discount_amount)}`,
+        `Total: ${formatPrice(order.total_amount)}`,
+        `Coupon: ${order.coupon_code || "None"}`,
+        "",
+        "Shipping Address:",
+        formatAddress(order.shipping_address),
+        "",
+        "Billing Address:",
+        formatAddress(order.billing_address),
+      ];
+
+      const blob = new Blob([invoiceLines.join("\n")], {
+        type: "text/plain;charset=utf-8",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `invoice-order-${order.id}.txt`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(url);
+      showSuccess(`Invoice downloaded for order #${order.id}`);
+    } catch {
+      showError("Could not download invoice. Please try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <header className="ds-page-header">
@@ -419,6 +483,10 @@ export function OrdersPage() {
             {filteredOrders.map((order) => {
               const expanded = expandedOrderIds.includes(order.id);
               const progress = getProgressPercent(order.status);
+              const activeStepIndex =
+                order.status === "CANCELLED"
+                  ? -1
+                  : STATUS_STEPS.indexOf(order.status);
               const groupedItems = order.items.reduce(
                 (groups, item) => {
                   const existing = groups[item.product];
@@ -454,8 +522,14 @@ export function OrdersPage() {
                   }
                 >,
               );
-              const displayItems = Object.values(groupedItems);
+              const displayItems = Object.values(groupedItems).sort((a, b) =>
+                a.product_name.localeCompare(b.product_name),
+              );
               const totalLines = order.items.length;
+              const totalUnits = displayItems.reduce(
+                (sum, item) => sum + item.quantity,
+                0,
+              );
 
               return (
                 <Card
@@ -473,6 +547,16 @@ export function OrdersPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => downloadInvoice(order)}
+                        >
+                          <Download className="h-4 w-4" />
+                          Download Invoice
+                        </Button>
                         <Badge className={STATUS_CLASSES[order.status]}>
                           <span className="mr-1">
                             {getStatusIcon(order.status)}
@@ -489,7 +573,7 @@ export function OrdersPage() {
                   <CardContent className="space-y-4">
                     <div>
                       <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Order Progress</span>
+                        <span>Order timeline</span>
                         <span>{Math.round(progress)}%</span>
                       </div>
                       <div className="h-2 rounded-full bg-muted">
@@ -502,6 +586,30 @@ export function OrdersPage() {
                           style={{ width: `${progress}%` }}
                         />
                       </div>
+                      {order.status === "CANCELLED" ? (
+                        <p className="mt-2 text-xs font-medium text-rose-600">
+                          This order was cancelled on{" "}
+                          {formatDate(order.updated_at)}.
+                        </p>
+                      ) : (
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {STATUS_STEPS.map((step, index) => {
+                            const complete = index <= activeStepIndex;
+                            return (
+                              <div
+                                key={`${order.id}-${step}`}
+                                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                  complete
+                                    ? "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-700/50 dark:bg-teal-900/30 dark:text-teal-300"
+                                    : "border-border bg-background text-muted-foreground"
+                                }`}
+                              >
+                                {STATUS_TIMELINE_LABELS[step]}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     <div className="rounded-lg bg-muted/40 p-3 text-sm text-foreground">
@@ -538,6 +646,17 @@ export function OrdersPage() {
 
                     {expanded && (
                       <div className="overflow-hidden rounded-lg border border-border">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-3 text-xs">
+                          <p className="font-medium text-foreground">
+                            {displayItems.length} grouped product
+                            {displayItems.length > 1 ? "s" : ""}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {totalUnits} unit{totalUnits > 1 ? "s" : ""} across{" "}
+                            {totalLines} line
+                            {totalLines > 1 ? "s" : ""}
+                          </p>
+                        </div>
                         <div className="hidden grid-cols-[1fr_auto_auto] gap-3 bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid">
                           <span>Item</span>
                           <span>Qty</span>
@@ -566,7 +685,7 @@ export function OrdersPage() {
                                     </Link>
                                     {item.lineCount > 1 && (
                                       <span className="text-muted-foreground">
-                                        Combined from {item.lineCount} lines
+                                        Grouped from {item.lineCount} lines
                                       </span>
                                     )}
                                   </div>

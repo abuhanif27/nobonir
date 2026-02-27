@@ -122,10 +122,10 @@ export function FlowStateBanner({
 interface FlowStateSectionProps {
   loading: boolean;
   error: string | null;
-  isEmpty: boolean;
+  isEmpty?: boolean;
   loadingMessage: ReactNode;
-  emptyTitle: string;
-  emptyMessage: ReactNode;
+  emptyTitle?: string;
+  emptyMessage?: ReactNode;
   onRetry: () => void;
   children: ReactNode;
 }
@@ -133,7 +133,7 @@ interface FlowStateSectionProps {
 export function FlowStateSection({
   loading,
   error,
-  isEmpty,
+  isEmpty = false,
   loadingMessage,
   emptyTitle,
   emptyMessage,
@@ -155,7 +155,7 @@ export function FlowStateSection({
     );
   }
 
-  if (isEmpty) {
+  if (isEmpty && emptyTitle && emptyMessage) {
     return (
       <FlowStateCard
         title={emptyTitle}

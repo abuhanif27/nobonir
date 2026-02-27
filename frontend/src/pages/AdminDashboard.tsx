@@ -645,10 +645,7 @@ export function AdminDashboard() {
                 <FlowStateSection
                   loading={loadingAnalytics}
                   error={analyticsError}
-                  isEmpty={false}
                   loadingMessage="Loading funnel analytics..."
-                  emptyTitle=""
-                  emptyMessage=""
                   onRetry={() => loadAnalyticsSummary(analyticsDays)}
                 >
                   {!analyticsSummary ? (
