@@ -122,7 +122,11 @@ export function ProductPage() {
   const refreshCartCount = async () => {
     try {
       const response = await api.get("/cart/");
-      const apiItems = Array.isArray(response.data) ? response.data : [];
+      const apiItems = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.results)
+          ? response.data.results
+          : [];
       const apiCount = apiItems.reduce(
         (sum: number, item: any) => sum + (item.quantity || 0),
         0,
