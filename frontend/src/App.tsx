@@ -24,6 +24,9 @@ function App() {
       <CurrencyProvider>
         <FeedbackProvider>
           <BrowserRouter>
+            <a href="#main-content" className="skip-link">
+              Skip to main content
+            </a>
             <Routes>
               {/* Public routes - accessible to all */}
               <Route

@@ -39,7 +39,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-6">
+    <main
+      id="main-content"
+      className="flex min-h-screen items-center justify-center bg-background px-4 py-6"
+    >
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Login to Nobonir</CardTitle>
@@ -93,6 +96,6 @@ export function LoginPage() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </main>
   );
 }

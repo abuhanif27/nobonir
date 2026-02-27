@@ -370,7 +370,7 @@ export function OrdersPage() {
         </div>
       </header>
 
-      <main className="ds-page-container">
+      <main id="main-content" className="ds-page-container">
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
           <Card className="ds-surface-card">
             <CardContent className="pt-6">

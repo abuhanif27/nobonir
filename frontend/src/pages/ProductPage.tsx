@@ -513,7 +513,7 @@ export function ProductPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background px-4 py-16">
-        <main className="mx-auto max-w-4xl">
+        <main id="main-content" className="mx-auto max-w-4xl">
           <FlowStateCard
             message="Loading product..."
             contentClassName="py-12"
@@ -528,7 +528,10 @@ export function ProductPage() {
 
     return (
       <div className="min-h-screen bg-background">
-        <main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+        <main
+          id="main-content"
+          className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8"
+        >
           <FlowStateCard
             title={
               isUnavailable
@@ -603,7 +606,10 @@ export function ProductPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 sm:py-8 sm:pb-10 lg:px-8">
+      <main
+        id="main-content"
+        className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 sm:py-8 sm:pb-10 lg:px-8"
+      >
         <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
           <div className="space-y-3 lg:sticky lg:top-24 lg:self-start">
             <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-xl">

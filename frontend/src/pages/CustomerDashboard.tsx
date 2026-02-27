@@ -478,6 +478,20 @@ export function CustomerDashboard() {
   }, [isUserMenuOpen]);
 
   useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setIsUserMenuOpen(false);
+      setIsMobileMenuOpen(false);
+    };
+
+    document.addEventListener("keydown", handleEscapeKey);
+    return () => document.removeEventListener("keydown", handleEscapeKey);
+  }, []);
+
+  useEffect(() => {
     if (isInitialLoad) return;
 
     const query = search.trim();
@@ -1056,6 +1070,8 @@ export function CustomerDashboard() {
                 className="h-9 w-9"
                 onClick={() => setIsMobileMenuOpen((prev) => !prev)}
                 aria-label="Toggle navigation menu"
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-primary-nav"
               >
                 {isMobileMenuOpen ? (
                   <X className="h-4.5 w-4.5" />
@@ -1065,7 +1081,10 @@ export function CustomerDashboard() {
               </Button>
             </div>
 
-            <div className="hidden w-full flex-wrap items-center justify-start gap-2 lg:flex lg:w-auto lg:justify-end lg:gap-3">
+            <nav
+              className="hidden w-full flex-wrap items-center justify-start gap-2 lg:flex lg:w-auto lg:justify-end lg:gap-3"
+              aria-label="Primary"
+            >
               {isAuthenticated ? (
                 <>
                   <Link to="/cart">
@@ -1098,6 +1117,9 @@ export function CustomerDashboard() {
                       type="button"
                       onClick={() => setIsUserMenuOpen((prev) => !prev)}
                       data-user-menu-trigger="true"
+                      aria-haspopup="menu"
+                      aria-expanded={isUserMenuOpen}
+                      aria-controls="dashboard-user-menu"
                       className="flex items-center gap-2 rounded-full border border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 text-slate-900 transition-colors hover:from-teal-100 hover:to-cyan-100 dark:border-slate-700 dark:from-slate-800 dark:to-slate-700 dark:text-slate-100 dark:hover:from-slate-700 dark:hover:to-slate-600"
                     >
                       <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
@@ -1125,10 +1147,16 @@ export function CustomerDashboard() {
                     </button>
 
                     {isUserMenuOpen && (
-                      <div className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-border bg-card shadow-lg p-2">
+                      <div
+                        id="dashboard-user-menu"
+                        role="menu"
+                        aria-label="User menu"
+                        className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-border bg-card shadow-lg p-2"
+                      >
                         <Link
                           to="/profile"
                           onClick={() => setIsUserMenuOpen(false)}
+                          role="menuitem"
                           className={styles.userMenuItem}
                         >
                           <User className="h-4 w-4" />
@@ -1137,6 +1165,7 @@ export function CustomerDashboard() {
                         <Link
                           to="/orders"
                           onClick={() => setIsUserMenuOpen(false)}
+                          role="menuitem"
                           className={styles.userMenuItem}
                         >
                           <Package className="h-4 w-4" />
@@ -1145,6 +1174,7 @@ export function CustomerDashboard() {
                         <Link
                           to="/wishlist"
                           onClick={() => setIsUserMenuOpen(false)}
+                          role="menuitem"
                           className={styles.userMenuItem}
                         >
                           <Heart className="h-4 w-4" />
@@ -1156,6 +1186,7 @@ export function CustomerDashboard() {
                             setIsUserMenuOpen(false);
                             logout();
                           }}
+                          role="menuitem"
                           className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                         >
                           <LogOut className="h-4 w-4" />
@@ -1213,11 +1244,15 @@ export function CustomerDashboard() {
                   </Link>
                 </>
               )}
-            </div>
+            </nav>
           </div>
 
           {isMobileMenuOpen && (
-            <div className="mt-3 rounded-xl border border-border bg-card p-3 shadow-lg lg:hidden">
+            <nav
+              id="mobile-primary-nav"
+              className="mt-3 rounded-xl border border-border bg-card p-3 shadow-lg lg:hidden"
+              aria-label="Mobile primary"
+            >
               <div className="grid grid-cols-2 gap-2">
                 <Link to="/cart" onClick={() => setIsMobileMenuOpen(false)}>
                   <Button
@@ -1322,7 +1357,7 @@ export function CustomerDashboard() {
                   </>
                 )}
               </div>
-            </div>
+            </nav>
           )}
         </div>
       </header>
@@ -1363,6 +1398,7 @@ export function CustomerDashboard() {
                 <Input
                   type="text"
                   placeholder="Try 'wireless headphones' or 'summer dress'..."
+                  aria-label="Search products"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -1383,7 +1419,10 @@ export function CustomerDashboard() {
       </div>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+      <main
+        id="main-content"
+        className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8"
+      >
         {isAuthenticated && (
           <section className="mb-10 rounded-2xl border border-border bg-card/85 p-6 shadow-lg backdrop-blur-sm">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1391,7 +1430,7 @@ export function CustomerDashboard() {
                 Exclusive Suggestions for You
               </h4>
               {isAutoPersonalizing && (
-                <span className="text-xs font-semibold text-teal-700">
+                <span className="text-xs font-semibold text-teal-800 dark:text-teal-300">
                   Refreshing...
                 </span>
               )}
@@ -1523,7 +1562,7 @@ export function CustomerDashboard() {
                         <p className="text-xs text-muted-foreground">
                           {product.category.name}
                         </p>
-                        <p className="text-sm font-bold text-teal-700">
+                        <p className="text-sm font-bold text-teal-800 dark:text-teal-300">
                           {formatPrice(product.price)}
                         </p>
                         <Button

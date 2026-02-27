@@ -155,6 +155,21 @@ export function CartPage() {
     }
   }, [shippingAddress, useShippingAsBilling]);
 
+  useEffect(() => {
+    if (!clearConfirmOpen) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setClearConfirmOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [clearConfirmOpen]);
+
   const updateQuantity = async (itemId: number, quantity: number) => {
     const localItem = cartItems.find(
       (item) => item.id === itemId && item.isLocal,
@@ -417,8 +432,12 @@ export function CartPage() {
             ? "pointer-events-auto bg-black/45 opacity-100 backdrop-blur-sm"
             : "pointer-events-none bg-black/0 opacity-0 backdrop-blur-0"
         }`}
+        aria-hidden={!clearConfirmOpen}
       >
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-cart-title"
           className={`w-full max-w-md transform transition-all duration-300 ${
             clearConfirmOpen
               ? "translate-y-0 scale-100 opacity-100"
@@ -432,7 +451,10 @@ export function CartPage() {
                   <AlertTriangle className="h-5 w-5 animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">
+                  <h3
+                    id="clear-cart-title"
+                    className="text-lg font-semibold text-foreground"
+                  >
                     Clear all cart items?
                   </h3>
                   <p className="text-sm text-muted-foreground">
@@ -478,7 +500,7 @@ export function CartPage() {
         </div>
       </header>
 
-      <main className="ds-page-container">
+      <main id="main-content" className="ds-page-container">
         {loading ? (
           <FlowStateCard message="Loading cart..." contentClassName="py-12" />
         ) : cartLoadError && cartItems.length === 0 ? (
@@ -561,6 +583,7 @@ export function CartPage() {
                               onClick={() =>
                                 updateQuantity(item.id, item.quantity - 1)
                               }
+                              aria-label={`Decrease quantity for ${item.product.name}`}
                             >
                               <Minus className="h-4 w-4" />
                             </Button>
@@ -582,6 +605,7 @@ export function CartPage() {
                                 )
                               }
                               disabled={item.quantity >= item.product.stock}
+                              aria-label={`Increase quantity for ${item.product.name}`}
                             >
                               <Plus className="h-4 w-4" />
                             </Button>
@@ -590,6 +614,7 @@ export function CartPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => removeItem(item.id)}
+                            aria-label={`Remove ${item.product.name} from cart`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -650,9 +675,15 @@ export function CartPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Coupon Code</label>
+                    <label
+                      htmlFor="coupon-code"
+                      className="text-sm font-medium"
+                    >
+                      Coupon Code
+                    </label>
                     <div className="flex gap-2">
                       <Input
+                        id="coupon-code"
                         placeholder="Enter coupon (e.g. NOBONIR)"
                         value={couponCode}
                         onChange={(e) => {
@@ -692,10 +723,14 @@ export function CartPage() {
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">
+                    <label
+                      htmlFor="shipping-address"
+                      className="text-sm font-medium"
+                    >
                       Shipping Address
                     </label>
                     <Textarea
+                      id="shipping-address"
                       placeholder="Enter your shipping address..."
                       value={shippingAddress}
                       onChange={(e) => setShippingAddress(e.target.value)}
@@ -706,11 +741,18 @@ export function CartPage() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">
+                      <label
+                        htmlFor="billing-address"
+                        className="text-sm font-medium"
+                      >
                         Billing Address
                       </label>
-                      <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                      <label
+                        htmlFor="same-as-shipping"
+                        className="inline-flex items-center gap-2 text-xs text-muted-foreground"
+                      >
                         <input
+                          id="same-as-shipping"
                           type="checkbox"
                           checked={useShippingAsBilling}
                           onChange={(event) =>
@@ -722,6 +764,7 @@ export function CartPage() {
                       </label>
                     </div>
                     <Textarea
+                      id="billing-address"
                       placeholder="Enter your billing address..."
                       value={billingAddress}
                       onChange={(e) => setBillingAddress(e.target.value)}
@@ -734,7 +777,11 @@ export function CartPage() {
                     <label className="text-sm font-medium">
                       Payment Method
                     </label>
-                    <div className="grid grid-cols-1 gap-2">
+                    <div
+                      className="grid grid-cols-1 gap-2"
+                      role="radiogroup"
+                      aria-label="Payment method"
+                    >
                       {(
                         Object.keys(paymentMethodMeta) as Array<"CARD" | "COD">
                       ).map((method) => {
@@ -748,6 +795,8 @@ export function CartPage() {
                             type="button"
                             disabled={!isAuthenticated}
                             onClick={() => setPaymentMethod(method)}
+                            role="radio"
+                            aria-checked={isSelected}
                             className={`w-full rounded-xl border p-3 text-left transition-all ${
                               isSelected
                                 ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50"

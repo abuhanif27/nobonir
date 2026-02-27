@@ -45,7 +45,10 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-6">
+    <main
+      id="main-content"
+      className="flex min-h-screen items-center justify-center bg-background px-4 py-6"
+    >
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Create Account</CardTitle>
@@ -121,6 +124,6 @@ export function RegisterPage() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </main>
   );
 }

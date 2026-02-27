@@ -583,7 +583,7 @@ export function AdminDashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="ds-page-container">
+      <main id="main-content" className="ds-page-container">
         <div className="mb-8 grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader>
