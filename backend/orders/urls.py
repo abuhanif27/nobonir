@@ -6,6 +6,7 @@ from .views import (
     CheckoutAPIView,
     CouponValidateAPIView,
     MyOrderInvoiceAPIView,
+    MyOrderInvoicePDFAPIView,
     MyOrderListAPIView,
 )
 
@@ -14,6 +15,7 @@ urlpatterns = [
     path("coupon/validate/", CouponValidateAPIView.as_view()),
     path("my/", MyOrderListAPIView.as_view()),
     path("my/<int:order_id>/invoice/", MyOrderInvoiceAPIView.as_view()),
+    path("my/<int:order_id>/invoice.pdf/", MyOrderInvoicePDFAPIView.as_view()),
     path("admin/coupons/", AdminCouponViewSet.as_view({"get": "list", "post": "create"})),
     path(
         "admin/coupons/<int:pk>/",

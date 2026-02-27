@@ -311,7 +311,7 @@ export function OrdersPage() {
 
   const downloadInvoice = async (order: Order) => {
     try {
-      const response = await api.get(`/orders/my/${order.id}/invoice/`, {
+      const response = await api.get(`/orders/my/${order.id}/invoice.pdf/`, {
         responseType: "blob",
       });
 
@@ -323,7 +323,7 @@ export function OrdersPage() {
         response.headers["content-disposition"] || "",
       );
       const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-      anchor.download = filenameMatch?.[1] || `invoice-order-${order.id}.txt`;
+      anchor.download = filenameMatch?.[1] || `invoice-order-${order.id}.pdf`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);

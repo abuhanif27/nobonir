@@ -18,6 +18,7 @@ numpy==2.2.3
 
 # Image Processing
 Pillow==11.0.0
+reportlab==4.2.5
 
 # Python
 python-dotenv==1.0.1

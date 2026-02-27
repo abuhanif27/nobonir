@@ -142,3 +142,21 @@ class OrderInvoiceAPITests(APITestCase):
 		response = self.client.get(f"/api/orders/my/{self.order.id}/invoice/")
 
 		self.assertEqual(response.status_code, 404)
+
+	def test_owner_can_download_invoice_pdf(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.get(f"/api/orders/my/{self.order.id}/invoice.pdf/")
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response["Content-Type"], "application/pdf")
+		self.assertIn(
+			f'attachment; filename="invoice-order-{self.order.id}.pdf"',
+			response["Content-Disposition"],
+		)
+		self.assertTrue(response.content.startswith(b"%PDF"))
+
+	def test_non_owner_cannot_download_invoice_pdf(self):
+		self.client.force_authenticate(user=self.other_user)
+		response = self.client.get(f"/api/orders/my/{self.order.id}/invoice.pdf/")
+
+		self.assertEqual(response.status_code, 404)
