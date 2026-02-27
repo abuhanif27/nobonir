@@ -126,9 +126,7 @@ export function CartPage() {
           await api.post("/payments/stripe/cancel/", {
             order_id: Number(orderId),
           });
-          showError(
-            "Payment was canceled and the pending order was canceled",
-          );
+          showError("Payment was canceled and the pending order was canceled");
         } catch (error: any) {
           const message =
             error.response?.data?.detail ||
