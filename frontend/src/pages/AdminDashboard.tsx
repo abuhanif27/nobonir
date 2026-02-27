@@ -1079,6 +1079,29 @@ export function AdminDashboard() {
                                 <TableRow key={`order-${order.id}-details`}>
                                   <TableCell colSpan={7}>
                                     <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                                      <div className="mb-3 flex items-center justify-between gap-2">
+                                        <p className="font-semibold">
+                                          Order Details
+                                        </p>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 gap-1"
+                                          onClick={() =>
+                                            downloadAdminInvoice(order.id)
+                                          }
+                                          disabled={
+                                            downloadingInvoiceOrderId ===
+                                            order.id
+                                          }
+                                        >
+                                          <Download className="h-3.5 w-3.5" />
+                                          {downloadingInvoiceOrderId ===
+                                          order.id
+                                            ? "Downloading..."
+                                            : "Invoice"}
+                                        </Button>
+                                      </div>
                                       <p className="font-semibold mb-2">
                                         Shipping Address
                                       </p>
