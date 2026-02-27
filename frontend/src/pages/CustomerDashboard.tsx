@@ -1104,7 +1104,7 @@ export function CustomerDashboard() {
                       type="button"
                       onClick={() => setIsUserMenuOpen((prev) => !prev)}
                       data-user-menu-trigger="true"
-                      className="flex items-center gap-2 rounded-full border border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 text-foreground transition-colors hover:from-teal-100 hover:to-cyan-100"
+                      className="flex items-center gap-2 rounded-full border border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50 px-3 py-2 text-slate-900 transition-colors hover:from-teal-100 hover:to-cyan-100 dark:border-slate-700 dark:from-slate-800 dark:to-slate-700 dark:text-slate-100 dark:hover:from-slate-700 dark:hover:to-slate-600"
                     >
                       <div className="h-8 w-8 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
                         {userImageSrc ? (
