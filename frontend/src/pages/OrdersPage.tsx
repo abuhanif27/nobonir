@@ -498,6 +498,14 @@ export function OrdersPage() {
             {filteredOrders.map((order) => {
               const expanded = expandedOrderIds.includes(order.id);
               const progress = getProgressPercent(order.status);
+              const productLineCounts = order.items.reduce(
+                (counts, item) => {
+                  counts[item.product] = (counts[item.product] || 0) + 1;
+                  return counts;
+                },
+                {} as Record<number, number>,
+              );
+              const renderedProducts = new Set<number>();
 
               return (
                 <Card
@@ -583,161 +591,188 @@ export function OrdersPage() {
                           <span>Subtotal</span>
                         </div>
                         <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                          {order.items.map((item) => (
-                            <div
-                              key={item.id}
-                              className="grid grid-cols-1 gap-2 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-[1fr_auto_auto] sm:gap-3"
-                            >
-                              <span className="font-medium text-slate-800 dark:text-slate-100">
-                                <Link
-                                  to={`/product/${item.product}#share-feedback`}
-                                  className="underline-offset-4 hover:text-cyan-600 hover:underline dark:hover:text-cyan-400"
-                                >
-                                  {item.product_name}
-                                </Link>
-                              </span>
-                              <span className="text-slate-600 dark:text-slate-300 sm:text-right">
-                                x{item.quantity}
-                              </span>
-                              <span className="font-semibold text-slate-900 dark:text-slate-100 sm:text-right">
-                                {formatPrice(
-                                  toAmount(item.unit_price) * item.quantity,
-                                )}
-                              </span>
+                          {order.items.map((item) => {
+                            const isFirstProductLine = !renderedProducts.has(
+                              item.product,
+                            );
+                            if (isFirstProductLine) {
+                              renderedProducts.add(item.product);
+                            }
 
-                              {order.status === "DELIVERED" && (
-                                <div className="sm:col-span-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
-                                  {hasReviewedProduct(item.product) ? (
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                        You already reviewed this product.
-                                      </p>
-                                      <Link
-                                        to={`/product/${item.product}#share-feedback`}
-                                      >
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="outline"
-                                          className="h-7 px-2 text-xs"
-                                        >
-                                          View / Edit Review
-                                        </Button>
-                                      </Link>
-                                    </div>
-                                  ) : (
-                                    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                                      <div>
-                                        <div className="flex items-center gap-1">
-                                          {Array.from({ length: 5 }).map(
-                                            (_, index) => {
-                                              const value = index + 1;
-                                              const selectedRating =
-                                                reviewDrafts[item.product]
-                                                  ?.rating ?? 5;
-                                              const active =
-                                                (reviewHoverRatings[
-                                                  item.product
-                                                ] || selectedRating) >= value;
+                            return (
+                              <div
+                                key={item.id}
+                                className="grid grid-cols-1 gap-2 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-[1fr_auto_auto] sm:gap-3"
+                              >
+                                <span className="font-medium text-slate-800 dark:text-slate-100">
+                                  <Link
+                                    to={`/product/${item.product}#share-feedback`}
+                                    className="underline-offset-4 hover:text-cyan-600 hover:underline dark:hover:text-cyan-400"
+                                  >
+                                    {item.product_name}
+                                  </Link>
+                                  <div className="mt-1 flex items-center gap-2 text-xs">
+                                    <Link
+                                      to={`/product/${item.product}#share-feedback`}
+                                      className="font-medium text-cyan-700 underline-offset-4 hover:underline dark:text-cyan-400"
+                                    >
+                                      View Product
+                                    </Link>
+                                    {productLineCounts[item.product] > 1 && (
+                                      <span className="text-slate-500 dark:text-slate-400">
+                                        Ordered in{" "}
+                                        {productLineCounts[item.product]} lines
+                                      </span>
+                                    )}
+                                  </div>
+                                </span>
+                                <span className="text-slate-600 dark:text-slate-300 sm:text-right">
+                                  x{item.quantity}
+                                </span>
+                                <span className="font-semibold text-slate-900 dark:text-slate-100 sm:text-right">
+                                  {formatPrice(
+                                    toAmount(item.unit_price) * item.quantity,
+                                  )}
+                                </span>
 
-                                              return (
-                                                <button
-                                                  key={`order-review-${item.product}-${value}`}
-                                                  type="button"
-                                                  onMouseEnter={() =>
-                                                    setReviewHoverRatings(
-                                                      (current) => ({
-                                                        ...current,
-                                                        [item.product]: value,
-                                                      }),
-                                                    )
-                                                  }
-                                                  onMouseLeave={() =>
-                                                    setReviewHoverRatings(
-                                                      (current) => ({
-                                                        ...current,
-                                                        [item.product]: 0,
-                                                      }),
-                                                    )
-                                                  }
-                                                  onClick={() =>
-                                                    setReviewDrafts(
-                                                      (current) => ({
-                                                        ...current,
-                                                        [item.product]: {
-                                                          rating: value,
-                                                          comment:
-                                                            current[
-                                                              item.product
-                                                            ]?.comment || "",
-                                                        },
-                                                      }),
-                                                    )
-                                                  }
-                                                  className="rounded p-0.5 transition-transform duration-200 hover:scale-110"
-                                                  aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
-                                                >
-                                                  <Star
-                                                    className={`h-4 w-4 transition-all duration-200 ${
-                                                      active
-                                                        ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.45)]"
-                                                        : "text-slate-400"
-                                                    }`}
-                                                  />
-                                                </button>
-                                              );
-                                            },
-                                          )}
+                                {order.status === "DELIVERED" &&
+                                  isFirstProductLine && (
+                                    <div className="sm:col-span-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+                                      {hasReviewedProduct(item.product) ? (
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                            You already reviewed this product.
+                                          </p>
+                                          <Link
+                                            to={`/product/${item.product}#share-feedback`}
+                                          >
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-7 px-2 text-xs"
+                                            >
+                                              View / Edit Review
+                                            </Button>
+                                          </Link>
                                         </div>
-                                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                          {reviewDrafts[item.product]?.rating ??
-                                            5}{" "}
-                                          / 5 selected
-                                        </p>
-                                      </div>
-                                      <input
-                                        type="text"
-                                        placeholder="Write review comment"
-                                        value={
-                                          reviewDrafts[item.product]?.comment ??
-                                          ""
-                                        }
-                                        onChange={(event) =>
-                                          setReviewDrafts((current) => ({
-                                            ...current,
-                                            [item.product]: {
-                                              rating:
-                                                current[item.product]?.rating ??
-                                                5,
-                                              comment: event.target.value,
-                                            },
-                                          }))
-                                        }
-                                        className="h-9 rounded-md border bg-background px-3 text-xs"
-                                      />
-                                      <div className="sm:col-span-2 sm:flex sm:justify-end">
-                                        <Button
-                                          size="sm"
-                                          onClick={() =>
-                                            saveReview(item.product)
-                                          }
-                                          disabled={
-                                            savingReviewProductId ===
-                                            item.product
-                                          }
-                                        >
-                                          {savingReviewProductId ===
-                                          item.product
-                                            ? "Saving..."
-                                            : "Review"}
-                                        </Button>
-                                      </div>
+                                      ) : (
+                                        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                                          <div>
+                                            <div className="flex items-center gap-1">
+                                              {Array.from({ length: 5 }).map(
+                                                (_, index) => {
+                                                  const value = index + 1;
+                                                  const selectedRating =
+                                                    reviewDrafts[item.product]
+                                                      ?.rating ?? 5;
+                                                  const active =
+                                                    (reviewHoverRatings[
+                                                      item.product
+                                                    ] || selectedRating) >=
+                                                    value;
+
+                                                  return (
+                                                    <button
+                                                      key={`order-review-${item.product}-${value}`}
+                                                      type="button"
+                                                      onMouseEnter={() =>
+                                                        setReviewHoverRatings(
+                                                          (current) => ({
+                                                            ...current,
+                                                            [item.product]:
+                                                              value,
+                                                          }),
+                                                        )
+                                                      }
+                                                      onMouseLeave={() =>
+                                                        setReviewHoverRatings(
+                                                          (current) => ({
+                                                            ...current,
+                                                            [item.product]: 0,
+                                                          }),
+                                                        )
+                                                      }
+                                                      onClick={() =>
+                                                        setReviewDrafts(
+                                                          (current) => ({
+                                                            ...current,
+                                                            [item.product]: {
+                                                              rating: value,
+                                                              comment:
+                                                                current[
+                                                                  item.product
+                                                                ]?.comment ||
+                                                                "",
+                                                            },
+                                                          }),
+                                                        )
+                                                      }
+                                                      className="rounded p-0.5 transition-transform duration-200 hover:scale-110"
+                                                      aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
+                                                    >
+                                                      <Star
+                                                        className={`h-4 w-4 transition-all duration-200 ${
+                                                          active
+                                                            ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.45)]"
+                                                            : "text-slate-400"
+                                                        }`}
+                                                      />
+                                                    </button>
+                                                  );
+                                                },
+                                              )}
+                                            </div>
+                                            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                              {reviewDrafts[item.product]
+                                                ?.rating ?? 5}{" "}
+                                              / 5 selected
+                                            </p>
+                                          </div>
+                                          <input
+                                            type="text"
+                                            placeholder="Write review comment"
+                                            value={
+                                              reviewDrafts[item.product]
+                                                ?.comment ?? ""
+                                            }
+                                            onChange={(event) =>
+                                              setReviewDrafts((current) => ({
+                                                ...current,
+                                                [item.product]: {
+                                                  rating:
+                                                    current[item.product]
+                                                      ?.rating ?? 5,
+                                                  comment: event.target.value,
+                                                },
+                                              }))
+                                            }
+                                            className="h-9 rounded-md border bg-background px-3 text-xs"
+                                          />
+                                          <div className="sm:col-span-2 sm:flex sm:justify-end">
+                                            <Button
+                                              size="sm"
+                                              onClick={() =>
+                                                saveReview(item.product)
+                                              }
+                                              disabled={
+                                                savingReviewProductId ===
+                                                item.product
+                                              }
+                                            >
+                                              {savingReviewProductId ===
+                                              item.product
+                                                ? "Saving..."
+                                                : "Review"}
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
