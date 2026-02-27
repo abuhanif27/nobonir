@@ -160,7 +160,7 @@ def handle_stripe_checkout_expired(session):
         return
 
     order = Order.objects.select_for_update().filter(pk=parsed_order_id).first()
-    if not order or order.status not in [Order.Status.PENDING, Order.Status.CANCELLED]:
+    if not order or order.status != Order.Status.PENDING:
         return
 
     transaction_id = f"STRIPE-EXPIRED-{session.get('id')}"

@@ -52,7 +52,7 @@ class StripeCheckoutSessionAPIView(APIView):
 
 		frontend_base = settings.FRONTEND_BASE_URL.rstrip("/")
 		success_url = f"{frontend_base}/orders?payment=success"
-		cancel_url = f"{frontend_base}/cart?payment=cancelled"
+		cancel_url = f"{frontend_base}/cart?payment=cancelled&order_id={order.id}"
 
 		try:
 			session = create_stripe_checkout_session(
@@ -127,3 +127,35 @@ class CODPaymentAPIView(APIView):
 			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
 		return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
+
+
+class StripeCancelPaymentAPIView(APIView):
+	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+
+	def post(self, request):
+		serializer = StripeCheckoutSessionSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+
+		order = get_object_or_404(
+			Order,
+			pk=serializer.validated_data["order_id"],
+			user=request.user,
+		)
+
+		if order.status == Order.Status.PAID:
+			return Response({"detail": "Order already paid."}, status=status.HTTP_400_BAD_REQUEST)
+
+		if order.status == Order.Status.CANCELLED:
+			return Response({"detail": "Order already cancelled."}, status=status.HTTP_200_OK)
+
+		try:
+			payment = process_payment(
+				order=order,
+				method="STRIPE",
+				success=False,
+				transaction_id=f"STRIPE-CANCEL-{order.id}",
+			)
+		except ValueError as exc:
+			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+		return Response(PaymentSerializer(payment).data, status=status.HTTP_200_OK)

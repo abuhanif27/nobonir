@@ -112,9 +112,31 @@ export function CartPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const paymentState = params.get("payment");
+    const orderId = params.get("order_id");
 
     if (paymentState === "cancelled") {
-      setPaymentNotice("Payment was cancelled. Your order is still pending.");
+      const cancelPendingOrder = async () => {
+        if (!orderId) {
+          setPaymentNotice("Payment was cancelled.");
+          return;
+        }
+
+        try {
+          await api.post("/payments/stripe/cancel/", {
+            order_id: Number(orderId),
+          });
+          setPaymentNotice(
+            "Payment was cancelled and the pending order has been cancelled.",
+          );
+        } catch (error: any) {
+          const message =
+            error.response?.data?.detail ||
+            "Payment was cancelled. Unable to auto-cancel order.";
+          setPaymentNotice(message);
+        }
+      };
+
+      cancelPendingOrder();
       return;
     }
 
