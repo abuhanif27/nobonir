@@ -242,9 +242,17 @@ export function ProductPage() {
   }, [reviewNotice]);
 
   const currentProductId = Number(product?.id || 0);
+  const currentUserReview = myReviews.find(
+    (review) => Number(review.product) === currentProductId,
+  );
   const hasReviewedProduct = myReviews.some(
     (review) => Number(review.product) === currentProductId,
   );
+  const reviewFormLocked =
+    !isAuthenticated ||
+    savingReview ||
+    (!hasReviewedProduct && !canReviewProduct) ||
+    (hasReviewedProduct && !isEditingReview);
 
   useEffect(() => {
     if (!product || isEditingReview) {
@@ -265,6 +273,24 @@ export function ProductPage() {
       setReviewComment("");
     }
   }, [product, myReviews, isEditingReview]);
+
+  useEffect(() => {
+    if (!product) {
+      return;
+    }
+
+    if (window.location.hash === "#share-feedback") {
+      window.setTimeout(() => {
+        document
+          .getElementById("share-feedback")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+
+      if (hasReviewedProduct) {
+        setIsEditingReview(true);
+      }
+    }
+  }, [product, hasReviewedProduct]);
 
   const addToCart = async (sourceElement?: HTMLElement) => {
     if (!product) {
@@ -604,7 +630,10 @@ export function ProductPage() {
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <Card className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85">
+          <Card
+            id="share-feedback"
+            className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85"
+          >
             <CardContent className="p-5 sm:p-6">
               <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">
                 Customer Reviews
@@ -696,6 +725,35 @@ export function ProductPage() {
                   <p className="mt-1">
                     You can edit or delete your review below.
                   </p>
+                  <div className="mt-3 rounded-md border border-green-500/30 bg-green-500/5 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-green-300/90">
+                        Your current review
+                      </p>
+                      <span className="text-xs text-green-300/80">
+                        {currentUserReview
+                          ? new Date(
+                              currentUserReview.created_at,
+                            ).toLocaleDateString()
+                          : ""}
+                      </span>
+                    </div>
+                    <div className="mt-2 inline-flex items-center gap-1 text-amber-400">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star
+                          key={`current-user-review-star-${index}`}
+                          className={`h-4 w-4 ${
+                            index < (currentUserReview?.rating || 0)
+                              ? "fill-current"
+                              : "opacity-35"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-2 text-sm text-green-100/90">
+                      {currentUserReview?.comment || "No comment provided."}
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -759,11 +817,7 @@ export function ProductPage() {
                             onMouseEnter={() => setReviewHoverRating(value)}
                             onMouseLeave={() => setReviewHoverRating(0)}
                             onClick={() => setReviewRating(value)}
-                            disabled={
-                              !isAuthenticated ||
-                              savingReview ||
-                              (!hasReviewedProduct && !canReviewProduct)
-                            }
+                            disabled={reviewFormLocked}
                             className="rounded-lg p-2 transition-transform duration-200 hover:scale-125 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
                           >
@@ -800,21 +854,13 @@ export function ProductPage() {
                     onChange={(event) =>
                       setReviewComment(event.target.value.slice(0, 500))
                     }
-                    disabled={
-                      !isAuthenticated ||
-                      savingReview ||
-                      (!hasReviewedProduct && !canReviewProduct)
-                    }
+                    disabled={reviewFormLocked}
                     className="mt-2"
                   />
                 </div>
                 <Button
                   onClick={submitReview}
-                  disabled={
-                    !isAuthenticated ||
-                    savingReview ||
-                    (!hasReviewedProduct && !canReviewProduct)
-                  }
+                  disabled={reviewFormLocked}
                   className="w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
                 >
                   {savingReview
@@ -824,7 +870,7 @@ export function ProductPage() {
                     : isEditingReview
                       ? "Update Review"
                       : hasReviewedProduct
-                        ? "Use Edit Review"
+                        ? "Click Edit Review to Update"
                         : isAuthenticated &&
                             !hasReviewedProduct &&
                             !canReviewProduct

@@ -589,7 +589,12 @@ export function OrdersPage() {
                               className="grid grid-cols-1 gap-2 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-[1fr_auto_auto] sm:gap-3"
                             >
                               <span className="font-medium text-slate-800 dark:text-slate-100">
-                                {item.product_name}
+                                <Link
+                                  to={`/product/${item.product}#share-feedback`}
+                                  className="underline-offset-4 hover:text-cyan-600 hover:underline dark:hover:text-cyan-400"
+                                >
+                                  {item.product_name}
+                                </Link>
                               </span>
                               <span className="text-slate-600 dark:text-slate-300 sm:text-right">
                                 x{item.quantity}
@@ -603,9 +608,23 @@ export function OrdersPage() {
                               {order.status === "DELIVERED" && (
                                 <div className="sm:col-span-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
                                   {hasReviewedProduct(item.product) ? (
-                                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                      You already reviewed this product.
-                                    </p>
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                        You already reviewed this product.
+                                      </p>
+                                      <Link
+                                        to={`/product/${item.product}#share-feedback`}
+                                      >
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 px-2 text-xs"
+                                        >
+                                          View / Edit Review
+                                        </Button>
+                                      </Link>
+                                    </div>
                                   ) : (
                                     <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                                       <div>
