@@ -622,6 +622,8 @@ export function ProductPage() {
               >
                 {galleryImages.map((image, index) => {
                   const isActive = image === productImage;
+                  const isFirst = index === 0;
+                  const isLast = index === galleryImages.length - 1;
 
                   return (
                     <button
@@ -633,7 +635,36 @@ export function ProductPage() {
                           : "border-border/60"
                       }`}
                       onClick={() => setSelectedImage(image)}
-                      aria-pressed={isActive}
+                      onKeyDown={(event) => {
+                        if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                          event.preventDefault();
+                          const nextIndex = isLast ? 0 : index + 1;
+                          setSelectedImage(galleryImages[nextIndex]);
+                        }
+
+                        if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                          event.preventDefault();
+                          const prevIndex = isFirst
+                            ? galleryImages.length - 1
+                            : index - 1;
+                          setSelectedImage(galleryImages[prevIndex]);
+                        }
+
+                        if (event.key === "Home") {
+                          event.preventDefault();
+                          setSelectedImage(galleryImages[0]);
+                        }
+
+                        if (event.key === "End") {
+                          event.preventDefault();
+                          setSelectedImage(
+                            galleryImages[galleryImages.length - 1],
+                          );
+                        }
+                      }}
+                      role="radio"
+                      aria-checked={isActive}
+                      tabIndex={isActive ? 0 : -1}
                       aria-label={`View product image ${index + 1}`}
                     >
                       <img
