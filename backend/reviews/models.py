@@ -9,7 +9,9 @@ class Review(models.Model):
 	product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="reviews")
 	rating = models.PositiveSmallIntegerField(default=5)
 	comment = models.TextField(blank=True)
+	is_approved = models.BooleanField(default=True, db_index=True)
 	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
 
 	class Meta:
 		constraints = [

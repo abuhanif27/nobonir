@@ -77,6 +77,18 @@ interface AdminUser {
   is_staff: boolean;
 }
 
+interface AdminReview {
+  id: number;
+  user_email: string;
+  product_name: string;
+  product: number;
+  rating: number;
+  comment: string;
+  is_approved: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 const ORDER_STATUSES = [
   "PENDING",
   "PAID",
@@ -86,7 +98,7 @@ const ORDER_STATUSES = [
   "CANCELLED",
 ] as const;
 
-type AdminSection = "orders" | "coupons" | "users" | "products";
+type AdminSection = "orders" | "coupons" | "users" | "products" | "reviews";
 
 export function AdminDashboard() {
   const { user, logout } = useAuthStore();
@@ -116,6 +128,9 @@ export function AdminDashboard() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingCoupons, setLoadingCoupons] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [savingReviewId, setSavingReviewId] = useState<number | null>(null);
   const [newCoupon, setNewCoupon] = useState({
     code: "",
     discount_percent: 10,
@@ -129,6 +144,7 @@ export function AdminDashboard() {
     loadOrders();
     loadCoupons();
     loadUsers();
+    loadReviews();
 
     const storedNotice = sessionStorage.getItem(ADMIN_ORDER_NOTICE_KEY);
     if (storedNotice) {
@@ -239,6 +255,19 @@ export function AdminDashboard() {
       setUsers([]);
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const loadReviews = async () => {
+    setLoadingReviews(true);
+    try {
+      const response = await api.get("/reviews/admin/");
+      setReviews(response.data.results || response.data);
+    } catch (error) {
+      console.error("Failed to load reviews:", error);
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
     }
   };
 
@@ -377,6 +406,51 @@ export function AdminDashboard() {
     }
   };
 
+  const toggleReviewApproval = async (review: AdminReview) => {
+    setSavingReviewId(review.id);
+    try {
+      const response = await api.patch(`/reviews/admin/${review.id}/`, {
+        is_approved: !review.is_approved,
+      });
+      setReviews((current) =>
+        current.map((item) => (item.id === review.id ? response.data : item)),
+      );
+      pushOrderNotice(
+        "success",
+        `Review #${review.id} ${response.data.is_approved ? "approved" : "hidden"}.`,
+      );
+    } catch (error: any) {
+      pushOrderNotice(
+        "error",
+        error.response?.data?.detail || "Failed to update review status.",
+      );
+    } finally {
+      setSavingReviewId(null);
+    }
+  };
+
+  const deleteReview = async (reviewId: number) => {
+    if (!confirm("Delete this review permanently?")) {
+      return;
+    }
+
+    setSavingReviewId(reviewId);
+    try {
+      await api.delete(`/reviews/admin/${reviewId}/`);
+      setReviews((current) =>
+        current.filter((review) => review.id !== reviewId),
+      );
+      pushOrderNotice("success", `Review #${reviewId} deleted.`);
+    } catch (error: any) {
+      pushOrderNotice(
+        "error",
+        error.response?.data?.detail || "Failed to delete review.",
+      );
+    } finally {
+      setSavingReviewId(null);
+    }
+  };
+
   const lowStockCount = products.filter((p) => p.stock < 10).length;
   const outOfStockCount = products.filter((p) => p.stock === 0).length;
   const pendingOrderCount = orders.filter(
@@ -386,6 +460,7 @@ export function AdminDashboard() {
     { key: "orders", label: "Orders" },
     { key: "coupons", label: "Coupons" },
     { key: "users", label: "Users" },
+    { key: "reviews", label: "Reviews" },
     { key: "products", label: "Products" },
   ];
 
@@ -1011,6 +1086,86 @@ export function AdminDashboard() {
                                 size="sm"
                                 onClick={() => deleteProduct(product.id)}
                                 className="bg-red-600 text-white hover:bg-red-700"
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === "reviews" && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Review Moderation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingReviews ? (
+                <p className="text-center text-gray-600">Loading reviews...</p>
+              ) : reviews.length === 0 ? (
+                <p className="text-center text-muted-foreground py-6">
+                  No reviews found.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Product</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Rating</TableHead>
+                        <TableHead>Comment</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reviews.map((review) => (
+                        <TableRow key={review.id}>
+                          <TableCell>{review.id}</TableCell>
+                          <TableCell className="font-medium">
+                            {review.product_name}
+                          </TableCell>
+                          <TableCell>{review.user_email}</TableCell>
+                          <TableCell>{review.rating}/5</TableCell>
+                          <TableCell className="max-w-md">
+                            <p className="line-clamp-2">
+                              {review.comment || "—"}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <span className="rounded border px-2 py-1 text-xs font-semibold">
+                              {review.is_approved ? "APPROVED" : "HIDDEN"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(review.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={savingReviewId === review.id}
+                                onClick={() => toggleReviewApproval(review)}
+                              >
+                                {review.is_approved ? "Hide" : "Approve"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-red-600 text-white hover:bg-red-700"
+                                disabled={savingReviewId === review.id}
+                                onClick={() => deleteReview(review.id)}
                               >
                                 Delete
                               </Button>

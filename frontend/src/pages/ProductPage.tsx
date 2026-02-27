@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Heart, Minus, Plus, ShoppingCart, Tag } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  ArrowLeft,
+  Heart,
+  Minus,
+  Plus,
+  ShoppingCart,
+  Star,
+  Tag,
+} from "lucide-react";
 
 interface Product {
   id: number;
@@ -21,14 +32,30 @@ interface Product {
   };
 }
 
+interface ProductReview {
+  id: number;
+  user_name: string;
+  product: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
 export function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
   const { formatPrice } = useCurrency();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [myReviews, setMyReviews] = useState<Array<{ product: number }>>([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewNotice, setReviewNotice] = useState("");
+  const [savingReview, setSavingReview] = useState(false);
 
   const getLocalCartCount = () => {
     const raw = localStorage.getItem("nobonir_demo_cart");
@@ -96,6 +123,45 @@ export function ProductPage() {
     loadProduct();
   }, [id]);
 
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (!id) {
+        return;
+      }
+
+      try {
+        const response = await api.get("/reviews/", {
+          params: { product: id },
+        });
+        const reviewItems = response.data.results || response.data;
+        setReviews(Array.isArray(reviewItems) ? reviewItems : []);
+      } catch {
+        setReviews([]);
+      }
+    };
+
+    loadReviews();
+  }, [id]);
+
+  useEffect(() => {
+    const loadMyReviews = async () => {
+      if (!isAuthenticated) {
+        setMyReviews([]);
+        return;
+      }
+
+      try {
+        const response = await api.get("/reviews/my/");
+        const mine = response.data.results || response.data;
+        setMyReviews(Array.isArray(mine) ? mine : []);
+      } catch {
+        setMyReviews([]);
+      }
+    };
+
+    loadMyReviews();
+  }, [isAuthenticated]);
+
   const addToCart = async (sourceElement?: HTMLElement) => {
     if (!product) {
       return;
@@ -146,6 +212,45 @@ export function ProductPage() {
     }
   };
 
+  const submitReview = async () => {
+    if (!product) {
+      return;
+    }
+
+    setSavingReview(true);
+    setReviewNotice("");
+    try {
+      await api.post("/reviews/", {
+        product: product.id,
+        rating: reviewRating,
+        comment: reviewComment,
+      });
+      setReviewComment("");
+      setReviewRating(5);
+      setReviewNotice("Review submitted successfully.");
+
+      const [publicResponse, myResponse] = await Promise.all([
+        api.get("/reviews/", { params: { product: product.id } }),
+        isAuthenticated
+          ? api.get("/reviews/my/")
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      setReviews(publicResponse.data.results || publicResponse.data || []);
+      if (isAuthenticated) {
+        setMyReviews(myResponse.data.results || myResponse.data || []);
+      }
+    } catch (error: any) {
+      setReviewNotice(
+        error.response?.data?.detail ||
+          error.response?.data?.product?.[0] ||
+          "Unable to submit review.",
+      );
+    } finally {
+      setSavingReview(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -178,6 +283,15 @@ export function ProductPage() {
       </div>
     );
   }
+
+  const hasReviewedProduct = myReviews.some(
+    (review) => Number(review.product) === Number(product.id),
+  );
+  const averageRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+        reviews.length
+      : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -282,6 +396,115 @@ export function ProductPage() {
                 <Button variant="outline" onClick={() => navigate("/wishlist")}>
                   <Heart className="mr-2 h-4 w-4" />
                   Wishlist
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <Card className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85">
+            <CardContent className="p-5 sm:p-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">
+                Customer Reviews
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {reviews.length > 0
+                  ? `${averageRating.toFixed(1)} / 5 average from ${reviews.length} review(s)`
+                  : "No reviews yet"}
+              </p>
+
+              <div className="mt-4 space-y-3">
+                {reviews.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Be the first to review this product.
+                  </p>
+                ) : (
+                  reviews.map((review) => (
+                    <div key={review.id} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">
+                          {review.user_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(review.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="mt-1 inline-flex items-center gap-1 text-amber-500">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <Star
+                            key={`star-${review.id}-${index}`}
+                            className={`h-4 w-4 ${index < review.rating ? "fill-current" : "opacity-30"}`}
+                          />
+                        ))}
+                      </div>
+                      {review.comment && (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {review.comment}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85">
+            <CardContent className="p-5 sm:p-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">
+                Write a Review
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Reviews are allowed after product delivery.
+              </p>
+
+              {reviewNotice && (
+                <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+                  {reviewNotice}
+                </div>
+              )}
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-sm font-medium">Rating</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={reviewRating}
+                    onChange={(event) =>
+                      setReviewRating(Number(event.target.value || 1))
+                    }
+                    disabled={
+                      !isAuthenticated || hasReviewedProduct || savingReview
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Comment</label>
+                  <Textarea
+                    rows={4}
+                    value={reviewComment}
+                    onChange={(event) => setReviewComment(event.target.value)}
+                    disabled={
+                      !isAuthenticated || hasReviewedProduct || savingReview
+                    }
+                  />
+                </div>
+                <Button
+                  onClick={submitReview}
+                  disabled={
+                    !isAuthenticated || hasReviewedProduct || savingReview
+                  }
+                >
+                  {savingReview
+                    ? "Submitting..."
+                    : hasReviewedProduct
+                      ? "Already Reviewed"
+                      : isAuthenticated
+                        ? "Submit Review"
+                        : "Login to Review"}
                 </Button>
               </div>
             </CardContent>

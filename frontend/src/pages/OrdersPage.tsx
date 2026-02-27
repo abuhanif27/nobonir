@@ -28,9 +28,17 @@ type OrderStatus =
 
 interface OrderItem {
   id: number;
+  product: number;
   product_name: string;
   unit_price: string | number;
   quantity: number;
+}
+
+interface MyReview {
+  id: number;
+  product: number;
+  rating: number;
+  comment: string;
 }
 
 interface Order {
@@ -130,6 +138,13 @@ export function OrdersPage() {
   >(null);
   const [activeFilter, setActiveFilter] = useState<"ALL" | OrderStatus>("ALL");
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
+  const [myReviews, setMyReviews] = useState<MyReview[]>([]);
+  const [reviewDrafts, setReviewDrafts] = useState<
+    Record<number, { rating: number; comment: string }>
+  >({});
+  const [savingReviewProductId, setSavingReviewProductId] = useState<
+    number | null
+  >(null);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -148,6 +163,20 @@ export function OrdersPage() {
 
   useEffect(() => {
     loadOrders();
+  }, []);
+
+  useEffect(() => {
+    const loadMyReviews = async () => {
+      try {
+        const response = await api.get("/reviews/my/");
+        const mine = response.data.results || response.data;
+        setMyReviews(Array.isArray(mine) ? mine : []);
+      } catch {
+        setMyReviews([]);
+      }
+    };
+
+    loadMyReviews();
   }, []);
 
   useEffect(() => {
@@ -244,6 +273,35 @@ export function OrdersPage() {
         ? current.filter((id) => id !== orderId)
         : [...current, orderId],
     );
+  };
+
+  const hasReviewedProduct = (productId: number) =>
+    myReviews.some((review) => Number(review.product) === Number(productId));
+
+  const saveReview = async (productId: number) => {
+    const draft = reviewDrafts[productId] || { rating: 5, comment: "" };
+    setSavingReviewProductId(productId);
+    try {
+      await api.post("/reviews/", {
+        product: productId,
+        rating: draft.rating,
+        comment: draft.comment,
+      });
+      setPaymentNoticeVariant("card");
+      setPaymentNotice("Review submitted successfully.");
+      const response = await api.get("/reviews/my/");
+      const mine = response.data.results || response.data;
+      setMyReviews(Array.isArray(mine) ? mine : []);
+    } catch (error: any) {
+      setPaymentNoticeVariant(null);
+      setPaymentNotice(
+        error.response?.data?.detail ||
+          error.response?.data?.product?.[0] ||
+          "Unable to submit review.",
+      );
+    } finally {
+      setSavingReviewProductId(null);
+    }
   };
 
   return (
@@ -524,7 +582,7 @@ export function OrdersPage() {
                           {order.items.map((item) => (
                             <div
                               key={item.id}
-                              className="grid grid-cols-1 gap-1 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-[1fr_auto_auto] sm:gap-3"
+                              className="grid grid-cols-1 gap-2 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-[1fr_auto_auto] sm:gap-3"
                             >
                               <span className="font-medium text-slate-800 dark:text-slate-100">
                                 {item.product_name}
@@ -537,6 +595,73 @@ export function OrdersPage() {
                                   toAmount(item.unit_price) * item.quantity,
                                 )}
                               </span>
+
+                              {order.status === "DELIVERED" && (
+                                <div className="sm:col-span-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+                                  {hasReviewedProduct(item.product) ? (
+                                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                      You already reviewed this product.
+                                    </p>
+                                  ) : (
+                                    <div className="grid gap-2 sm:grid-cols-[120px_1fr_auto]">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={5}
+                                        value={
+                                          reviewDrafts[item.product]?.rating ??
+                                          5
+                                        }
+                                        onChange={(event) =>
+                                          setReviewDrafts((current) => ({
+                                            ...current,
+                                            [item.product]: {
+                                              rating: Number(
+                                                event.target.value || 1,
+                                              ),
+                                              comment:
+                                                current[item.product]
+                                                  ?.comment || "",
+                                            },
+                                          }))
+                                        }
+                                        className="h-9 rounded-md border bg-background px-2 text-xs"
+                                      />
+                                      <input
+                                        type="text"
+                                        placeholder="Write review comment"
+                                        value={
+                                          reviewDrafts[item.product]?.comment ??
+                                          ""
+                                        }
+                                        onChange={(event) =>
+                                          setReviewDrafts((current) => ({
+                                            ...current,
+                                            [item.product]: {
+                                              rating:
+                                                current[item.product]?.rating ??
+                                                5,
+                                              comment: event.target.value,
+                                            },
+                                          }))
+                                        }
+                                        className="h-9 rounded-md border bg-background px-3 text-xs"
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={() => saveReview(item.product)}
+                                        disabled={
+                                          savingReviewProductId === item.product
+                                        }
+                                      >
+                                        {savingReviewProductId === item.product
+                                          ? "Saving..."
+                                          : "Review"}
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
