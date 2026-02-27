@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/api";
+import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,12 +47,12 @@ export function AdminProductFormPage() {
   const { id } = useParams();
   const isEditMode = Boolean(id && id !== "new");
   const navigate = useNavigate();
+  const { showError, showSuccess } = useFeedback();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState<ProductPayload>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState("");
 
   const title = useMemo(
     () => (isEditMode ? "Edit Product" : "Add Product"),
@@ -82,9 +83,7 @@ export function AdminProductFormPage() {
           });
         }
       } catch (error: any) {
-        setNotice(
-          error.response?.data?.detail || "Failed to load product form.",
-        );
+        showError(error.response?.data?.detail || "Failed to load product form");
       } finally {
         setLoading(false);
       }
@@ -100,12 +99,11 @@ export function AdminProductFormPage() {
       !form.slug.trim() ||
       !form.price.trim()
     ) {
-      setNotice("Category, name, slug and price are required.");
+      showError("Category, name, slug, and price are required");
       return;
     }
 
     setSaving(true);
-    setNotice("");
 
     const payload = {
       category_id: Number(form.category_id),
@@ -121,17 +119,19 @@ export function AdminProductFormPage() {
     try {
       if (isEditMode && id) {
         await api.patch(`/products/products/${id}/`, payload);
+        showSuccess("Product updated successfully");
       } else {
         await api.post("/products/products/", payload);
+        showSuccess("Product created successfully");
       }
       navigate("/admin");
     } catch (error: any) {
       const data = error.response?.data;
-      setNotice(
+      showError(
         data?.detail ||
           data?.slug?.[0] ||
           data?.name?.[0] ||
-          "Failed to save product.",
+          "Failed to save product",
       );
     } finally {
       setSaving(false);
@@ -157,12 +157,6 @@ export function AdminProductFormPage() {
             <CardTitle>{title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {notice && (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
-                {notice}
-              </div>
-            )}
-
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading...</p>
             ) : (

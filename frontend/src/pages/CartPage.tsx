@@ -4,6 +4,7 @@ import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
 import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
+import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ interface CouponPreview {
 export function CartPage() {
   const { isAuthenticated } = useAuthStore();
   const { formatPrice } = useCurrency();
+  const { showError, showSuccess } = useFeedback();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -63,9 +65,7 @@ export function CartPage() {
     null,
   );
   const [couponLoading, setCouponLoading] = useState(false);
-  const [couponNotice, setCouponNotice] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [paymentNotice, setPaymentNotice] = useState("");
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
 
@@ -118,7 +118,7 @@ export function CartPage() {
     if (paymentState === "cancelled") {
       const cancelPendingOrder = async () => {
         if (!orderId) {
-          setPaymentNotice("Payment was cancelled.");
+          showError("Payment was cancelled");
           return;
         }
 
@@ -126,23 +126,21 @@ export function CartPage() {
           await api.post("/payments/stripe/cancel/", {
             order_id: Number(orderId),
           });
-          setPaymentNotice(
+          showError(
             "Payment was cancelled and the pending order has been cancelled.",
           );
         } catch (error: any) {
           const message =
             error.response?.data?.detail ||
             "Payment was cancelled. Unable to auto-cancel order.";
-          setPaymentNotice(message);
+          showError(message);
         }
       };
 
       cancelPendingOrder();
       return;
     }
-
-    setPaymentNotice("");
-  }, [location.search]);
+  }, [location.search, showError]);
 
   useEffect(() => {
     if (useShippingAsBilling) {
@@ -251,14 +249,14 @@ export function CartPage() {
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
-      setPaymentNotice(
+      showError(
         "Please login or create an account to continue checkout.",
       );
       return;
     }
 
     if (!shippingAddress.trim()) {
-      setPaymentNotice("Please enter your shipping address.");
+      showError("Please enter your shipping address");
       return;
     }
 
@@ -267,7 +265,7 @@ export function CartPage() {
       : billingAddress.trim();
 
     if (!resolvedBillingAddress) {
-      setPaymentNotice("Please enter your billing address.");
+      showError("Please enter your billing address");
       return;
     }
 
@@ -283,7 +281,6 @@ export function CartPage() {
     });
 
     setCheckoutLoading(true);
-    setPaymentNotice("");
 
     try {
       await syncLocalCartToServer();
@@ -339,7 +336,7 @@ export function CartPage() {
 
       window.location.href = checkoutUrl;
     } catch (error: any) {
-      setPaymentNotice(
+      showError(
         error.response?.data?.detail || "Checkout failed. Please try again.",
       );
     } finally {
@@ -349,17 +346,16 @@ export function CartPage() {
 
   const applyCoupon = async () => {
     if (!isAuthenticated) {
-      setCouponNotice("Please login to use coupons.");
+      showError("Please login to use coupons");
       return;
     }
 
     if (!couponCode.trim()) {
-      setCouponNotice("Please enter a coupon code.");
+      showError("Please enter a coupon code");
       return;
     }
 
     setCouponLoading(true);
-    setCouponNotice("");
 
     try {
       await syncLocalCartToServer();
@@ -370,7 +366,7 @@ export function CartPage() {
 
       setCouponPreview(response.data);
       setCouponCode(response.data.code);
-      setCouponNotice(`Coupon ${response.data.code} applied successfully.`);
+      showSuccess(`Coupon ${response.data.code} applied successfully`);
     } catch (error: any) {
       setCouponPreview(null);
       const responseData = error.response?.data;
@@ -380,7 +376,7 @@ export function CartPage() {
         responseData?.non_field_errors?.[0] ||
         (typeof responseData === "string" ? responseData : "") ||
         "Unable to apply coupon.";
-      setCouponNotice(parsedMessage);
+      showError(parsedMessage);
     } finally {
       setCouponLoading(false);
     }
@@ -605,12 +601,6 @@ export function CartPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {paymentNotice && (
-                    <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-                      {paymentNotice}
-                    </div>
-                  )}
-
                   <div className="rounded-xl border border-border/70 bg-background/70 p-4">
                     <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
                       <span>Subtotal</span>
@@ -649,7 +639,6 @@ export function CartPage() {
                         value={couponCode}
                         onChange={(e) => {
                           setCouponCode(e.target.value.toUpperCase());
-                          setCouponNotice("");
                           setCouponPreview(null);
                         }}
                         disabled={!isAuthenticated || couponLoading}
@@ -663,13 +652,6 @@ export function CartPage() {
                         {couponLoading ? "Applying..." : "Apply"}
                       </Button>
                     </div>
-                    {couponNotice && (
-                      <p
-                        className={`text-xs ${couponPreview ? "text-emerald-600 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}
-                      >
-                        {couponNotice}
-                      </p>
-                    )}
                   </div>
 
                   {!isAuthenticated && (

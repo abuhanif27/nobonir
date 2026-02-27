@@ -4,6 +4,7 @@ import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
 import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
+import { useFeedback } from "@/lib/feedback";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +20,6 @@ import {
   Tag,
   Edit2,
   Trash2,
-  X,
 } from "lucide-react";
 
 interface Product {
@@ -45,16 +45,12 @@ interface ProductReview {
   created_at: string;
 }
 
-type ReviewNotice = {
-  message: string;
-  type: "success" | "error" | "info";
-};
-
 export function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const { formatPrice } = useCurrency();
+  const { showError, showSuccess } = useFeedback();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
@@ -64,7 +60,6 @@ export function ProductPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewHoverRating, setReviewHoverRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
-  const [reviewNotice, setReviewNotice] = useState<ReviewNotice | null>(null);
   const [savingReview, setSavingReview] = useState(false);
   const [isEditingReview, setIsEditingReview] = useState(false);
   const [userReviewId, setUserReviewId] = useState<number | null>(null);
@@ -235,18 +230,6 @@ export function ProductPage() {
     checkReviewEligibility();
   }, [isAuthenticated, id]);
 
-  useEffect(() => {
-    if (!reviewNotice) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setReviewNotice(null);
-    }, 5000);
-
-    return () => window.clearTimeout(timer);
-  }, [reviewNotice]);
-
   const currentProductId = Number(product?.id || 0);
   const currentUserReview = myReviews.find(
     (review) => Number(review.product) === currentProductId,
@@ -381,23 +364,16 @@ export function ProductPage() {
     }
 
     if (!isAuthenticated) {
-      setReviewNotice({
-        message: "Please sign in to submit a review.",
-        type: "info",
-      });
+      showError("Please sign in to submit a review");
       return;
     }
 
     if (!hasReviewedProduct && !canReviewProduct) {
-      setReviewNotice({
-        message: "You can review only products from your delivered orders.",
-        type: "error",
-      });
+      showError("You can review only products from your delivered orders");
       return;
     }
 
     setSavingReview(true);
-    setReviewNotice(null);
     try {
       if ((isEditingReview || hasReviewedProduct) && userReviewId) {
         // Update existing review
@@ -405,10 +381,7 @@ export function ProductPage() {
           rating: reviewRating,
           comment: reviewComment,
         });
-        setReviewNotice({
-          message: "Review updated successfully.",
-          type: "success",
-        });
+        showSuccess("Review updated successfully");
       } else {
         // Create new review
         await api.post("/reviews/", {
@@ -416,10 +389,7 @@ export function ProductPage() {
           rating: reviewRating,
           comment: reviewComment,
         });
-        setReviewNotice({
-          message: "Review submitted successfully.",
-          type: "success",
-        });
+        showSuccess("Review submitted successfully");
       }
 
       setReviewComment("");
@@ -439,13 +409,11 @@ export function ProductPage() {
         setMyReviews(myResponse.data.results || myResponse.data || []);
       }
     } catch (error: any) {
-      setReviewNotice({
-        message:
-          error.response?.data?.detail ||
+      showError(
+        error.response?.data?.detail ||
           error.response?.data?.product?.[0] ||
-          "Unable to submit review.",
-        type: "error",
-      });
+          "Unable to submit review",
+      );
     } finally {
       setSavingReview(false);
     }
@@ -459,13 +427,9 @@ export function ProductPage() {
     }
 
     setSavingReview(true);
-    setReviewNotice(null);
     try {
       await api.delete(`/reviews/my/${userReviewId}/`);
-      setReviewNotice({
-        message: "Review deleted successfully.",
-        type: "success",
-      });
+      showSuccess("Review deleted successfully");
       setReviewComment("");
       setReviewRating(5);
       setIsEditingReview(false);
@@ -483,10 +447,7 @@ export function ProductPage() {
         setMyReviews(myResponse.data.results || myResponse.data || []);
       }
     } catch (error: any) {
-      setReviewNotice({
-        message: error.response?.data?.detail || "Unable to delete review.",
-        type: "error",
-      });
+      showError(error.response?.data?.detail || "Unable to delete review");
     } finally {
       setSavingReview(false);
     }
@@ -779,28 +740,6 @@ export function ProductPage() {
                       {currentUserReview?.comment || "No comment provided."}
                     </p>
                   </div>
-                </div>
-              )}
-
-              {reviewNotice && (
-                <div
-                  className={`mt-3 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
-                    reviewNotice.type === "success"
-                      ? "border-emerald-300/70 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      : reviewNotice.type === "error"
-                        ? "border-amber-300/70 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-                        : "border-blue-300/70 bg-blue-50 text-blue-800 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300"
-                  }`}
-                >
-                  <p>{reviewNotice.message}</p>
-                  <button
-                    type="button"
-                    onClick={() => setReviewNotice(null)}
-                    className="inline-flex rounded-md p-1 opacity-80 transition hover:opacity-100"
-                    aria-label="Dismiss message"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
                 </div>
               )}
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
+import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,6 @@ import {
   Truck,
   CheckCircle2,
   Clock3,
-  X,
   XCircle,
 } from "lucide-react";
 
@@ -129,14 +129,11 @@ const getStatusIcon = (status: OrderStatus) => {
 
 export function OrdersPage() {
   const { formatPrice } = useCurrency();
+  const { showError, showSuccess } = useFeedback();
   const location = useLocation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [paymentNotice, setPaymentNotice] = useState("");
-  const [paymentNoticeVariant, setPaymentNoticeVariant] = useState<
-    "card" | "cod" | null
-  >(null);
   const [activeFilter, setActiveFilter] = useState<"ALL" | OrderStatus>("ALL");
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
   const [myReviews, setMyReviews] = useState<MyReview[]>([]);
@@ -196,8 +193,11 @@ export function OrdersPage() {
         };
 
         if (sessionFlash.message) {
-          setPaymentNoticeVariant(sessionFlash.variant ?? "cod");
-          setPaymentNotice(sessionFlash.message);
+          if (sessionFlash.variant === "card") {
+            showSuccess(sessionFlash.message);
+          } else {
+            showSuccess(sessionFlash.message);
+          }
           sessionStorage.removeItem("nobonir_flash_notice");
           return;
         }
@@ -207,18 +207,11 @@ export function OrdersPage() {
     }
 
     if (paymentParam === "success") {
-      setPaymentNoticeVariant("card");
-      setPaymentNotice(
-        "Payment successful. Your order is now being processed.",
-      );
+      showSuccess("Payment successful. Your order is now being processed");
     } else if (paymentParam === "cod") {
-      setPaymentNoticeVariant("cod");
-      setPaymentNotice(
-        "Order placed with Cash on Delivery. Please keep payment ready upon delivery.",
+      showSuccess(
+        "Order placed with Cash on Delivery. Please keep payment ready upon delivery",
       );
-    } else {
-      setPaymentNotice("");
-      setPaymentNoticeVariant(null);
     }
 
     if (paymentParam) {
@@ -227,20 +220,7 @@ export function OrdersPage() {
       const nextUrl = `${location.pathname}${query ? `?${query}` : ""}`;
       window.history.replaceState({}, "", nextUrl);
     }
-  }, [location.search]);
-
-  useEffect(() => {
-    if (!paymentNotice) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setPaymentNotice("");
-      setPaymentNoticeVariant(null);
-    }, 5000);
-
-    return () => window.clearTimeout(timer);
-  }, [paymentNotice]);
+  }, [location.pathname, location.search, showSuccess]);
 
   const filteredOrders = useMemo(() => {
     if (activeFilter === "ALL") {
@@ -291,17 +271,15 @@ export function OrdersPage() {
         rating: draft.rating,
         comment: draft.comment,
       });
-      setPaymentNoticeVariant("card");
-      setPaymentNotice("Review submitted successfully.");
+      showSuccess("Review submitted successfully");
       const response = await api.get("/reviews/my/");
       const mine = response.data.results || response.data;
       setMyReviews(Array.isArray(mine) ? mine : []);
     } catch (error: any) {
-      setPaymentNoticeVariant(null);
-      setPaymentNotice(
+      showError(
         error.response?.data?.detail ||
           error.response?.data?.product?.[0] ||
-          "Unable to submit review.",
+          "Unable to submit review",
       );
     } finally {
       setSavingReviewProductId(null);
@@ -345,64 +323,6 @@ export function OrdersPage() {
       </header>
 
       <main className="ds-page-container">
-        {paymentNotice && (
-          <Card
-            className={`mb-6 shadow-sm ${
-              paymentNoticeVariant === "card"
-                ? "border-emerald-300 bg-emerald-50"
-                : "border-emerald-200 bg-emerald-50"
-            }`}
-          >
-            <CardContent className="py-4 text-sm text-emerald-800">
-              {paymentNoticeVariant === "card" ? (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-full bg-emerald-100 p-2">
-                      <CheckCircle2 className="h-5 w-5 animate-pulse text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-emerald-900">
-                        Payment Successful
-                      </p>
-                      <p>{paymentNotice}</p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-900"
-                    onClick={() => {
-                      setPaymentNotice("");
-                      setPaymentNoticeVariant(null);
-                    }}
-                    aria-label="Close notification"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <p>{paymentNotice}</p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-900"
-                    onClick={() => {
-                      setPaymentNotice("");
-                      setPaymentNoticeVariant(null);
-                    }}
-                    aria-label="Close notification"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
           <Card className="ds-surface-card">
             <CardContent className="pt-6">
