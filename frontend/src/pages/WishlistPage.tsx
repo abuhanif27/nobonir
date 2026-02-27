@@ -59,6 +59,7 @@ export function WishlistPage() {
   const [workingItemId, setWorkingItemId] = useState<number | null>(null);
   const [movingAll, setMovingAll] = useState(false);
   const [error, setError] = useState("");
+  const [fallbackWarning, setFallbackWarning] = useState("");
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
 
@@ -136,6 +137,7 @@ export function WishlistPage() {
       setLoading(true);
     }
     setError("");
+    setFallbackWarning("");
 
     try {
       const response = await api.get("/cart/wishlist/");
@@ -156,6 +158,10 @@ export function WishlistPage() {
       setItems(localItems);
       if (localItems.length === 0) {
         setError(err.response?.data?.detail || "Failed to load wishlist");
+      } else {
+        setFallbackWarning(
+          "Couldn’t load your server wishlist. Showing locally saved items.",
+        );
       }
     } finally {
       setLoading(false);
@@ -446,7 +452,7 @@ export function WishlistPage() {
               </Button>
             </CardContent>
           </Card>
-        ) : filteredItems.length === 0 ? (
+        ) : items.length === 0 ? (
           <Card className="ds-surface-card">
             <CardContent className="py-16 text-center">
               <Heart className="mx-auto h-12 w-12 text-muted-foreground/60" />
@@ -461,89 +467,138 @@ export function WishlistPage() {
               </Button>
             </CardContent>
           </Card>
+        ) : filteredItems.length === 0 ? (
+          <Card className="ds-surface-card">
+            <CardContent className="py-16 text-center">
+              <Search className="mx-auto h-12 w-12 text-muted-foreground/60" />
+              <h3 className="mt-4 text-xl font-semibold text-foreground">
+                No matching wishlist items
+              </h3>
+              <p className="mt-2 text-muted-foreground">
+                Try a different search term or category filter.
+              </p>
+              <Button
+                className="mt-5"
+                variant="outline"
+                onClick={() => {
+                  setQuery("");
+                  setActiveCategory("ALL");
+                }}
+              >
+                Clear Filters
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredItems.map((item) => {
-              const image =
-                item.product.image_url ||
-                item.product.image ||
-                "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop";
-              const disabled = workingItemId === item.id || movingAll;
-
-              return (
-                <Card
-                  key={item.id}
-                  className="group ds-surface-card overflow-hidden transition hover:-translate-y-1 hover:shadow-lg"
-                >
-                  <div className="relative">
-                    <img
-                      src={image}
-                      alt={item.product.name}
-                      className="h-48 w-full object-cover"
-                      onError={(event) => {
-                        event.currentTarget.src =
-                          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop";
-                      }}
+          <>
+            {fallbackWarning && (
+              <Card className="mb-4 ds-surface-card">
+                <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    {fallbackWarning}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => loadWishlist(true)}
+                    disabled={refreshing}
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
                     />
-                    <div className="absolute left-3 top-3 flex gap-2">
-                      {item.product.category?.name && (
-                        <Badge variant="secondary" className="bg-background/90">
-                          {item.product.category.name}
-                        </Badge>
-                      )}
-                      {item.product.stock > 0 ? (
-                        <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800">
-                          <PackageCheck className="mr-1 h-3 w-3" /> In Stock
-                        </Badge>
-                      ) : (
-                        <Badge className="border-rose-200 bg-rose-100 text-rose-800">
-                          <PackageX className="mr-1 h-3 w-3" /> Out of Stock
-                        </Badge>
-                      )}
+                    Retry Sync
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredItems.map((item) => {
+                const image =
+                  item.product.image_url ||
+                  item.product.image ||
+                  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop";
+                const disabled = workingItemId === item.id || movingAll;
+
+                return (
+                  <Card
+                    key={item.id}
+                    className="group ds-surface-card overflow-hidden transition hover:-translate-y-1 hover:shadow-lg"
+                  >
+                    <div className="relative">
+                      <img
+                        src={image}
+                        alt={item.product.name}
+                        className="h-48 w-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.src =
+                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop";
+                        }}
+                      />
+                      <div className="absolute left-3 top-3 flex gap-2">
+                        {item.product.category?.name && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-background/90"
+                          >
+                            {item.product.category.name}
+                          </Badge>
+                        )}
+                        {item.product.stock > 0 ? (
+                          <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800">
+                            <PackageCheck className="mr-1 h-3 w-3" /> In Stock
+                          </Badge>
+                        ) : (
+                          <Badge className="border-rose-200 bg-rose-100 text-rose-800">
+                            <PackageX className="mr-1 h-3 w-3" /> Out of Stock
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <CardContent className="p-4">
-                    <h3 className="line-clamp-1 text-lg font-semibold text-foreground">
-                      {item.product.name}
-                    </h3>
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                      {item.product.description}
-                    </p>
-
-                    <div className="mt-3 flex items-center justify-between">
-                      <p className="text-2xl font-bold text-foreground">
-                        {formatPrice(item.product.price)}
+                    <CardContent className="p-4">
+                      <h3 className="line-clamp-1 text-lg font-semibold text-foreground">
+                        {item.product.name}
+                      </h3>
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                        {item.product.description}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        Saved item
-                      </p>
-                    </div>
 
-                    <div className="mt-4 flex gap-2">
-                      <Button
-                        onClick={() => addItemToCart(item)}
-                        disabled={disabled || item.product.stock <= 0}
-                        className="flex-1 gap-2 bg-gradient-to-r from-teal-500 to-cyan-600"
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                        Move to Cart
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => removeItem(item.id)}
-                        disabled={disabled}
-                        className="gap-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Remove
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                      <div className="mt-3 flex items-center justify-between">
+                        <p className="text-2xl font-bold text-foreground">
+                          {formatPrice(item.product.price)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Saved item
+                        </p>
+                      </div>
+
+                      <div className="mt-4 flex gap-2">
+                        <Button
+                          onClick={() => addItemToCart(item)}
+                          disabled={disabled || item.product.stock <= 0}
+                          className="flex-1 gap-2 bg-gradient-to-r from-teal-500 to-cyan-600"
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                          Move to Cart
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => removeItem(item.id)}
+                          disabled={disabled}
+                          className="gap-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
         )}
       </main>
     </div>
