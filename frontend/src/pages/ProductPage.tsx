@@ -412,7 +412,7 @@ export function ProductPage() {
       showError(
         error.response?.data?.detail ||
           error.response?.data?.product?.[0] ||
-          "Unable to submit review",
+          "Failed to submit review",
       );
     } finally {
       setSavingReview(false);
@@ -447,7 +447,7 @@ export function ProductPage() {
         setMyReviews(myResponse.data.results || myResponse.data || []);
       }
     } catch (error: any) {
-      showError(error.response?.data?.detail || "Unable to delete review");
+      showError(error.response?.data?.detail || "Failed to delete review");
     } finally {
       setSavingReview(false);
     }

@@ -118,7 +118,7 @@ export function CartPage() {
     if (paymentState === "cancelled") {
       const cancelPendingOrder = async () => {
         if (!orderId) {
-          showError("Payment was cancelled");
+          showError("Payment was canceled");
           return;
         }
 
@@ -127,12 +127,12 @@ export function CartPage() {
             order_id: Number(orderId),
           });
           showError(
-            "Payment was cancelled and the pending order has been cancelled.",
+            "Payment was canceled and the pending order was canceled",
           );
         } catch (error: any) {
           const message =
             error.response?.data?.detail ||
-            "Payment was cancelled. Unable to auto-cancel order.";
+            "Payment was canceled. Failed to auto-cancel the order.";
           showError(message);
         }
       };
@@ -249,7 +249,7 @@ export function CartPage() {
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
-      showError("Please login or create an account to continue checkout.");
+      showError("Please log in or create an account to continue to checkout");
       return;
     }
 
@@ -344,7 +344,7 @@ export function CartPage() {
 
   const applyCoupon = async () => {
     if (!isAuthenticated) {
-      showError("Please login to use coupons");
+      showError("Please log in to use coupons");
       return;
     }
 
@@ -373,7 +373,7 @@ export function CartPage() {
         responseData?.coupon_code?.[0] ||
         responseData?.non_field_errors?.[0] ||
         (typeof responseData === "string" ? responseData : "") ||
-        "Unable to apply coupon.";
+        "Failed to apply coupon.";
       showError(parsedMessage);
     } finally {
       setCouponLoading(false);

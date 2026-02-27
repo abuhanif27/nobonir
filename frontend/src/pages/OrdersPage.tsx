@@ -279,7 +279,7 @@ export function OrdersPage() {
       showError(
         error.response?.data?.detail ||
           error.response?.data?.product?.[0] ||
-          "Unable to submit review",
+          "Failed to submit review",
       );
     } finally {
       setSavingReviewProductId(null);
