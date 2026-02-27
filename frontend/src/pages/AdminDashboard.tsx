@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LogOut, Plus } from "lucide-react";
+import { LogOut, Plus, X } from "lucide-react";
 
 const ADMIN_ORDER_NOTICE_KEY = "nobonir_admin_order_notice";
 
@@ -277,19 +277,20 @@ export function AdminDashboard() {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {orderNotice && (
           <div
-            className={`mb-4 flex items-center justify-between rounded-md border px-4 py-3 text-sm ${
+            className={`mb-4 flex items-center justify-between rounded-md border px-4 py-3 text-sm shadow-sm ${
               orderNotice.type === "success"
-                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                : "border-red-300 bg-red-50 text-red-700"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-300"
+                : "border-red-500/30 bg-red-500/10 text-red-700 dark:border-red-400/40 dark:bg-red-400/10 dark:text-red-300"
             }`}
           >
             <span>{orderNotice.message}</span>
             <button
               type="button"
               onClick={() => setOrderNotice(null)}
-              className="ml-3 rounded border px-2 py-0.5 text-xs"
+              aria-label="Dismiss message"
+              className="ml-3 inline-flex h-6 w-6 items-center justify-center rounded border border-current/30 bg-transparent text-xs opacity-80 transition-opacity hover:opacity-100"
             >
-              Close
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
