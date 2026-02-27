@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
@@ -33,11 +33,13 @@ interface CartItem {
 export function CartPage() {
   const { isAuthenticated } = useAuthStore();
   const { formatPrice } = useCurrency();
+  const location = useLocation();
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [shippingAddress, setShippingAddress] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [paymentNotice, setPaymentNotice] = useState<string>("");
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
 
@@ -64,6 +66,17 @@ export function CartPage() {
   useEffect(() => {
     loadCart();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const paymentState = params.get("payment");
+
+    if (paymentState === "cancelled") {
+      setPaymentNotice("Payment was cancelled. Your order is still pending.");
+    } else {
+      setPaymentNotice("");
+    }
+  }, [location.search]);
 
   const loadCart = async () => {
     try {
@@ -178,13 +191,30 @@ export function CartPage() {
 
     setCheckoutLoading(true);
     try {
-      await api.post("/orders/checkout/", {
+      const orderResponse = await api.post("/orders/checkout/", {
         shipping_address: shippingAddress,
       });
-      alert("Order placed successfully!");
+
+      const orderId = orderResponse.data?.id;
+      if (!orderId) {
+        throw new Error("Order creation failed");
+      }
+
+      const stripeResponse = await api.post(
+        "/payments/stripe/checkout-session/",
+        {
+          order_id: orderId,
+        },
+      );
+
+      const checkoutUrl = stripeResponse.data?.checkout_url;
+      if (!checkoutUrl) {
+        throw new Error("Stripe checkout URL is missing");
+      }
+
       setShippingAddress("");
-      await loadCart();
-      navigate("/orders");
+
+      window.location.href = checkoutUrl;
     } catch (error: any) {
       alert(error.response?.data?.detail || "Checkout failed");
     } finally {
@@ -395,6 +425,12 @@ export function CartPage() {
                   <CardTitle>Order Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {paymentNotice && (
+                    <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                      {paymentNotice}
+                    </div>
+                  )}
+
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total:</span>
                     <span>{formatPrice(total)}</span>
@@ -445,7 +481,7 @@ export function CartPage() {
                     ) : checkoutLoading ? (
                       "Processing..."
                     ) : (
-                      "Place Order"
+                      "Proceed to Payment"
                     )}
                   </Button>
 

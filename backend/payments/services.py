@@ -1,5 +1,7 @@
 import uuid
 
+import stripe
+from django.conf import settings
 from django.db import transaction
 
 from orders.models import Order
@@ -8,7 +10,7 @@ from .models import Payment
 
 
 @transaction.atomic
-def process_payment(order: Order, method: str, success: bool) -> Payment:
+def process_payment(order: Order, method: str, success: bool, transaction_id: str | None = None) -> Payment:
     if order.status not in [Order.Status.PENDING, Order.Status.CANCELLED]:
         raise ValueError("Order is not payable in current state")
 
@@ -18,7 +20,7 @@ def process_payment(order: Order, method: str, success: bool) -> Payment:
         amount=order.total_amount,
         method=method,
         status=status,
-        transaction_id=f"TXN-{uuid.uuid4().hex[:18]}",
+        transaction_id=transaction_id or f"TXN-{uuid.uuid4().hex[:18]}",
     )
 
     if success:
@@ -38,3 +40,101 @@ def process_payment(order: Order, method: str, success: bool) -> Payment:
         order.save(update_fields=["status", "updated_at"])
 
     return payment
+
+
+def create_stripe_checkout_session(order: Order, success_url: str, cancel_url: str):
+    if not settings.STRIPE_SECRET_KEY:
+        raise ValueError("Stripe is not configured")
+
+    if order.status not in [Order.Status.PENDING, Order.Status.CANCELLED]:
+        raise ValueError("Order is not payable in current state")
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    line_items = [
+        {
+            "price_data": {
+                "currency": "usd",
+                "product_data": {
+                    "name": item.product_name,
+                },
+                "unit_amount": int(item.unit_price * 100),
+            },
+            "quantity": item.quantity,
+        }
+        for item in order.items.all()
+    ]
+
+    if not line_items:
+        raise ValueError("Order has no items")
+
+    return stripe.checkout.Session.create(
+        mode="payment",
+        payment_method_types=["card"],
+        line_items=line_items,
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "order_id": str(order.id),
+            "user_id": str(order.user_id),
+        },
+    )
+
+
+@transaction.atomic
+def handle_stripe_checkout_completed(session):
+    metadata = session.get("metadata") or {}
+    order_id = metadata.get("order_id")
+    if not order_id:
+        raise ValueError("Missing order metadata")
+
+    try:
+        parsed_order_id = int(order_id)
+    except (TypeError, ValueError):
+        raise ValueError("Invalid order metadata")
+
+    order = Order.objects.select_for_update().prefetch_related("items").filter(pk=parsed_order_id).first()
+    if not order:
+        raise ValueError("Order not found")
+
+    transaction_id = session.get("payment_intent") or session.get("id")
+    if Payment.objects.filter(transaction_id=transaction_id).exists():
+        return
+
+    if order.status == Order.Status.PAID:
+        return
+
+    process_payment(
+        order=order,
+        method="STRIPE",
+        success=True,
+        transaction_id=transaction_id,
+    )
+
+
+@transaction.atomic
+def handle_stripe_checkout_expired(session):
+    metadata = session.get("metadata") or {}
+    order_id = metadata.get("order_id")
+    if not order_id:
+        return
+
+    try:
+        parsed_order_id = int(order_id)
+    except (TypeError, ValueError):
+        return
+
+    order = Order.objects.select_for_update().filter(pk=parsed_order_id).first()
+    if not order or order.status not in [Order.Status.PENDING, Order.Status.CANCELLED]:
+        return
+
+    transaction_id = f"STRIPE-EXPIRED-{session.get('id')}"
+    if Payment.objects.filter(transaction_id=transaction_id).exists():
+        return
+
+    process_payment(
+        order=order,
+        method="STRIPE",
+        success=False,
+        transaction_id=transaction_id,
+    )

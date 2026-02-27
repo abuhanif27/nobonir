@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
@@ -119,9 +119,11 @@ const getStatusIcon = (status: OrderStatus) => {
 
 export function OrdersPage() {
   const { formatPrice } = useCurrency();
+  const location = useLocation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [paymentNotice, setPaymentNotice] = useState("");
   const [activeFilter, setActiveFilter] = useState<"ALL" | OrderStatus>("ALL");
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
 
@@ -143,6 +145,18 @@ export function OrdersPage() {
   useEffect(() => {
     loadOrders();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("payment") === "success") {
+      setPaymentNotice(
+        "Payment successful. Your order is now being processed.",
+      );
+      return;
+    }
+
+    setPaymentNotice("");
+  }, [location.search]);
 
   const filteredOrders = useMemo(() => {
     if (activeFilter === "ALL") {
@@ -218,6 +232,14 @@ export function OrdersPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {paymentNotice && (
+          <Card className="mb-6 border-emerald-200 bg-emerald-50 shadow-sm">
+            <CardContent className="py-4 text-sm text-emerald-800">
+              {paymentNotice}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
           <Card className="border-0 bg-white shadow-sm">
             <CardContent className="pt-6">

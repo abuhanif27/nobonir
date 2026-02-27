@@ -14,3 +14,7 @@ class PaymentSimulationSerializer(serializers.Serializer):
     order_id = serializers.IntegerField()
     method = serializers.CharField(default="SIMULATED")
     success = serializers.BooleanField(default=True)
+
+
+class StripeCheckoutSessionSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()

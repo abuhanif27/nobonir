@@ -21,3 +21,6 @@ Pillow==11.0.0
 
 # Python
 python-dotenv==1.0.1
+
+# Payments
+stripe==11.5.0

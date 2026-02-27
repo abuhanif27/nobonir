@@ -52,28 +52,42 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
 2. Install dependencies:
 
    ```bash
-   pip install Django==6.0 djangorestframework==3.15.2 djangorestframework-simplejwt==5.5.1 drf-spectacular==0.28.0 django-cors-headers==4.6.0 django-filter==25.1 psycopg[binary]==3.2.9 sentence-transformers==5.1.0 scikit-learn==1.6.1 numpy==2.2.3 python-dotenv==1.0.1
+   pip install Django==6.0 djangorestframework==3.15.2 djangorestframework-simplejwt==5.5.1 drf-spectacular==0.28.0 django-cors-headers==4.6.0 django-filter==25.1 psycopg[binary]==3.2.9 sentence-transformers==5.1.0 scikit-learn==1.6.1 numpy==2.2.3 python-dotenv==1.0.1 stripe==11.5.0
    ```
 
-3. Run migrations:
+3. Create backend environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Set Stripe credentials in `backend/.env`:
+
+   ```env
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   FRONTEND_BASE_URL=http://localhost:5173
+   ```
+
+4. Run migrations:
 
    ```bash
    python manage.py migrate
    ```
 
-4. Create superuser (admin):
+5. Create superuser (admin):
 
    ```bash
    python manage.py createsuperuser
    ```
 
-5. Seed sample data:
+6. Seed sample data:
 
    ```bash
    python manage.py seed_products
    ```
 
-6. Run server:
+7. Run server:
 
    ```bash
    python manage.py runserver
@@ -148,6 +162,8 @@ Visit `http://127.0.0.1:8000/api/docs/swagger/` after starting the backend serve
 - `GET /api/ai/recommendations/` - AI recommendations
 - `GET /api/ai/search/?query=...` - Semantic search
 - `POST /api/orders/checkout/` - Create order
+- `POST /api/payments/stripe/checkout-session/` - Create Stripe checkout session
+- `POST /api/payments/stripe/webhook/` - Stripe webhook handler
 
 ## License
 

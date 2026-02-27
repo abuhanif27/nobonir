@@ -26,7 +26,7 @@ echo -e "\n${BLUE}Setting up backend...${NC}"
 cd backend
 
 echo "Installing Python dependencies..."
-pip3 install Django==6.0 djangorestframework==3.15.2 djangorestframework-simplejwt==5.5.1 drf-spectacular==0.28.0 django-cors-headers==4.6.0 django-filter==25.1 psycopg[binary]==3.2.9 sentence-transformers==5.1.0 scikit-learn==1.6.1 numpy==2.2.3 python-dotenv==1.0.1
+pip3 install Django==6.0 djangorestframework==3.15.2 djangorestframework-simplejwt==5.5.1 drf-spectacular==0.28.0 django-cors-headers==4.6.0 django-filter==25.1 psycopg[binary]==3.2.9 sentence-transformers==5.1.0 scikit-learn==1.6.1 numpy==2.2.3 python-dotenv==1.0.1 stripe==11.5.0
 
 echo "Running migrations..."
 python3 manage.py migrate
@@ -55,10 +55,13 @@ cd ..
 if [ ! -f "backend/.env" ]; then
     echo -e "\n${YELLOW}Creating backend/.env file...${NC}"
     cat > backend/.env << EOF
-SECRET_KEY=$(python3 -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
+DJANGO_SECRET_KEY=$(python3 -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+FRONTEND_BASE_URL=http://localhost:5173
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 EOF
     echo -e "${GREEN}✓ Created backend/.env${NC}"
 fi
