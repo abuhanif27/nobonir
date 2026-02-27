@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
@@ -46,6 +46,20 @@ interface ProductReview {
   created_at: string;
 }
 
+const FALLBACK_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=700&fit=crop";
+
+const extractImageCandidates = (value?: string) => {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 export function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -56,6 +70,7 @@ export function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [selectedImage, setSelectedImage] = useState("");
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
@@ -262,6 +277,24 @@ export function ProductPage() {
     (!hasReviewedProduct && !canReviewProduct) ||
     (hasReviewedProduct && !isEditingReview);
 
+  const galleryImages = useMemo(() => {
+    if (!product) {
+      return [FALLBACK_PRODUCT_IMAGE];
+    }
+
+    const merged = [
+      ...extractImageCandidates(product.image_url),
+      ...extractImageCandidates(product.image),
+      FALLBACK_PRODUCT_IMAGE,
+    ];
+
+    return Array.from(new Set(merged));
+  }, [product]);
+
+  useEffect(() => {
+    setSelectedImage(galleryImages[0] || FALLBACK_PRODUCT_IMAGE);
+  }, [galleryImages]);
+
   useEffect(() => {
     if (!product || isEditingReview) {
       return;
@@ -318,9 +351,10 @@ export function ProductPage() {
     }
 
     const productImage =
+      selectedImage ||
       product.image_url ||
       product.image ||
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=700&fit=crop";
+      FALLBACK_PRODUCT_IMAGE;
 
     animateFlyToCart({
       fromElement: sourceElement,
@@ -516,9 +550,10 @@ export function ProductPage() {
   }
 
   const productImage =
+    selectedImage ||
     product.image_url ||
     product.image ||
-    "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=700&fit=crop";
+    FALLBACK_PRODUCT_IMAGE;
   const averageRating =
     reviews.length > 0
       ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
@@ -547,18 +582,48 @@ export function ProductPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="flex items-center justify-center">
-            <img
-              src={productImage}
-              alt={product.name}
-              className="max-w-full h-auto object-contain rounded-xl shadow-xl"
-            />
+      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 sm:py-8 sm:pb-10 lg:px-8">
+        <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
+          <div className="space-y-3 lg:sticky lg:top-24 lg:self-start">
+            <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-xl">
+              <img
+                src={productImage}
+                alt={product.name}
+                className="h-72 w-full object-contain bg-background p-4 sm:h-96 lg:h-[520px]"
+              />
+            </div>
+
+            {galleryImages.length > 1 && (
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                {galleryImages.map((image, index) => {
+                  const isActive = image === productImage;
+
+                  return (
+                    <button
+                      key={`gallery-image-${index}`}
+                      type="button"
+                      className={`overflow-hidden rounded-md border bg-card p-1 transition ${
+                        isActive
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-border/60"
+                      }`}
+                      onClick={() => setSelectedImage(image)}
+                      aria-label={`View product image ${index + 1}`}
+                    >
+                      <img
+                        src={image}
+                        alt={`${product.name} preview ${index + 1}`}
+                        className="h-14 w-full object-cover sm:h-16"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <Card className="bg-card/95 shadow-xl">
-            <CardContent className="p-5 sm:p-8">
+          <Card className="bg-card/95 shadow-xl lg:sticky lg:top-24 lg:self-start">
+            <CardContent className="p-4 sm:p-7">
               <Badge variant="secondary" className="mb-4 gap-1.5">
                 <Tag className="h-3 w-3" />
                 {product.category.name}
@@ -613,7 +678,7 @@ export function ProductPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
                 <Button
                   onClick={(e) => addToCart(e.currentTarget)}
                   disabled={product.stock === 0}
@@ -631,12 +696,13 @@ export function ProductPage() {
           </Card>
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <div className="mt-6 grid gap-4 lg:mt-8 lg:grid-cols-2 lg:gap-6">
           <Card id="share-feedback" className="bg-card/95 shadow-xl">
             <CardContent className="p-5 sm:p-6">
               <h3 className="text-xl font-bold text-foreground">
                 Customer Reviews
               </h3>
+
               {reviewsLoading ? (
                 <FlowStateBanner
                   className="mt-3"
@@ -652,23 +718,32 @@ export function ProductPage() {
                   onAction={() => id && loadPublicReviews(String(id))}
                 />
               ) : (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {reviews.length > 0
-                    ? `${averageRating.toFixed(1)} / 5 average from ${reviews.length} review(s)`
-                    : "No reviews yet"}
-                </p>
+                <div className="mt-3 rounded-lg border border-border/60 bg-background/40 p-3">
+                  <p className="text-2xl font-bold text-foreground">
+                    {reviews.length > 0 ? averageRating.toFixed(1) : "0.0"}
+                    <span className="ml-1 text-sm font-medium text-muted-foreground">
+                      / 5
+                    </span>
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {reviews.length > 0
+                      ? `${reviews.length} customer review(s)`
+                      : "No reviews yet"}
+                  </p>
+                </div>
               )}
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-foreground">
+                  Recent reviews
+                </p>
+              </div>
+
+              <div className="mt-3 space-y-3">
                 {reviewsLoading ? (
                   <FlowStateBanner tone="info" message="Fetching reviews..." />
                 ) : reviewsError ? (
-                  <FlowStateBanner
-                    tone="error"
-                    message={reviewsError}
-                    actionLabel="Try Again"
-                    onAction={() => id && loadPublicReviews(String(id))}
-                  />
+                  <FlowStateBanner tone="error" message={reviewsError} />
                 ) : reviews.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Be the first to review this product.
@@ -937,6 +1012,25 @@ export function ProductPage() {
           </Card>
         </div>
       </main>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 p-3 backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-7xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">Price</p>
+            <p className="truncate text-base font-bold text-foreground">
+              {formatPrice(product.price)}
+            </p>
+          </div>
+          <Button
+            onClick={(e) => addToCart(e.currentTarget)}
+            disabled={product.stock === 0}
+            className="min-w-36 bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
+          >
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            {product.stock === 0 ? "Unavailable" : "Add to Cart"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
