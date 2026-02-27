@@ -298,10 +298,10 @@ export function ProfilePage() {
 
               {/* User Info */}
               <div className="flex-1 text-center sm:text-left">
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-3xl font-bold text-foreground">
                   {user?.first_name} {user?.last_name}
                 </h1>
-                <p className="mt-1 text-gray-600">{user?.email}</p>
+                <p className="mt-1 text-muted-foreground">{user?.email}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                   <Badge variant="secondary" className="gap-1 px-3 py-1">
                     <Shield className="h-3 w-3" />
@@ -363,8 +363,8 @@ export function ProfilePage() {
                   <Package className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total Orders</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm text-muted-foreground">Total Orders</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {stats.totalOrders}
                   </p>
                 </div>
@@ -379,8 +379,10 @@ export function ProfilePage() {
                   <Heart className="h-6 w-6 text-pink-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Wishlist Items</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm text-muted-foreground">
+                    Wishlist Items
+                  </p>
+                  <p className="text-2xl font-bold text-foreground">
                     {stats.wishlistCount}
                   </p>
                 </div>
@@ -395,8 +397,8 @@ export function ProfilePage() {
                   <ShoppingCart className="h-6 w-6 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Cart Items</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm text-muted-foreground">Cart Items</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {stats.cartCount}
                   </p>
                 </div>
@@ -448,7 +450,7 @@ export function ProfilePage() {
                   <div>
                     <Label htmlFor="phone">Phone Number</Label>
                     <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-gray-400" />
+                      <Phone className="h-4 w-4 text-muted-foreground" />
                       <Input
                         id="phone"
                         value={formData.phone_number}
@@ -465,7 +467,7 @@ export function ProfilePage() {
                   <div>
                     <Label htmlFor="dob">Date of Birth</Label>
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                       <Input
                         id="dob"
                         type="date"
@@ -482,7 +484,7 @@ export function ProfilePage() {
                   <div>
                     <Label htmlFor="address">Address</Label>
                     <div className="flex items-start gap-2">
-                      <MapPin className="mt-2 h-4 w-4 text-gray-400" />
+                      <MapPin className="mt-2 h-4 w-4 text-muted-foreground" />
                       <Textarea
                         id="address"
                         value={formData.address}
@@ -497,38 +499,42 @@ export function ProfilePage() {
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
-                    <Mail className="h-5 w-5 text-gray-600" />
+                  <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="text-xs text-gray-500">Email</p>
-                      <p className="font-medium text-gray-900">{user?.email}</p>
+                      <p className="text-xs text-muted-foreground">Email</p>
+                      <p className="font-medium text-foreground">
+                        {user?.email}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
-                    <Phone className="h-5 w-5 text-gray-600" />
+                  <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
+                    <Phone className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="text-xs text-gray-500">Phone</p>
-                      <p className="font-medium text-gray-900">
+                      <p className="text-xs text-muted-foreground">Phone</p>
+                      <p className="font-medium text-foreground">
                         {user?.phone_number || "Not provided"}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
-                    <Calendar className="h-5 w-5 text-gray-600" />
+                  <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="text-xs text-gray-500">Date of Birth</p>
-                      <p className="font-medium text-gray-900">
+                      <p className="text-xs text-muted-foreground">
+                        Date of Birth
+                      </p>
+                      <p className="font-medium text-foreground">
                         {user?.date_of_birth
                           ? new Date(user.date_of_birth).toLocaleDateString()
                           : "Not provided"}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 rounded-lg bg-gray-50 p-3">
-                    <MapPin className="h-5 w-5 text-gray-600" />
+                  <div className="flex items-start gap-3 rounded-lg bg-muted/40 p-3">
+                    <MapPin className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="text-xs text-gray-500">Address</p>
-                      <p className="font-medium text-gray-900">
+                      <p className="text-xs text-muted-foreground">Address</p>
+                      <p className="font-medium text-foreground">
                         {user?.address || "Not provided"}
                       </p>
                     </div>
@@ -549,8 +555,8 @@ export function ProfilePage() {
             <CardContent className="space-y-4">
               {!isChangingPassword ? (
                 <>
-                  <div className="rounded-lg bg-gray-50 p-4">
-                    <p className="text-sm text-gray-600">
+                  <div className="rounded-lg bg-muted/40 p-4">
+                    <p className="text-sm text-muted-foreground">
                       Keep your account secure by using a strong password and
                       updating it regularly.
                     </p>

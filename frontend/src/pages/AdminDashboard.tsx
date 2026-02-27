@@ -524,14 +524,12 @@ export function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="ds-page">
       {/* Header */}
-      <header className="bg-card shadow">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <header className="ds-page-header">
+        <div className="ds-page-header-row">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl font-bold text-foreground">
-              Admin Dashboard
-            </h1>
+            <h1 className="ds-page-title">Admin Dashboard</h1>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-sm text-muted-foreground">
                 Welcome, {user?.first_name}!
@@ -552,7 +550,7 @@ export function AdminDashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="ds-page-container">
         {orderNotice && (
           <div
             className={`mb-4 flex items-center justify-between rounded-md border px-4 py-3 text-sm shadow-sm ${
@@ -573,7 +571,7 @@ export function AdminDashboard() {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
+        <div className="mb-8 grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -931,7 +929,9 @@ export function AdminDashboard() {
                 </div>
 
                 {loadingOrders ? (
-                  <p className="text-center text-gray-600">Loading orders...</p>
+                  <p className="text-center text-muted-foreground">
+                    Loading orders...
+                  </p>
                 ) : orders.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">
                     No orders found for the selected filters.
@@ -1143,7 +1143,9 @@ export function AdminDashboard() {
               </div>
 
               {loadingCoupons ? (
-                <p className="text-center text-gray-600">Loading coupons...</p>
+                <p className="text-center text-muted-foreground">
+                  Loading coupons...
+                </p>
               ) : coupons.length === 0 ? (
                 <p className="text-center text-muted-foreground py-6">
                   No coupons found.
@@ -1214,7 +1216,9 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent>
               {loadingUsers ? (
-                <p className="text-center text-gray-600">Loading users...</p>
+                <p className="text-center text-muted-foreground">
+                  Loading users...
+                </p>
               ) : users.length === 0 ? (
                 <p className="text-center text-muted-foreground py-6">
                   No users found.
@@ -1320,7 +1324,7 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent>
               {loadingProducts ? (
-                <p className="text-center text-gray-600">Loading...</p>
+                <p className="text-center text-muted-foreground">Loading...</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -1390,7 +1394,9 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent>
               {loadingReviews ? (
-                <p className="text-center text-gray-600">Loading reviews...</p>
+                <p className="text-center text-muted-foreground">
+                  Loading reviews...
+                </p>
               ) : reviews.length === 0 ? (
                 <p className="text-center text-muted-foreground py-6">
                   No reviews found.

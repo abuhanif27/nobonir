@@ -310,15 +310,15 @@ export function OrdersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <header className="ds-page-header">
+        <div className="ds-page-header-row">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 p-2.5 shadow-lg">
               <Package className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">My Orders</h1>
-              <p className="text-xs text-slate-500">
+              <h1 className="ds-page-title text-xl">My Orders</h1>
+              <p className="ds-page-subtitle text-xs">
                 Track your purchases in real time
               </p>
             </div>
@@ -344,7 +344,7 @@ export function OrdersPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="ds-page-container">
         {paymentNotice && (
           <Card
             className={`mb-6 shadow-sm ${
@@ -404,33 +404,33 @@ export function OrdersPage() {
         )}
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-slate-500">Total Orders</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+              <p className="text-sm text-muted-foreground">Total Orders</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">
                 {totals.totalOrders}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-slate-500">Total Spent</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+              <p className="text-sm text-muted-foreground">Total Spent</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">
                 {formatPrice(totals.totalSpent)}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-slate-500">In Transit</p>
+              <p className="text-sm text-muted-foreground">In Transit</p>
               <p className="mt-1 text-2xl font-bold text-cyan-700">
                 {totals.inTransit}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-slate-500">Delivered</p>
+              <p className="text-sm text-muted-foreground">Delivered</p>
               <p className="mt-1 text-2xl font-bold text-emerald-700">
                 {totals.delivered}
               </p>
@@ -438,7 +438,7 @@ export function OrdersPage() {
           </Card>
         </div>
 
-        <Card className="mb-6 border-0 bg-white shadow-sm">
+        <Card className="mb-6 ds-surface-card">
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-2">
               {FILTERS.map((filter) => (
@@ -462,13 +462,13 @@ export function OrdersPage() {
         </Card>
 
         {loading ? (
-          <Card className="border-0 bg-white shadow-sm">
-            <CardContent className="py-16 text-center text-slate-500">
+          <Card className="ds-surface-card">
+            <CardContent className="py-16 text-center text-muted-foreground">
               Loading your orders...
             </CardContent>
           </Card>
         ) : error ? (
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="py-16 text-center">
               <p className="text-rose-600">{error}</p>
               <Button className="mt-4" onClick={loadOrders}>
@@ -477,13 +477,13 @@ export function OrdersPage() {
             </CardContent>
           </Card>
         ) : filteredOrders.length === 0 ? (
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="py-16 text-center">
-              <Package className="mx-auto h-12 w-12 text-slate-300" />
-              <h3 className="mt-4 text-xl font-semibold text-slate-900">
+              <Package className="mx-auto h-12 w-12 text-muted-foreground/60" />
+              <h3 className="mt-4 text-xl font-semibold text-foreground">
                 No orders yet
               </h3>
-              <p className="mt-2 text-slate-500">
+              <p className="mt-2 text-muted-foreground">
                 Once you place an order, it will appear here.
               </p>
               <Link to="/" className="inline-block">
@@ -539,15 +539,15 @@ export function OrdersPage() {
               return (
                 <Card
                   key={order.id}
-                  className="overflow-hidden border-0 bg-white shadow-sm"
+                  className="ds-surface-card overflow-hidden"
                 >
                   <CardHeader className="pb-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <CardTitle className="text-lg text-slate-900">
+                        <CardTitle className="text-lg text-foreground">
                           Order #{order.id}
                         </CardTitle>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-muted-foreground">
                           Placed on {formatDate(order.created_at)}
                         </p>
                       </div>
@@ -558,7 +558,7 @@ export function OrdersPage() {
                           </span>
                           {STATUS_LABELS[order.status]}
                         </Badge>
-                        <span className="text-base font-bold text-slate-900">
+                        <span className="text-base font-bold text-foreground">
                           {formatPrice(order.total_amount)}
                         </span>
                       </div>
@@ -567,11 +567,11 @@ export function OrdersPage() {
 
                   <CardContent className="space-y-4">
                     <div>
-                      <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+                      <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                         <span>Order Progress</span>
                         <span>{Math.round(progress)}%</span>
                       </div>
-                      <div className="h-2 rounded-full bg-slate-100">
+                      <div className="h-2 rounded-full bg-muted">
                         <div
                           className={`h-2 rounded-full transition-all duration-500 ${
                             order.status === "CANCELLED"
@@ -583,8 +583,8 @@ export function OrdersPage() {
                       </div>
                     </div>
 
-                    <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                      <p className="font-medium text-slate-800">
+                    <div className="rounded-lg bg-muted/40 p-3 text-sm text-foreground">
+                      <p className="font-medium text-foreground">
                         Shipping Address
                       </p>
                       <p className="mt-1 whitespace-pre-wrap">
@@ -616,8 +616,8 @@ export function OrdersPage() {
                     </Button>
 
                     {expanded && (
-                      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                        <div className="hidden grid-cols-[1fr_auto_auto] gap-3 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300 sm:grid">
+                      <div className="overflow-hidden rounded-lg border border-border">
+                        <div className="hidden grid-cols-[1fr_auto_auto] gap-3 bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid">
                           <span>Item</span>
                           <span>Qty</span>
                           <span>Subtotal</span>
@@ -627,9 +627,9 @@ export function OrdersPage() {
                             return (
                               <div
                                 key={item.id}
-                                className="grid grid-cols-1 gap-2 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-[1fr_auto_auto] sm:gap-3"
+                                className="grid grid-cols-1 gap-2 px-4 py-3 text-sm text-foreground sm:grid-cols-[1fr_auto_auto] sm:gap-3"
                               >
-                                <span className="font-medium text-slate-800 dark:text-slate-100">
+                                <span className="font-medium text-foreground">
                                   <Link
                                     to={`/product/${item.product}#share-feedback`}
                                     className="underline-offset-4 hover:text-cyan-600 hover:underline dark:hover:text-cyan-400"
@@ -644,21 +644,21 @@ export function OrdersPage() {
                                       View Product
                                     </Link>
                                     {item.lineCount > 1 && (
-                                      <span className="text-slate-500 dark:text-slate-400">
+                                      <span className="text-muted-foreground">
                                         Combined from {item.lineCount} lines
                                       </span>
                                     )}
                                   </div>
                                 </span>
-                                <span className="text-slate-600 dark:text-slate-300 sm:text-right">
+                                <span className="text-muted-foreground sm:text-right">
                                   x{item.quantity}
                                 </span>
-                                <span className="font-semibold text-slate-900 dark:text-slate-100 sm:text-right">
+                                <span className="font-semibold text-foreground sm:text-right">
                                   {formatPrice(item.subtotal)}
                                 </span>
 
                                 {order.status === "DELIVERED" && (
-                                  <div className="sm:col-span-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+                                  <div className="sm:col-span-3 rounded-md border border-border p-3">
                                     {hasReviewedProduct(item.product) ? (
                                       <div className="flex flex-wrap items-center justify-between gap-2">
                                         <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
@@ -733,7 +733,7 @@ export function OrdersPage() {
                                                       className={`h-4 w-4 transition-all duration-200 ${
                                                         active
                                                           ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.45)]"
-                                                          : "text-slate-400"
+                                                          : "text-muted-foreground"
                                                       }`}
                                                     />
                                                   </button>
@@ -741,7 +741,7 @@ export function OrdersPage() {
                                               },
                                             )}
                                           </div>
-                                          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                          <p className="mt-1 text-[11px] text-muted-foreground">
                                             {reviewDrafts[item.product]
                                               ?.rating ?? 5}{" "}
                                             / 5 selected

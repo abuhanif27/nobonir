@@ -139,10 +139,10 @@ export function AdminProductFormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card shadow">
+    <div className="ds-page">
+      <header className="ds-page-header">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+          <h1 className="ds-page-title">{title}</h1>
           <Link to="/admin">
             <Button variant="outline" size="sm">
               Back to Admin

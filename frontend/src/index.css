@@ -4,9 +4,9 @@
 
 :root {
   --background: 190 43% 96%;
-  --foreground: 215 28% 17%;
+  --foreground: 215 30% 14%;
   --card: 0 0% 100%;
-  --card-foreground: 215 28% 17%;
+  --card-foreground: 215 30% 14%;
   --primary: 183 88% 33%;
   --primary-foreground: 0 0% 100%;
   --secondary: 184 47% 88%;
@@ -33,6 +33,36 @@
   --border: 217 20% 24%;
   --input: 217 20% 24%;
   --ring: 183 88% 44%;
+}
+
+@layer components {
+  .ds-page {
+    @apply min-h-screen bg-background;
+  }
+
+  .ds-page-header {
+    @apply sticky top-0 z-40 border-b bg-background/90 backdrop-blur;
+  }
+
+  .ds-page-header-row {
+    @apply mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8;
+  }
+
+  .ds-page-container {
+    @apply mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8;
+  }
+
+  .ds-page-title {
+    @apply text-2xl font-bold tracking-tight text-foreground;
+  }
+
+  .ds-page-subtitle {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .ds-surface-card {
+    @apply border bg-card text-card-foreground shadow-sm;
+  }
 }
 
 * {

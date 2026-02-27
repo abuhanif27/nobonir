@@ -431,10 +431,10 @@ export function CartPage() {
                   <AlertTriangle className="h-5 w-5 animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-foreground">
                     Clear all cart items?
                   </h3>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     This will remove everything from your cart.
                   </p>
                 </div>
@@ -445,7 +445,7 @@ export function CartPage() {
                   variant="outline"
                   onClick={() => setClearConfirmOpen(false)}
                   disabled={clearingAll}
-                  className="border-slate-300 bg-white text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-100 hover:shadow-md active:translate-y-0"
+                  className="border-border bg-background text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:border-border/80 hover:bg-muted hover:shadow-md active:translate-y-0"
                 >
                   Cancel
                 </Button>
@@ -463,12 +463,10 @@ export function CartPage() {
         </div>
       </div>
 
-      <header className="bg-card shadow">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <header className="ds-page-header">
+        <div className="ds-page-header-row">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl font-bold text-foreground">
-              Shopping Cart
-            </h1>
+            <h1 className="ds-page-title">Shopping Cart</h1>
             <Link to="/">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -479,17 +477,17 @@ export function CartPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="ds-page-container">
         {loading ? (
-          <p className="text-center text-gray-600">Loading cart...</p>
+          <p className="text-center text-muted-foreground">Loading cart...</p>
         ) : cartItems.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <ShoppingCart className="mx-auto h-16 w-16 text-gray-400" />
-              <h2 className="mt-4 text-xl font-semibold text-gray-900">
+              <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground/70" />
+              <h2 className="mt-4 text-xl font-semibold text-foreground">
                 Your cart is empty
               </h2>
-              <p className="mt-2 text-gray-600">
+              <p className="mt-2 text-muted-foreground">
                 Add some products to get started!
               </p>
               <Link to="/">
@@ -532,15 +530,15 @@ export function CartPage() {
                         />
                         <div className="flex-1">
                           <h3 className="font-semibold">{item.product.name}</h3>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             {formatPrice(item.product.price)} each
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-muted-foreground">
                             Stock: {item.product.stock}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="inline-flex items-center rounded-md border bg-white">
+                          <div className="inline-flex items-center rounded-md border bg-background">
                             <Button
                               type="button"
                               variant="ghost"
@@ -597,7 +595,7 @@ export function CartPage() {
             </div>
 
             <div>
-              <Card className="border-slate-200/80 bg-card/80 shadow-lg backdrop-blur dark:border-slate-700/80">
+              <Card className="border-border/70 bg-card/80 shadow-lg backdrop-blur">
                 <CardHeader className="space-y-3">
                   <div className="flex items-center justify-between">
                     <CardTitle>Order Summary</CardTitle>
@@ -613,7 +611,7 @@ export function CartPage() {
                     </div>
                   )}
 
-                  <div className="rounded-xl border border-slate-200/70 bg-background/70 p-4 dark:border-slate-700/70 dark:bg-slate-900/40">
+                  <div className="rounded-xl border border-border/70 bg-background/70 p-4">
                     <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
                       <span>Subtotal</span>
                       <span>{formatPrice(total)}</span>
@@ -636,7 +634,7 @@ export function CartPage() {
                         {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee)}
                       </span>
                     </div>
-                    <div className="mt-3 h-px bg-slate-200 dark:bg-slate-700" />
+                    <div className="mt-3 h-px bg-border" />
                     <div className="mt-3 flex items-center justify-between text-lg font-semibold text-foreground">
                       <span>Total</span>
                       <span>{formatPrice(grandTotal)}</span>
@@ -753,12 +751,12 @@ export function CartPage() {
                             className={`w-full rounded-xl border p-3 text-left transition-all ${
                               isSelected
                                 ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50"
-                                : "border-slate-300/80 bg-background hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500"
+                                : "border-border bg-background hover:border-border/80"
                             } ${!isAuthenticated ? "cursor-not-allowed opacity-70" : ""}`}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3">
-                                <div className="rounded-lg bg-slate-100 p-2 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                <div className="rounded-lg bg-muted p-2 text-foreground">
                                   <MethodIcon className="h-4 w-4" />
                                 </div>
                                 <div>
@@ -780,7 +778,7 @@ export function CartPage() {
                         );
                       })}
                     </div>
-                    <div className="rounded-lg bg-slate-100/80 p-2.5 dark:bg-slate-800/70">
+                    <div className="rounded-lg bg-muted/80 p-2.5">
                       <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                         <ShieldCheck className="h-4 w-4 text-emerald-500" />
                         Your payment and personal details are securely

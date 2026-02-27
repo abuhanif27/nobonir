@@ -491,7 +491,7 @@ export function ProductPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-gray-600">Loading product...</p>
+        <p className="text-muted-foreground">Loading product...</p>
       </div>
     );
   }
@@ -504,12 +504,12 @@ export function ProductPage() {
         <main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
           <Card>
             <CardContent className="py-12 text-center">
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-foreground">
                 {isUnavailable
                   ? "Can’t load product right now"
                   : "Product not found"}
               </h1>
-              <p className="mt-2 text-gray-600">
+              <p className="mt-2 text-muted-foreground">
                 {isUnavailable
                   ? "Server is temporarily unavailable. Please try again."
                   : "This product is unavailable right now."}
@@ -548,9 +548,9 @@ export function ProductPage() {
       : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <header className="bg-white/80 backdrop-blur-md shadow-sm border-b dark:bg-slate-900/80 dark:border-slate-800">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+    <div className="ds-page bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <header className="ds-page-header">
+        <div className="ds-page-header-row">
           <Button variant="outline" onClick={() => navigate(-1)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -569,7 +569,7 @@ export function ProductPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="flex items-center justify-center">
             <img
@@ -579,18 +579,18 @@ export function ProductPage() {
             />
           </div>
 
-          <Card className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85">
+          <Card className="bg-card/95 shadow-xl">
             <CardContent className="p-5 sm:p-8">
               <Badge variant="secondary" className="mb-4 gap-1.5">
                 <Tag className="h-3 w-3" />
                 {product.category.name}
               </Badge>
 
-              <h1 className="mb-4 text-3xl font-black text-gray-900 dark:text-slate-100 sm:text-4xl">
+              <h1 className="mb-4 text-3xl font-black text-foreground sm:text-4xl">
                 {product.name}
               </h1>
 
-              <p className="text-gray-600 leading-relaxed mb-6">
+              <p className="text-muted-foreground leading-relaxed mb-6">
                 {product.description}
               </p>
 
@@ -598,13 +598,13 @@ export function ProductPage() {
                 {formatPrice(product.price)}
               </p>
 
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 Stock: {product.stock}
               </p>
 
               <div className="mb-6">
-                <p className="text-sm text-gray-600 mb-2">Quantity</p>
-                <div className="inline-flex items-center rounded-lg border bg-white">
+                <p className="text-sm text-muted-foreground mb-2">Quantity</p>
+                <div className="inline-flex items-center rounded-lg border bg-background">
                   <Button
                     type="button"
                     variant="ghost"
@@ -654,12 +654,9 @@ export function ProductPage() {
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <Card
-            id="share-feedback"
-            className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85"
-          >
+          <Card id="share-feedback" className="bg-card/95 shadow-xl">
             <CardContent className="p-5 sm:p-6">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">
+              <h3 className="text-xl font-bold text-foreground">
                 Customer Reviews
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -704,9 +701,9 @@ export function ProductPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-white/90 shadow-xl dark:bg-slate-900/85">
+          <Card className="bg-card/95 shadow-xl">
             <CardContent className="p-5 sm:p-6">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">
+              <h3 className="text-xl font-bold text-foreground">
                 Share Your Feedback
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -812,7 +809,7 @@ export function ProductPage() {
               <div className="mt-6 space-y-4">
                 <div>
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                    <label className="text-sm font-semibold text-foreground">
                       Your Rating
                     </label>
                     <span className="text-sm font-medium text-amber-500">
@@ -849,7 +846,7 @@ export function ProductPage() {
                               className={`h-7 w-7 transition-all duration-200 ${
                                 active
                                   ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]"
-                                  : "text-slate-400"
+                                  : "text-muted-foreground"
                               }`}
                             />
                           </button>
@@ -860,7 +857,7 @@ export function ProductPage() {
                 </div>
                 <div>
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                    <label className="text-sm font-semibold text-foreground">
                       Your Review
                     </label>
                     <span className="text-xs text-muted-foreground">

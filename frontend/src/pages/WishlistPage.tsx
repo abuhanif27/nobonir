@@ -303,15 +303,15 @@ export function WishlistPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-orange-50 to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <header className="ds-page-header">
+        <div className="ds-page-header-row">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 p-2.5 shadow-lg">
               <Heart className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">My Wishlist</h1>
-              <p className="text-xs text-slate-500">
+              <h1 className="ds-page-title text-xl">My Wishlist</h1>
+              <p className="ds-page-subtitle text-xs">
                 Save favorites and move to cart when ready
               </p>
             </div>
@@ -340,47 +340,47 @@ export function WishlistPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="ds-page-container">
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-slate-500">Saved Items</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+              <p className="text-sm text-muted-foreground">Saved Items</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">
                 {summary.totalSaved}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-slate-500">In Stock</p>
+              <p className="text-sm text-muted-foreground">In Stock</p>
               <p className="mt-1 text-2xl font-bold text-emerald-700">
                 {summary.inStock}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-slate-500">Out of Stock</p>
+              <p className="text-sm text-muted-foreground">Out of Stock</p>
               <p className="mt-1 text-2xl font-bold text-rose-700">
                 {summary.outOfStock}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-slate-500">Estimated Value</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+              <p className="text-sm text-muted-foreground">Estimated Value</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">
                 {formatPrice(summary.estValue)}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="mb-6 border-0 bg-white shadow-sm">
+        <Card className="mb-6 ds-surface-card">
           <CardContent className="pt-6 space-y-4">
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
               <div className="relative w-full flex-1 sm:min-w-[220px]">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -423,13 +423,13 @@ export function WishlistPage() {
         </Card>
 
         {loading ? (
-          <Card className="border-0 bg-white shadow-sm">
-            <CardContent className="py-16 text-center text-slate-500">
+          <Card className="ds-surface-card">
+            <CardContent className="py-16 text-center text-muted-foreground">
               Loading your wishlist...
             </CardContent>
           </Card>
         ) : error ? (
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="py-16 text-center">
               <p className="text-rose-600">{error}</p>
               <Button className="mt-4" onClick={() => loadWishlist()}>
@@ -438,13 +438,13 @@ export function WishlistPage() {
             </CardContent>
           </Card>
         ) : filteredItems.length === 0 ? (
-          <Card className="border-0 bg-white shadow-sm">
+          <Card className="ds-surface-card">
             <CardContent className="py-16 text-center">
-              <Heart className="mx-auto h-12 w-12 text-slate-300" />
-              <h3 className="mt-4 text-xl font-semibold text-slate-900">
+              <Heart className="mx-auto h-12 w-12 text-muted-foreground/60" />
+              <h3 className="mt-4 text-xl font-semibold text-foreground">
                 Your wishlist is empty
               </h3>
-              <p className="mt-2 text-slate-500">
+              <p className="mt-2 text-muted-foreground">
                 Save products you love to revisit them quickly.
               </p>
               <Button className="mt-5" onClick={() => navigate("/")}>
@@ -464,7 +464,7 @@ export function WishlistPage() {
               return (
                 <Card
                   key={item.id}
-                  className="group overflow-hidden border-0 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                  className="group ds-surface-card overflow-hidden transition hover:-translate-y-1 hover:shadow-lg"
                 >
                   <div className="relative">
                     <img
@@ -478,7 +478,7 @@ export function WishlistPage() {
                     />
                     <div className="absolute left-3 top-3 flex gap-2">
                       {item.product.category?.name && (
-                        <Badge variant="secondary" className="bg-white/90">
+                        <Badge variant="secondary" className="bg-background/90">
                           {item.product.category.name}
                         </Badge>
                       )}
@@ -495,18 +495,20 @@ export function WishlistPage() {
                   </div>
 
                   <CardContent className="p-4">
-                    <h3 className="line-clamp-1 text-lg font-semibold text-slate-900">
+                    <h3 className="line-clamp-1 text-lg font-semibold text-foreground">
                       {item.product.name}
                     </h3>
-                    <p className="mt-1 line-clamp-2 text-sm text-slate-500">
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                       {item.product.description}
                     </p>
 
                     <div className="mt-3 flex items-center justify-between">
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {formatPrice(item.product.price)}
                       </p>
-                      <p className="text-xs text-slate-500">Saved item</p>
+                      <p className="text-xs text-muted-foreground">
+                        Saved item
+                      </p>
                     </div>
 
                     <div className="mt-4 flex gap-2">
