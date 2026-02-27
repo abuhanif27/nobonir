@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.permissions import IsAdminRole
+from orders.models import Order
+from reviews.models import Review
 from .models import AnalyticsEvent
 from .serializers import AnalyticsEventIngestSerializer
 from .services import track_analytics_event
@@ -66,7 +68,8 @@ class AnalyticsSummaryAPIView(APIView):
             .annotate(count=Count("id"))
             .order_by("event_name")
         )
-        total_counts = {row["event_name"]: row["count"] for row in total_counts_qs}
+        total_counts = {name: 0 for name in self.FUNNEL_ORDER}
+        total_counts.update({row["event_name"]: row["count"] for row in total_counts_qs})
 
         per_day_rows = (
             queryset.annotate(day=TruncDate("created_at"))
@@ -81,6 +84,8 @@ class AnalyticsSummaryAPIView(APIView):
             if day_key not in daily_map:
                 daily_map[day_key] = {name: 0 for name in self.FUNNEL_ORDER}
             daily_map[day_key][row["event_name"]] = row["count"]
+
+        self._apply_model_fallbacks(start, total_counts, daily_map)
 
         daily = []
         for day in sorted(daily_map.keys()):
@@ -123,3 +128,47 @@ class AnalyticsSummaryAPIView(APIView):
             "order_created_to_payment_success_pct": self._pct(counts["payment_success"], counts["order_created"]),
             "payment_success_to_review_submitted_pct": self._pct(counts["review_submitted"], counts["payment_success"]),
         }
+
+    def _apply_model_fallbacks(self, start, total_counts, daily_map):
+        fallback_specs = [
+            (
+                "order_created",
+                Order.objects.filter(created_at__gte=start),
+            ),
+            (
+                "payment_success",
+                Order.objects.filter(
+                    created_at__gte=start,
+                    status__in=[
+                        Order.Status.PAID,
+                        Order.Status.PROCESSING,
+                        Order.Status.SHIPPED,
+                        Order.Status.DELIVERED,
+                    ],
+                ),
+            ),
+            (
+                "review_submitted",
+                Review.objects.filter(created_at__gte=start),
+            ),
+        ]
+
+        for event_name, model_queryset in fallback_specs:
+            if total_counts.get(event_name, 0) > 0:
+                continue
+
+            fallback_total = model_queryset.count()
+            total_counts[event_name] = fallback_total
+
+            per_day_rows = (
+                model_queryset.annotate(day=TruncDate("created_at"))
+                .values("day")
+                .annotate(count=Count("id"))
+                .order_by("day")
+            )
+
+            for row in per_day_rows:
+                day_key = row["day"].isoformat()
+                if day_key not in daily_map:
+                    daily_map[day_key] = {name: 0 for name in self.FUNNEL_ORDER}
+                daily_map[day_key][event_name] = row["count"]
