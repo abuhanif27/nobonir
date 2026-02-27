@@ -96,8 +96,5 @@ def create_order_from_cart(user, shipping_address: str, billing_address: str = "
     order.total_amount = total
     order.save(update_fields=["subtotal_amount", "discount_amount", "coupon_code", "total_amount"])
 
-    if coupon:
-        CouponUsage.objects.create(user=user, coupon=coupon, order=order)
-
     cart.items.all().delete()
     return order

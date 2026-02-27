@@ -209,6 +209,23 @@ export function CartPage() {
     }
   };
 
+  const syncLocalCartToServer = async () => {
+    const localItems = getLocalCartItems();
+    if (localItems.length === 0) {
+      return;
+    }
+
+    for (const item of localItems) {
+      await api.post("/cart/items/", {
+        product_id: item.product.id,
+        quantity: item.quantity,
+      });
+    }
+
+    setLocalCartItems([]);
+    await loadCart();
+  };
+
   const handleCheckout = async () => {
     if (!isAuthenticated) {
       setPaymentNotice(
@@ -235,16 +252,7 @@ export function CartPage() {
     setPaymentNotice("");
 
     try {
-      const localItems = getLocalCartItems();
-      if (localItems.length > 0) {
-        for (const item of localItems) {
-          await api.post("/cart/items/", {
-            product_id: item.product.id,
-            quantity: item.quantity,
-          });
-        }
-        setLocalCartItems([]);
-      }
+      await syncLocalCartToServer();
 
       const orderResponse = await api.post("/orders/checkout/", {
         shipping_address: shippingAddress.trim(),
@@ -320,6 +328,8 @@ export function CartPage() {
     setCouponNotice("");
 
     try {
+      await syncLocalCartToServer();
+
       const response = await api.post("/orders/coupon/validate/", {
         coupon_code: couponCode.trim(),
       });

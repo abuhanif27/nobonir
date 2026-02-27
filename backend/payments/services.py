@@ -8,6 +8,7 @@ from django.db import transaction
 from dotenv import load_dotenv
 
 from orders.models import Order
+from orders.models import Coupon, CouponUsage
 from products.models import Product
 from .models import Payment
 
@@ -40,6 +41,17 @@ def process_payment(order: Order, method: str, success: bool, transaction_id: st
     )
 
     if success:
+        if order.coupon_code:
+            coupon = Coupon.objects.select_for_update().filter(code=order.coupon_code, is_active=True).first()
+            if not coupon:
+                raise ValueError("Applied coupon is no longer valid")
+
+            already_used = CouponUsage.objects.filter(user=order.user, coupon=coupon).exclude(order=order).exists()
+            if already_used:
+                raise ValueError("This coupon has already been used by you")
+
+            CouponUsage.objects.get_or_create(user=order.user, coupon=coupon, order=order)
+
         for order_item in order.items.select_related("product").all():
             product = Product.objects.select_for_update().get(pk=order_item.product_id)
             if product.stock < order_item.quantity:

@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from cart.models import Cart, CartItem
+from payments.services import process_payment
 from orders.services import create_order_from_cart
 from orders.models import Coupon
 from products.models import Category, Product
@@ -67,7 +68,8 @@ class OrderServiceTests(TestCase):
 			},
 		)
 
-		create_order_from_cart(self.user, "Dhaka", "Baridhara", "NOBONIR")
+		first_order = create_order_from_cart(self.user, "Dhaka", "Baridhara", "NOBONIR")
+		process_payment(first_order, method="SIM", success=True)
 
 		cart = Cart.objects.get(user=self.user)
 		CartItem.objects.create(cart=cart, product=self.product, quantity=1)
