@@ -1,15 +1,19 @@
+import { X } from "lucide-react";
+
 type ToastType = "success" | "error";
 
 interface AnimatedToastProps {
   visible: boolean;
   message: string;
   type?: ToastType;
+  onDismiss?: () => void;
 }
 
 export function AnimatedToast({
   visible,
   message,
   type = "success",
+  onDismiss,
 }: AnimatedToastProps) {
   const styles =
     type === "success"
@@ -26,7 +30,19 @@ export function AnimatedToast({
       <div
         className={`rounded-xl bg-gradient-to-r ${styles} px-4 py-3 text-sm font-semibold text-white shadow-xl backdrop-blur-sm`}
       >
-        {message}
+        <div className="flex items-start gap-3">
+          <p className="leading-relaxed">{message}</p>
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              aria-label="Dismiss notification"
+              className="pointer-events-auto -mr-1 -mt-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-white/20 bg-white/10 transition-colors hover:bg-white/20"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api, { MEDIA_BASE_URL } from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
+import { useFeedback } from "@/lib/feedback";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -194,6 +195,7 @@ const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
+  const { showError, showSuccess } = useFeedback();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>(DEMO_PRODUCTS);
   const [search, setSearch] = useState("");
@@ -203,10 +205,6 @@ export function CustomerDashboard() {
   const [isTopSellingView, setIsTopSellingView] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [wishlistToast, setWishlistToast] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
   const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
   const [preferenceForm, setPreferenceForm] = useState<PreferenceForm>({
     age: "",
@@ -476,18 +474,6 @@ export function CustomerDashboard() {
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [isUserMenuOpen]);
-
-  useEffect(() => {
-    if (!wishlistToast) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setWishlistToast(null);
-    }, 2200);
-
-    return () => clearTimeout(timer);
-  }, [wishlistToast]);
 
   useEffect(() => {
     if (isInitialLoad) return;
@@ -864,10 +850,7 @@ export function CustomerDashboard() {
     imageSrc?: string,
   ) => {
     if (!isAuthenticated) {
-      setWishlistToast({
-        type: "error",
-        message: "Please login to add items to wishlist",
-      });
+      showError("Please log in to add items to your wishlist");
       return;
     }
 
@@ -882,10 +865,7 @@ export function CustomerDashboard() {
         imageSrc,
       });
 
-      setWishlistToast({
-        type: "success",
-        message: "Added to wishlist",
-      });
+      showSuccess("Item added to wishlist");
     } catch (error: any) {
       const addToLocalDemoWishlist = () => {
         const selectedProduct = products.find((item) => item.id === productId);
@@ -944,23 +924,23 @@ export function CustomerDashboard() {
           });
         }
 
-        setWishlistToast({
-          type: localResult.ok ? "success" : "error",
-          message: localResult.ok
-            ? localResult.reason === "already_exists"
-              ? "Already saved in wishlist"
-              : "Added to wishlist"
-            : localResult.reason === "out_of_stock"
-              ? "This product is out of stock and can't be added to wishlist."
-              : "This product is not available in the live catalog yet, so it can't be added to wishlist.",
-        });
+        const localResultMessage = localResult.ok
+          ? localResult.reason === "already_exists"
+            ? "Item is already in your wishlist"
+            : "Item added to wishlist"
+          : localResult.reason === "out_of_stock"
+            ? "This product is out of stock and cannot be added to your wishlist"
+            : "This product is not available in the live catalog yet and cannot be added to your wishlist";
+
+        if (localResult.ok) {
+          showSuccess(localResultMessage);
+        } else {
+          showError(localResultMessage);
+        }
         return;
       }
 
-      setWishlistToast({
-        type: "error",
-        message: apiMessage || "Failed to add to wishlist",
-      });
+      showError(apiMessage || "Failed to add item to wishlist");
     }
   };
 
@@ -1781,21 +1761,6 @@ export function CustomerDashboard() {
           </>
         )}
       </main>
-
-      {wishlistToast && (
-        <div className="fixed right-4 top-20 z-[60]">
-          <div
-            className={`rounded-xl px-4 py-3 shadow-xl border text-sm font-medium backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300 ${
-              wishlistToast.type === "success"
-                ? "bg-emerald-50/95 text-emerald-800 border-emerald-200"
-                : "bg-rose-50/95 text-rose-800 border-rose-200"
-            }`}
-          >
-            {wishlistToast.message}
-          </div>
-        </div>
-      )}
-
       {/* Footer */}
       <footer className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white border-t border-gray-700 mt-16">
         <div className="absolute inset-0 bg-grid-white/5"></div>

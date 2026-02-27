@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
+import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ const parseAmount = (value: string | number) => {
 export function WishlistPage() {
   const navigate = useNavigate();
   const { formatPrice } = useCurrency();
+  const { showError, showSuccess } = useFeedback();
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -229,8 +231,9 @@ export function WishlistPage() {
     try {
       await api.delete(`/cart/wishlist/${itemId}/`);
       setItems((current) => current.filter((item) => item.id !== itemId));
+      showSuccess("Item removed from wishlist");
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to remove item");
+      showError(err.response?.data?.detail || "Failed to remove item");
     } finally {
       setWorkingItemId(null);
     }
@@ -257,8 +260,9 @@ export function WishlistPage() {
       });
       await api.delete(`/cart/wishlist/${item.id}/`);
       setItems((current) => current.filter((row) => row.id !== item.id));
+      showSuccess("Item moved to cart");
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to move item to cart");
+      showError(err.response?.data?.detail || "Failed to move item to cart");
     } finally {
       setWorkingItemId(null);
     }
@@ -293,8 +297,9 @@ export function WishlistPage() {
         setLocalWishlistItems(next);
         return next;
       });
+      showSuccess("Available items moved to cart");
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to move all items");
+      showError(err.response?.data?.detail || "Failed to move all items");
       await loadWishlist(true);
     } finally {
       setMovingAll(false);

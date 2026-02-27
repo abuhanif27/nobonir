@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AnimatedToast } from "@/components/ui/animated-toast";
+import { useFeedback } from "@/lib/feedback";
 import {
   Package,
   Heart,
@@ -32,16 +32,11 @@ interface AccountStats {
   cartCount: number;
 }
 
-interface ToastState {
-  message: string;
-  type: "success" | "error";
-}
-
 export function ProfilePage() {
   const { user, fetchMe } = useAuthStore();
+  const { showError, showSuccess } = useFeedback();
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [toast, setToast] = useState<ToastState | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
@@ -83,13 +78,6 @@ export function ProfilePage() {
   useEffect(() => {
     loadAccountStats();
   }, []);
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
 
   useEffect(() => {
     if (user?.profile_picture) {
@@ -140,15 +128,12 @@ export function ProfilePage() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        setToast({ message: "Please select an image file", type: "error" });
+        showError("Please select an image file");
         return;
       }
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        setToast({
-          message: "Image size should be less than 5MB",
-          type: "error",
-        });
+        showError("Image size should be less than 5MB");
         return;
       }
       setSelectedImage(file);
@@ -184,12 +169,9 @@ export function ProfilePage() {
       setSelectedImage(null);
       setImagePreview(null);
       setAvatarVersion(Date.now());
-      setToast({ message: "Profile updated successfully", type: "success" });
+      showSuccess("Profile updated successfully");
     } catch (error: any) {
-      setToast({
-        message: error.response?.data?.detail || "Failed to update profile",
-        type: "error",
-      });
+      showError(error.response?.data?.detail || "Failed to update profile");
     }
   };
 
@@ -210,15 +192,12 @@ export function ProfilePage() {
 
   const handleChangePassword = async () => {
     if (passwordData.new_password !== passwordData.confirm_password) {
-      setToast({ message: "New passwords do not match", type: "error" });
+      showError("New passwords do not match");
       return;
     }
 
     if (passwordData.new_password.length < 8) {
-      setToast({
-        message: "Password must be at least 8 characters",
-        type: "error",
-      });
+      showError("Password must be at least 8 characters");
       return;
     }
 
@@ -233,15 +212,13 @@ export function ProfilePage() {
         confirm_password: "",
       });
       setIsChangingPassword(false);
-      setToast({ message: "Password changed successfully", type: "success" });
+      showSuccess("Password changed successfully");
     } catch (error: any) {
-      setToast({
-        message:
-          error.response?.data?.old_password?.[0] ||
+      showError(
+        error.response?.data?.old_password?.[0] ||
           error.response?.data?.detail ||
           "Failed to change password",
-        type: "error",
-      });
+      );
     }
   };
 
@@ -693,15 +670,6 @@ export function ProfilePage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Toast Notifications */}
-      {toast && (
-        <AnimatedToast
-          visible={!!toast}
-          message={toast.message}
-          type={toast.type}
-        />
-      )}
     </div>
   );
 }

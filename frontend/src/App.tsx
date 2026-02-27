@@ -14,6 +14,7 @@ import { AdminProductFormPage } from "@/pages/AdminProductFormPage";
 import { ThemeProvider } from "@/lib/theme";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CurrencyProvider } from "@/lib/currency";
+import { FeedbackProvider } from "@/lib/feedback";
 
 function App() {
   const { isAuthenticated, isAdmin } = useAuthStore();
@@ -21,63 +22,65 @@ function App() {
   return (
     <ThemeProvider>
       <CurrencyProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes - accessible to all */}
-            <Route
-              path="/"
-              element={
-                isAuthenticated && isAdmin ? (
-                  <Navigate to="/admin" replace />
-                ) : (
-                  <CustomerDashboard />
-                )
-              }
-            />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/product/:id" element={<ProductPage />} />
-            <Route
-              path="/login"
-              element={
-                !isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                !isAuthenticated ? (
-                  <RegisterPage />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              }
-            />
-
-            {/* Protected customer routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/orders" element={<OrdersPage />} />
-              <Route path="/wishlist" element={<WishlistPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-            </Route>
-
-            {/* Admin routes */}
-            <Route element={<ProtectedRoute requireAdmin />}>
-              <Route path="/admin" element={<AdminDashboard />} />
+        <FeedbackProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes - accessible to all */}
               <Route
-                path="/admin/products/new"
-                element={<AdminProductFormPage />}
+                path="/"
+                element={
+                  isAuthenticated && isAdmin ? (
+                    <Navigate to="/admin" replace />
+                  ) : (
+                    <CustomerDashboard />
+                  )
+                }
+              />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/product/:id" element={<ProductPage />} />
+              <Route
+                path="/login"
+                element={
+                  !isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />
+                }
               />
               <Route
-                path="/admin/products/:id"
-                element={<AdminProductFormPage />}
+                path="/register"
+                element={
+                  !isAuthenticated ? (
+                    <RegisterPage />
+                  ) : (
+                    <Navigate to="/" replace />
+                  )
+                }
               />
-            </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <ThemeToggle />
-        </BrowserRouter>
+              {/* Protected customer routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+              </Route>
+
+              {/* Admin routes */}
+              <Route element={<ProtectedRoute requireAdmin />}>
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route
+                  path="/admin/products/new"
+                  element={<AdminProductFormPage />}
+                />
+                <Route
+                  path="/admin/products/:id"
+                  element={<AdminProductFormPage />}
+                />
+              </Route>
+
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <ThemeToggle />
+          </BrowserRouter>
+        </FeedbackProvider>
       </CurrencyProvider>
     </ThemeProvider>
   );

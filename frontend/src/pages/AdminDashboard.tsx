@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
+import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,9 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LogOut, Plus, X } from "lucide-react";
-
-const ADMIN_ORDER_NOTICE_KEY = "nobonir_admin_order_notice";
+import { LogOut, Plus } from "lucide-react";
 
 interface Product {
   id: number;
@@ -125,6 +124,7 @@ type AdminSection = "orders" | "coupons" | "users" | "products" | "reviews";
 export function AdminDashboard() {
   const { user, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
+  const { showError, showSuccess } = useFeedback();
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -142,10 +142,6 @@ export function AdminDashboard() {
   const [orderStatusDrafts, setOrderStatusDrafts] = useState<
     Record<number, string>
   >({});
-  const [orderNotice, setOrderNotice] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
   const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingCoupons, setLoadingCoupons] = useState(true);
@@ -171,43 +167,19 @@ export function AdminDashboard() {
     loadCoupons();
     loadUsers();
     loadReviews();
-
-    const storedNotice = sessionStorage.getItem(ADMIN_ORDER_NOTICE_KEY);
-    if (storedNotice) {
-      try {
-        const parsed = JSON.parse(storedNotice);
-        if (parsed?.type && parsed?.message) {
-          setOrderNotice(parsed);
-        }
-      } catch {
-        // ignore malformed session notice
-      }
-      sessionStorage.removeItem(ADMIN_ORDER_NOTICE_KEY);
-    }
   }, []);
 
   useEffect(() => {
     loadAnalyticsSummary(analyticsDays);
   }, [analyticsDays]);
 
-  useEffect(() => {
-    if (!orderNotice) {
+  const pushOrderNotice = (type: "success" | "error", message: string) => {
+    if (type === "success") {
+      showSuccess(message);
       return;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      setOrderNotice(null);
-    }, 4500);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [orderNotice]);
-
-  const pushOrderNotice = (type: "success" | "error", message: string) => {
-    const nextNotice = { type, message };
-    setOrderNotice(nextNotice);
-    sessionStorage.setItem(ADMIN_ORDER_NOTICE_KEY, JSON.stringify(nextNotice));
+    showError(message);
   };
 
   const loadProducts = async () => {
@@ -324,9 +296,9 @@ export function AdminDashboard() {
     try {
       await api.delete(`/products/products/${id}/`);
       setProducts(products.filter((p) => p.id !== id));
-      alert("Product deleted successfully");
+      showSuccess("Product deleted successfully");
     } catch (error) {
-      alert("Failed to delete product");
+      showError("Failed to delete product");
     }
   };
 
@@ -551,26 +523,6 @@ export function AdminDashboard() {
 
       {/* Main Content */}
       <main className="ds-page-container">
-        {orderNotice && (
-          <div
-            className={`mb-4 flex items-center justify-between rounded-md border px-4 py-3 text-sm shadow-sm ${
-              orderNotice.type === "success"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-300"
-                : "border-red-500/30 bg-red-500/10 text-red-700 dark:border-red-400/40 dark:bg-red-400/10 dark:text-red-300"
-            }`}
-          >
-            <span>{orderNotice.message}</span>
-            <button
-              type="button"
-              onClick={() => setOrderNotice(null)}
-              aria-label="Dismiss message"
-              className="ml-3 inline-flex h-6 w-6 items-center justify-center rounded border border-current/30 bg-transparent text-xs opacity-80 transition-opacity hover:opacity-100"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-
         <div className="mb-8 grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader>
