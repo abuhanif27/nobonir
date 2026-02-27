@@ -14,6 +14,10 @@ import {
   Minus,
   Plus,
   AlertTriangle,
+  CreditCard,
+  Banknote,
+  ShieldCheck,
+  Truck,
 } from "lucide-react";
 
 interface CartItem {
@@ -277,10 +281,21 @@ export function CartPage() {
     0,
   );
 
-  const selectedPaymentHelper =
-    paymentMethod === "CARD"
-      ? "Pay securely with Stripe Checkout (test card: 4242 4242 4242 4242)."
-      : "Cash on Delivery: pay when your order is delivered.";
+  const deliveryFee = 0;
+  const grandTotal = total + deliveryFee;
+
+  const paymentMethodMeta = {
+    CARD: {
+      title: "Card Payment",
+      description: "Instant confirmation with secure processing.",
+      icon: CreditCard,
+    },
+    COD: {
+      title: "Cash on Delivery",
+      description: "Pay in cash when the package arrives.",
+      icon: Banknote,
+    },
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -471,9 +486,14 @@ export function CartPage() {
             </div>
 
             <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Order Summary</CardTitle>
+              <Card className="border-slate-200/80 bg-card/80 shadow-lg backdrop-blur dark:border-slate-700/80">
+                <CardHeader className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Order Summary</CardTitle>
+                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      Secure Checkout
+                    </span>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {paymentNotice && (
@@ -482,9 +502,25 @@ export function CartPage() {
                     </div>
                   )}
 
-                  <div className="flex justify-between text-lg font-semibold">
-                    <span>Total:</span>
-                    <span>{formatPrice(total)}</span>
+                  <div className="rounded-xl border border-slate-200/70 bg-background/70 p-4 dark:border-slate-700/70 dark:bg-slate-900/40">
+                    <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>{formatPrice(total)}</span>
+                    </div>
+                    <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Truck className="h-4 w-4" />
+                        Delivery Fee
+                      </span>
+                      <span>
+                        {deliveryFee === 0 ? "Free" : formatPrice(deliveryFee)}
+                      </span>
+                    </div>
+                    <div className="mt-3 h-px bg-slate-200 dark:bg-slate-700" />
+                    <div className="mt-3 flex items-center justify-between text-lg font-semibold text-foreground">
+                      <span>Total</span>
+                      <span>{formatPrice(grandTotal)}</span>
+                    </div>
                   </div>
 
                   {!isAuthenticated && (
@@ -549,31 +585,57 @@ export function CartPage() {
                     <label className="text-sm font-medium">
                       Payment Method
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        type="button"
-                        variant={
-                          paymentMethod === "CARD" ? "default" : "outline"
-                        }
-                        onClick={() => setPaymentMethod("CARD")}
-                        disabled={!isAuthenticated}
-                      >
-                        Card (Stripe)
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={
-                          paymentMethod === "COD" ? "default" : "outline"
-                        }
-                        onClick={() => setPaymentMethod("COD")}
-                        disabled={!isAuthenticated}
-                      >
-                        Cash on Delivery
-                      </Button>
+                    <div className="grid grid-cols-1 gap-2">
+                      {(
+                        Object.keys(paymentMethodMeta) as Array<"CARD" | "COD">
+                      ).map((method) => {
+                        const methodInfo = paymentMethodMeta[method];
+                        const MethodIcon = methodInfo.icon;
+                        const isSelected = paymentMethod === method;
+
+                        return (
+                          <button
+                            key={method}
+                            type="button"
+                            disabled={!isAuthenticated}
+                            onClick={() => setPaymentMethod(method)}
+                            className={`w-full rounded-xl border p-3 text-left transition-all ${
+                              isSelected
+                                ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/50"
+                                : "border-slate-300/80 bg-background hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500"
+                            } ${!isAuthenticated ? "cursor-not-allowed opacity-70" : ""}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3">
+                                <div className="rounded-lg bg-slate-100 p-2 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                  <MethodIcon className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold text-foreground">
+                                    {methodInfo.title}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {methodInfo.description}
+                                  </p>
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[11px] font-semibold text-cyan-700 dark:text-cyan-300">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedPaymentHelper}
-                    </p>
+                    <div className="rounded-lg bg-slate-100/80 p-2.5 dark:bg-slate-800/70">
+                      <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                        Your payment and personal details are securely
+                        protected.
+                      </p>
+                    </div>
                   </div>
 
                   <Button
@@ -589,7 +651,7 @@ export function CartPage() {
                     ) : checkoutLoading ? (
                       "Processing..."
                     ) : paymentMethod === "CARD" ? (
-                      "Proceed to Card Payment"
+                      "Pay Securely"
                     ) : (
                       "Place COD Order"
                     )}
