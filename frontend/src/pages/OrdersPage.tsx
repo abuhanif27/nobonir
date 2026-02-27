@@ -14,6 +14,7 @@ import {
   Truck,
   CheckCircle2,
   Clock3,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -120,12 +121,13 @@ const getStatusIcon = (status: OrderStatus) => {
 export function OrdersPage() {
   const { formatPrice } = useCurrency();
   const location = useLocation();
-  const paymentQuery = new URLSearchParams(location.search).get("payment");
-  const isCardPaymentSuccess = paymentQuery === "success";
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paymentNotice, setPaymentNotice] = useState("");
+  const [paymentNoticeVariant, setPaymentNoticeVariant] = useState<
+    "card" | "cod" | null
+  >(null);
   const [activeFilter, setActiveFilter] = useState<"ALL" | OrderStatus>("ALL");
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
 
@@ -150,22 +152,43 @@ export function OrdersPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get("payment") === "success") {
+    const paymentParam = params.get("payment");
+
+    if (paymentParam === "success") {
+      setPaymentNoticeVariant("card");
       setPaymentNotice(
         "Payment successful. Your order is now being processed.",
       );
-      return;
-    }
-
-    if (params.get("payment") === "cod") {
+    } else if (paymentParam === "cod") {
+      setPaymentNoticeVariant("cod");
       setPaymentNotice(
         "Order placed with Cash on Delivery. Please keep payment ready upon delivery.",
       );
+    } else {
+      setPaymentNotice("");
+      setPaymentNoticeVariant(null);
+    }
+
+    if (paymentParam) {
+      params.delete("payment");
+      const query = params.toString();
+      const nextUrl = `${location.pathname}${query ? `?${query}` : ""}`;
+      window.history.replaceState({}, "", nextUrl);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!paymentNotice) {
       return;
     }
 
-    setPaymentNotice("");
-  }, [location.search]);
+    const timer = window.setTimeout(() => {
+      setPaymentNotice("");
+      setPaymentNoticeVariant(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [paymentNotice]);
 
   const filteredOrders = useMemo(() => {
     if (activeFilter === "ALL") {
@@ -244,26 +267,56 @@ export function OrdersPage() {
         {paymentNotice && (
           <Card
             className={`mb-6 shadow-sm ${
-              isCardPaymentSuccess
+              paymentNoticeVariant === "card"
                 ? "border-emerald-300 bg-emerald-50"
                 : "border-emerald-200 bg-emerald-50"
             }`}
           >
             <CardContent className="py-4 text-sm text-emerald-800">
-              {isCardPaymentSuccess ? (
-                <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-emerald-100 p-2">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600 animate-pulse" />
+              {paymentNoticeVariant === "card" ? (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-emerald-100 p-2">
+                      <CheckCircle2 className="h-5 w-5 animate-pulse text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-emerald-900">
+                        Payment Successful
+                      </p>
+                      <p>{paymentNotice}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-emerald-900">
-                      Payment Successful
-                    </p>
-                    <p>{paymentNotice}</p>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-900"
+                    onClick={() => {
+                      setPaymentNotice("");
+                      setPaymentNoticeVariant(null);
+                    }}
+                    aria-label="Close notification"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               ) : (
-                paymentNotice
+                <div className="flex items-start justify-between gap-3">
+                  <p>{paymentNotice}</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-900"
+                    onClick={() => {
+                      setPaymentNotice("");
+                      setPaymentNoticeVariant(null);
+                    }}
+                    aria-label="Close notification"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
