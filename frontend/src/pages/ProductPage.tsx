@@ -23,7 +23,8 @@ interface Product {
   name: string;
   description: string;
   price: string;
-  image: string;
+  image?: string;
+  image_url?: string;
   stock: number;
   category: {
     id: number;
@@ -56,6 +57,9 @@ export function ProductPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewNotice, setReviewNotice] = useState("");
   const [savingReview, setSavingReview] = useState(false);
+  const [productLoadError, setProductLoadError] = useState<
+    "not-found" | "unavailable" | null
+  >(null);
 
   const fetchProductDetail = async (productId: string) => {
     const endpoints = [
@@ -114,24 +118,38 @@ export function ProductPage() {
     }
   };
 
-  useEffect(() => {
+  const loadProductById = async (productId: string) => {
     setLoading(true);
     setProduct(null);
+    setProductLoadError(null);
+
+    try {
+      const productData = await fetchProductDetail(productId);
+      setProduct(productData);
+    } catch (error: any) {
+      console.error("Failed to load product details:", error);
+      setProduct(null);
+
+      if (error?.response?.status === 404) {
+        setProductLoadError("not-found");
+      } else {
+        setProductLoadError("unavailable");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     refreshCartCount();
 
-    const loadProduct = async () => {
-      try {
-        const productData = await fetchProductDetail(String(id));
-        setProduct(productData);
-      } catch (error) {
-        console.error("Failed to load product details:", error);
-        setProduct(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!id) {
+      setProductLoadError("not-found");
+      setLoading(false);
+      return;
+    }
 
-    loadProduct();
+    loadProductById(String(id));
   }, [id]);
 
   useEffect(() => {
@@ -178,9 +196,14 @@ export function ProductPage() {
       return;
     }
 
+    const productImage =
+      product.image_url ||
+      product.image ||
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=700&fit=crop";
+
     animateFlyToCart({
       fromElement: sourceElement,
-      imageSrc: product.image,
+      imageSrc: productImage,
     });
 
     const addToLocalDemoCart = () => {
@@ -202,7 +225,7 @@ export function ProductPage() {
             id: product.id,
             name: product.name,
             price: product.price,
-            image: product.image,
+            image: productImage,
             stock: product.stock,
           },
         });
@@ -271,23 +294,39 @@ export function ProductPage() {
   }
 
   if (!product) {
+    const isUnavailable = productLoadError === "unavailable";
+
     return (
       <div className="min-h-screen bg-background">
         <main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
           <Card>
             <CardContent className="py-12 text-center">
               <h1 className="text-2xl font-bold text-gray-900">
-                Product not found
+                {isUnavailable
+                  ? "Can’t load product right now"
+                  : "Product not found"}
               </h1>
               <p className="mt-2 text-gray-600">
-                This product is unavailable right now.
+                {isUnavailable
+                  ? "Server is temporarily unavailable. Please try again."
+                  : "This product is unavailable right now."}
               </p>
-              <Link to="/">
-                <Button className="mt-6">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Products
-                </Button>
-              </Link>
+              <div className="mt-6 flex justify-center gap-3">
+                {isUnavailable && (
+                  <Button
+                    variant="outline"
+                    onClick={() => id && loadProductById(String(id))}
+                  >
+                    Try Again
+                  </Button>
+                )}
+                <Link to="/">
+                  <Button>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Products
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         </main>
@@ -298,6 +337,10 @@ export function ProductPage() {
   const hasReviewedProduct = myReviews.some(
     (review) => Number(review.product) === Number(product.id),
   );
+  const productImage =
+    product.image_url ||
+    product.image ||
+    "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=700&fit=crop";
   const averageRating =
     reviews.length > 0
       ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
@@ -330,10 +373,7 @@ export function ProductPage() {
         <div className="grid gap-8 lg:grid-cols-2">
           <Card className="overflow-hidden border-0 shadow-xl">
             <img
-              src={
-                product.image ||
-                "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=700&fit=crop"
-              }
+              src={productImage}
               alt={product.name}
               className="h-full w-full object-cover"
             />

@@ -732,7 +732,7 @@ export function CustomerDashboard() {
     setLoading(true);
     setIsTopSellingView(false);
     try {
-      const response = await api.get("/products/products/");
+      const response = await api.get("/products/");
       const apiProducts = normalizeProducts(
         response.data.results || response.data,
       );
@@ -778,7 +778,7 @@ export function CustomerDashboard() {
     setLoading(true);
     setIsTopSellingView(false);
     try {
-      const response = await api.get("/products/products/", {
+      const response = await api.get("/products/", {
         params: { search: query },
       });
       const searchedProducts = normalizeProducts(

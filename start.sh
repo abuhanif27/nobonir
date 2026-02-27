@@ -43,6 +43,8 @@ source .venv/bin/activate
 # Start backend
 echo -e "\n${BLUE}Starting Django backend...${NC}"
 cd backend
+echo -e "${BLUE}Applying database migrations...${NC}"
+python3 manage.py migrate --noinput
 python3 manage.py runserver 8000 &
 BACKEND_PID=$!
 echo -e "${GREEN}✓ Backend started (PID: $BACKEND_PID)${NC}"
