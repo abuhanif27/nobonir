@@ -34,7 +34,8 @@ def validate_coupon_for_user(user, coupon_code: str):
 
 
 def get_coupon_preview(user, coupon_code: str):
-    cart = Cart.objects.select_related("user").prefetch_related("items__product").get(user=user)
+    cart, _ = Cart.objects.get_or_create(user=user)
+    cart = Cart.objects.select_related("user").prefetch_related("items__product").get(pk=cart.pk)
     if not cart.items.exists():
         raise ValueError("Cart is empty")
 
@@ -55,7 +56,8 @@ def get_coupon_preview(user, coupon_code: str):
 
 @transaction.atomic
 def create_order_from_cart(user, shipping_address: str, billing_address: str = "", coupon_code: str = "") -> Order:
-    cart = Cart.objects.select_related("user").prefetch_related("items__product").get(user=user)
+    cart, _ = Cart.objects.get_or_create(user=user)
+    cart = Cart.objects.select_related("user").prefetch_related("items__product").get(pk=cart.pk)
     if not cart.items.exists():
         raise ValueError("Cart is empty")
 

@@ -339,9 +339,14 @@ export function CartPage() {
       setCouponNotice(`Coupon ${response.data.code} applied successfully.`);
     } catch (error: any) {
       setCouponPreview(null);
-      setCouponNotice(
-        error.response?.data?.detail || "Unable to apply coupon.",
-      );
+      const responseData = error.response?.data;
+      const parsedMessage =
+        responseData?.detail ||
+        responseData?.coupon_code?.[0] ||
+        responseData?.non_field_errors?.[0] ||
+        (typeof responseData === "string" ? responseData : "") ||
+        "Unable to apply coupon.";
+      setCouponNotice(parsedMessage);
     } finally {
       setCouponLoading(false);
     }
