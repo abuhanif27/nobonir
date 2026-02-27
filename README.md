@@ -2,6 +2,49 @@
 
 A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and sentence-transformers AI.
 
+## CI Status
+
+![Frontend Keyboard E2E](https://github.com/OWNER/REPO/actions/workflows/frontend-keyboard-e2e.yml/badge.svg)
+![Frontend Build](https://github.com/OWNER/REPO/actions/workflows/frontend-build.yml/badge.svg)
+
+Replace `OWNER/REPO` with your GitHub repository path to activate the badge.
+
+### Branch protection checklist
+
+Set these as required status checks for your default branch in GitHub:
+
+- `Frontend Build / build`
+- `Frontend Keyboard E2E / keyboard-smoke`
+
+Suggested branch protection settings:
+
+- Require pull request before merging
+- Require status checks to pass before merging
+- Require branches to be up to date before merging
+- Include administrators (optional but recommended)
+
+Quick setup in GitHub UI:
+
+1. Open your repository on GitHub.
+2. Go to **Settings** → **Branches**.
+3. In **Branch protection rules**, click **Add rule** (or edit your default branch rule).
+4. Enter your branch pattern (for example: `main`).
+5. Enable **Require a pull request before merging**.
+6. Enable **Require status checks to pass before merging**.
+7. In the status check list, select:
+   - `Frontend Build / build`
+   - `Frontend Keyboard E2E / keyboard-smoke`
+8. (Recommended) Enable **Require branches to be up to date before merging**.
+9. Click **Create** or **Save changes**.
+
+Troubleshooting:
+
+- If `Frontend Build / build` or `Frontend Keyboard E2E / keyboard-smoke` does not appear in the required checks list, run at least one workflow execution first (push a small commit or open a PR touching `frontend/**`).
+- Refresh the branch protection page after the workflow completes, then select the checks.
+- Typical runtime: `Frontend Build` is usually ~2–5 minutes, and `Frontend Keyboard E2E` is usually ~4–8 minutes (first run can be slower due to Playwright browser installation).
+- CI optimization: the keyboard E2E workflow caches Playwright browser binaries to speed up repeat runs.
+- Cache refresh behavior: Playwright cache is refreshed automatically when frontend dependency lockfile or Playwright config changes.
+
 ## Features
 
 - **Guest Mode**: Browse and add to cart without account - login required only for checkout

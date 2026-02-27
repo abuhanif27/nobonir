@@ -1,5 +1,12 @@
 name: Frontend Keyboard E2E
 
+concurrency:
+  group: frontend-keyboard-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
@@ -14,6 +21,7 @@ on:
 jobs:
   keyboard-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     defaults:
       run:
@@ -32,6 +40,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/package-lock.json', 'frontend/playwright.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
