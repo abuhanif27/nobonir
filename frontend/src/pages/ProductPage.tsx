@@ -7,7 +7,6 @@ import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
@@ -53,6 +52,7 @@ export function ProductPage() {
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [myReviews, setMyReviews] = useState<Array<{ product: number }>>([]);
   const [reviewRating, setReviewRating] = useState(5);
+  const [reviewHoverRating, setReviewHoverRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewNotice, setReviewNotice] = useState("");
   const [savingReview, setSavingReview] = useState(false);
@@ -468,18 +468,43 @@ export function ProductPage() {
               <div className="mt-4 space-y-3">
                 <div>
                   <label className="text-sm font-medium">Rating</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={5}
-                    value={reviewRating}
-                    onChange={(event) =>
-                      setReviewRating(Number(event.target.value || 1))
-                    }
-                    disabled={
-                      !isAuthenticated || hasReviewedProduct || savingReview
-                    }
-                  />
+                  <div className="mt-2 rounded-lg border border-border/60 bg-background/40 p-3">
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: 5 }).map((_, index) => {
+                        const value = index + 1;
+                        const active =
+                          (reviewHoverRating || reviewRating) >= value;
+
+                        return (
+                          <button
+                            key={`write-review-star-${value}`}
+                            type="button"
+                            onMouseEnter={() => setReviewHoverRating(value)}
+                            onMouseLeave={() => setReviewHoverRating(0)}
+                            onClick={() => setReviewRating(value)}
+                            disabled={
+                              !isAuthenticated ||
+                              hasReviewedProduct ||
+                              savingReview
+                            }
+                            className="rounded p-1 transition-transform duration-200 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
+                          >
+                            <Star
+                              className={`h-6 w-6 transition-all duration-200 ${
+                                active
+                                  ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.45)]"
+                                  : "text-slate-400"
+                              }`}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {reviewRating} out of 5 selected
+                    </p>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Comment</label>
