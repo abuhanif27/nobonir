@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from cart.models import Cart, CartItem
 from payments.services import process_payment
+from payments.models import Payment
 from orders.services import create_order_from_cart
 from orders.models import Coupon, Order, OrderItem
 from products.models import Category, Product
@@ -95,7 +96,13 @@ class OrderServiceTests(TestCase):
 
 class OrderInvoiceAPITests(APITestCase):
 	def setUp(self):
-		self.user = User.objects.create_user(username="invoice-user", email="invoice@example.com", password="Secret123!")
+		self.user = User.objects.create_user(
+			username="invoice-user",
+			email="invoice@example.com",
+			password="Secret123!",
+			first_name="Invoice",
+			last_name="Customer",
+		)
 		self.other_user = User.objects.create_user(username="other-user", email="other@example.com", password="Secret123!")
 		self.admin_user = User.objects.create_user(
 			username="admin-user",
@@ -131,6 +138,13 @@ class OrderInvoiceAPITests(APITestCase):
 			unit_price=Decimal("120.00"),
 			quantity=2,
 		)
+		Payment.objects.create(
+			order=self.order,
+			amount=self.order.total_amount,
+			method="COD",
+			status=Payment.Status.SUCCESS,
+			transaction_id="inv-test-cod-001",
+		)
 
 	def test_owner_can_download_invoice(self):
 		self.client.force_authenticate(user=self.user)
@@ -142,13 +156,30 @@ class OrderInvoiceAPITests(APITestCase):
 			f'attachment; filename="invoice-order-{self.order.id}.txt"',
 			response["Content-Disposition"],
 		)
-		self.assertIn(f"Order ID: #{self.order.id}", response.content.decode("utf-8"))
+		content = response.content.decode("utf-8")
+		self.assertIn(f"Order ID: #{self.order.id}", content)
+		self.assertIn("Customer: Invoice Customer", content)
+		self.assertIn("Customer Email: invoice@example.com", content)
+		self.assertIn("Payment Method: Cash on Delivery", content)
 
 	def test_non_owner_cannot_download_invoice(self):
 		self.client.force_authenticate(user=self.other_user)
 		response = self.client.get(f"/api/orders/my/{self.order.id}/invoice/")
 
 		self.assertEqual(response.status_code, 404)
+
+	def test_invoice_currency_uses_country_header(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.get(
+			f"/api/orders/my/{self.order.id}/invoice/",
+			HTTP_CF_IPCOUNTRY="JP",
+			REMOTE_ADDR="8.8.8.8",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		content = response.content.decode("utf-8")
+		self.assertIn("Currency: JPY", content)
+		self.assertIn("Region: JP (JP)", content)
 
 	def test_owner_can_download_invoice_pdf(self):
 		self.client.force_authenticate(user=self.user)
