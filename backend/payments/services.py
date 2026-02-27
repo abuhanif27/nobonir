@@ -1,6 +1,7 @@
 import uuid
 import os
 from pathlib import Path
+from decimal import Decimal
 
 import stripe
 from django.conf import settings
@@ -80,22 +81,27 @@ def create_stripe_checkout_session(order: Order, success_url: str, cancel_url: s
 
     stripe.api_key = stripe_secret_key
 
+    order_items = list(order.items.all())
+    if not order_items:
+        raise ValueError("Order has no items")
+
+    amount_cents = int((order.total_amount * Decimal("100")).quantize(Decimal("1")))
+    if amount_cents <= 0:
+        raise ValueError("Order total must be greater than zero")
+
     line_items = [
         {
             "price_data": {
                 "currency": "usd",
                 "product_data": {
-                    "name": item.product_name,
+                    "name": f"Order #{order.id}",
+                    "description": f"{len(order_items)} item(s)" + (f" • Coupon: {order.coupon_code}" if order.coupon_code else ""),
                 },
-                "unit_amount": int(item.unit_price * 100),
+                "unit_amount": amount_cents,
             },
-            "quantity": item.quantity,
+            "quantity": 1,
         }
-        for item in order.items.all()
     ]
-
-    if not line_items:
-        raise ValueError("Order has no items")
 
     return stripe.checkout.Session.create(
         mode="payment",
