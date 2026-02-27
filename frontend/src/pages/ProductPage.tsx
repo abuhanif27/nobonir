@@ -648,7 +648,7 @@ export function ProductPage() {
                   className="mt-3"
                   tone="error"
                   message={reviewsError}
-                  actionLabel="Retry Reviews"
+                  actionLabel="Try Again"
                   onAction={() => id && loadPublicReviews(String(id))}
                 />
               ) : (
@@ -666,7 +666,7 @@ export function ProductPage() {
                   <FlowStateBanner
                     tone="error"
                     message={reviewsError}
-                    actionLabel="Retry Reviews"
+                    actionLabel="Try Again"
                     onAction={() => id && loadPublicReviews(String(id))}
                   />
                 ) : reviews.length === 0 ? (
@@ -802,7 +802,7 @@ export function ProductPage() {
                   className="mt-3"
                   tone="error"
                   message={myReviewsError}
-                  actionLabel="Retry Review Status"
+                  actionLabel="Try Again"
                   onAction={loadMyReviews}
                 />
               )}

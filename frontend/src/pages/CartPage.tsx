@@ -508,7 +508,7 @@ export function CartPage() {
                   className="mb-4"
                   message={cartLoadError}
                   tone="warning"
-                  actionLabel="Retry"
+                  actionLabel="Try Again"
                   onAction={loadCart}
                 />
               )}

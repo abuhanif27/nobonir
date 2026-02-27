@@ -301,7 +301,7 @@ export function ProfilePage() {
               profileLoadError || "Couldn’t load your profile right now."
             }
             messageClassName="text-rose-600"
-            actionLabel="Retry Profile"
+            actionLabel="Try Again"
             onAction={() => {
               void fetchMe();
             }}
@@ -429,7 +429,7 @@ export function ProfilePage() {
           <FlowStateBanner
             message={statsError}
             tone="warning"
-            actionLabel="Retry Stats"
+            actionLabel="Try Again"
             onAction={loadAccountStats}
             actionDisabled={statsLoading}
             actionIcon={RefreshCw}

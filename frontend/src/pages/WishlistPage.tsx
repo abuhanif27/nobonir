@@ -482,7 +482,7 @@ export function WishlistPage() {
                 className="mb-4"
                 message={fallbackWarning}
                 tone="warning"
-                actionLabel="Retry Sync"
+                actionLabel="Try Again"
                 onAction={() => loadWishlist(true)}
                 actionDisabled={refreshing}
                 actionIcon={RefreshCw}

@@ -590,7 +590,7 @@ export function OrdersPage() {
                                       <FlowStateBanner
                                         tone="error"
                                         message={myReviewsError}
-                                        actionLabel="Retry"
+                                        actionLabel="Try Again"
                                         onAction={loadMyReviews}
                                         className="text-xs"
                                       />
