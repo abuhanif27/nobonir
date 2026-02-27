@@ -90,3 +90,15 @@ test("clear-all dialog and payment method semantics are keyboard accessible", as
     page.getByRole("button", { name: "Login to Checkout" }),
   ).toBeDisabled();
 });
+
+test("guest coupon controls are disabled and skipped in keyboard flow", async ({
+  page,
+}) => {
+  await page.goto("/cart");
+
+  const couponInput = page.locator("#coupon-code");
+  const couponApplyButton = page.getByRole("button", { name: "Apply" });
+
+  await expect(couponInput).toBeDisabled();
+  await expect(couponApplyButton).toBeDisabled();
+});
