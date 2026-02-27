@@ -115,28 +115,14 @@ export function ProductPage() {
   };
 
   useEffect(() => {
+    setLoading(true);
+    setProduct(null);
     refreshCartCount();
 
     const loadProduct = async () => {
-      const selectedRaw = sessionStorage.getItem("nobonir_selected_product");
-      if (selectedRaw) {
-        try {
-          const selected = JSON.parse(selectedRaw);
-          if (String(selected.id) === String(id)) {
-            setProduct(selected);
-          }
-        } catch {
-          // ignore invalid cache
-        }
-      }
-
       try {
         const productData = await fetchProductDetail(String(id));
         setProduct(productData);
-        sessionStorage.setItem(
-          "nobonir_selected_product",
-          JSON.stringify(productData),
-        );
       } catch (error) {
         console.error("Failed to load product details:", error);
         setProduct(null);
