@@ -143,11 +143,6 @@ const getStatusIcon = (status: OrderStatus) => {
   return <Clock3 className="h-4 w-4" />;
 };
 
-const formatAddress = (value?: string | null) => {
-  const normalized = (value || "").trim();
-  return normalized || "Not provided";
-};
-
 export function OrdersPage() {
   const navigate = useNavigate();
   const { formatPrice } = useCurrency();
@@ -314,40 +309,21 @@ export function OrdersPage() {
     }
   };
 
-  const downloadInvoice = (order: Order) => {
+  const downloadInvoice = async (order: Order) => {
     try {
-      const invoiceLines = [
-        `Nobonir Invoice`,
-        `Invoice Date: ${formatDate(new Date().toISOString())}`,
-        `Order ID: #${order.id}`,
-        `Order Status: ${STATUS_LABELS[order.status]}`,
-        `Placed On: ${formatDate(order.created_at)}`,
-        "",
-        "Items:",
-        ...order.items.map(
-          (item) =>
-            `- ${item.product_name} | Qty: ${item.quantity} | Unit: ${formatPrice(item.unit_price)} | Subtotal: ${formatPrice(toAmount(item.unit_price) * item.quantity)}`,
-        ),
-        "",
-        `Subtotal: ${formatPrice(order.subtotal_amount)}`,
-        `Discount: -${formatPrice(order.discount_amount)}`,
-        `Total: ${formatPrice(order.total_amount)}`,
-        `Coupon: ${order.coupon_code || "None"}`,
-        "",
-        "Shipping Address:",
-        formatAddress(order.shipping_address),
-        "",
-        "Billing Address:",
-        formatAddress(order.billing_address),
-      ];
-
-      const blob = new Blob([invoiceLines.join("\n")], {
-        type: "text/plain;charset=utf-8",
+      const response = await api.get(`/orders/my/${order.id}/invoice/`, {
+        responseType: "blob",
       });
+
+      const blob = response.data as Blob;
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `invoice-order-${order.id}.txt`;
+      const contentDisposition = String(
+        response.headers["content-disposition"] || "",
+      );
+      const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+      anchor.download = filenameMatch?.[1] || `invoice-order-${order.id}.txt`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);

@@ -2,6 +2,8 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Q
+from django.http import HttpResponse
+from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from common.permissions import IsAdminRole, IsCustomerRole
@@ -64,6 +66,55 @@ class MyOrderListAPIView(APIView):
 			.order_by("-created_at")
 		)
 		return Response(OrderSerializer(queryset, many=True).data)
+
+
+class MyOrderInvoiceAPIView(APIView):
+	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+
+	def get(self, request, order_id: int):
+		order = (
+			Order.objects.filter(user=request.user, id=order_id)
+			.prefetch_related("items")
+			.first()
+		)
+		if not order:
+			return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+		invoice_lines = [
+			"Nobonir Invoice",
+			f"Invoice Date: {timezone.localtime(timezone.now()).strftime('%b %d, %Y, %I:%M %p')}",
+			f"Order ID: #{order.id}",
+			f"Order Status: {order.get_status_display()}",
+			f"Placed On: {timezone.localtime(order.created_at).strftime('%b %d, %Y, %I:%M %p')}",
+			"",
+			"Items:",
+		]
+
+		for item in order.items.all():
+			subtotal = item.unit_price * item.quantity
+			invoice_lines.append(
+				f"- {item.product_name} | Qty: {item.quantity} | Unit: {item.unit_price} | Subtotal: {subtotal}"
+			)
+
+		invoice_lines.extend(
+			[
+				"",
+				f"Subtotal: {order.subtotal_amount}",
+				f"Discount: -{order.discount_amount}",
+				f"Total: {order.total_amount}",
+				f"Coupon: {order.coupon_code or 'None'}",
+				"",
+				"Shipping Address:",
+				order.shipping_address.strip() or "Not provided",
+				"",
+				"Billing Address:",
+				order.billing_address.strip() or "Not provided",
+			]
+		)
+
+		response = HttpResponse("\n".join(invoice_lines), content_type="text/plain; charset=utf-8")
+		response["Content-Disposition"] = f'attachment; filename="invoice-order-{order.id}.txt"'
+		return response
 
 
 class AdminOrderViewSet(viewsets.ModelViewSet):

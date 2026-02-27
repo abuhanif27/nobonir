@@ -2,12 +2,14 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
 
 from cart.models import Cart, CartItem
 from payments.services import process_payment
 from orders.services import create_order_from_cart
-from orders.models import Coupon
+from orders.models import Coupon, Order, OrderItem
 from products.models import Category, Product
+from rest_framework.test import APITestCase
 
 User = get_user_model()
 
@@ -89,3 +91,54 @@ class OrderServiceTests(TestCase):
 
 		with self.assertRaisesMessage(ValueError, "has expired"):
 			create_order_from_cart(self.user, "Dhaka", "Baridhara", "NOBONIR")
+
+
+class OrderInvoiceAPITests(APITestCase):
+	def setUp(self):
+		self.user = User.objects.create_user(username="invoice-user", email="invoice@example.com", password="Secret123!")
+		self.other_user = User.objects.create_user(username="other-user", email="other@example.com", password="Secret123!")
+		category = Category.objects.create(name="Books", slug="books")
+		product = Product.objects.create(
+			category=category,
+			name="Notebook",
+			slug="notebook",
+			description="paper notebook",
+			price=Decimal("120.00"),
+			stock=20,
+			is_active=True,
+		)
+		self.order = Order.objects.create(
+			user=self.user,
+			status=Order.Status.PAID,
+			subtotal_amount=Decimal("240.00"),
+			discount_amount=Decimal("20.00"),
+			total_amount=Decimal("220.00"),
+			coupon_code="NOBONIR",
+			shipping_address="Dhaka",
+			billing_address="Dhaka",
+		)
+		OrderItem.objects.create(
+			order=self.order,
+			product=product,
+			product_name=product.name,
+			unit_price=Decimal("120.00"),
+			quantity=2,
+		)
+
+	def test_owner_can_download_invoice(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.get(f"/api/orders/my/{self.order.id}/invoice/")
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+		self.assertIn(
+			f'attachment; filename="invoice-order-{self.order.id}.txt"',
+			response["Content-Disposition"],
+		)
+		self.assertIn(f"Order ID: #{self.order.id}", response.content.decode("utf-8"))
+
+	def test_non_owner_cannot_download_invoice(self):
+		self.client.force_authenticate(user=self.other_user)
+		response = self.client.get(f"/api/orders/my/{self.order.id}/invoice/")
+
+		self.assertEqual(response.status_code, 404)
