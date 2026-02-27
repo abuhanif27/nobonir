@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
@@ -25,24 +25,108 @@ interface Product {
   };
 }
 
+interface AdminOrderItem {
+  id: number;
+  product_name: string;
+  unit_price: string;
+  quantity: number;
+}
+
+interface AdminOrder {
+  id: number;
+  user_email: string;
+  user_name: string;
+  item_count: number;
+  status:
+    | "PENDING"
+    | "PAID"
+    | "PROCESSING"
+    | "SHIPPED"
+    | "DELIVERED"
+    | "CANCELLED";
+  subtotal_amount: string;
+  discount_amount: string;
+  coupon_code: string;
+  total_amount: string;
+  shipping_address: string;
+  billing_address: string;
+  items: AdminOrderItem[];
+  created_at: string;
+}
+
+const ORDER_STATUSES = [
+  "PENDING",
+  "PAID",
+  "PROCESSING",
+  "SHIPPED",
+  "DELIVERED",
+  "CANCELLED",
+] as const;
+
 export function AdminDashboard() {
   const { user, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [orderFilters, setOrderFilters] = useState({
+    status: "ALL",
+    dateFrom: "",
+    dateTo: "",
+    search: "",
+  });
+  const [savingOrderId, setSavingOrderId] = useState<number | null>(null);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
 
   useEffect(() => {
     loadProducts();
+    loadOrders();
   }, []);
 
   const loadProducts = async () => {
+    setLoadingProducts(true);
     try {
       const response = await api.get("/products/products/");
       setProducts(response.data.results || response.data);
     } catch (error) {
       console.error("Failed to load products:", error);
     } finally {
-      setLoading(false);
+      setLoadingProducts(false);
+    }
+  };
+
+  const loadOrders = async (
+    filters: {
+      status: string;
+      dateFrom: string;
+      dateTo: string;
+      search: string;
+    } = orderFilters,
+  ) => {
+    setLoadingOrders(true);
+    try {
+      const params: Record<string, string> = {};
+      if (filters.status !== "ALL") {
+        params.status = filters.status;
+      }
+      if (filters.dateFrom) {
+        params.date_from = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        params.date_to = filters.dateTo;
+      }
+      if (filters.search.trim()) {
+        params.search = filters.search.trim();
+      }
+
+      const response = await api.get("/orders/admin/", { params });
+      setOrders(response.data.results || response.data);
+    } catch (error) {
+      console.error("Failed to load orders:", error);
+      setOrders([]);
+    } finally {
+      setLoadingOrders(false);
     }
   };
 
@@ -59,6 +143,37 @@ export function AdminDashboard() {
       alert("Failed to delete product");
     }
   };
+
+  const updateOrderStatus = async (orderId: number, nextStatus: string) => {
+    setSavingOrderId(orderId);
+    try {
+      const response = await api.patch(`/orders/admin/${orderId}/`, {
+        status: nextStatus,
+      });
+
+      setOrders((current) =>
+        current.map((order) => (order.id === orderId ? response.data : order)),
+      );
+    } catch (error: any) {
+      alert(error.response?.data?.detail || "Failed to update order status");
+    } finally {
+      setSavingOrderId(null);
+    }
+  };
+
+  const toggleOrderExpand = (orderId: number) => {
+    setExpandedOrderIds((current) =>
+      current.includes(orderId)
+        ? current.filter((id) => id !== orderId)
+        : [...current, orderId],
+    );
+  };
+
+  const lowStockCount = products.filter((p) => p.stock < 10).length;
+  const outOfStockCount = products.filter((p) => p.stock === 0).length;
+  const pendingOrderCount = orders.filter(
+    (order) => order.status === "PENDING",
+  ).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -108,31 +223,238 @@ export function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">
-                {products.filter((p) => p.stock < 10).length}
-              </p>
+              <p className="text-3xl font-bold">{lowStockCount}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Out of Stock
+                Pending Orders
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">
-                {products.filter((p) => p.stock === 0).length}
-              </p>
+              <p className="text-3xl font-bold">{pendingOrderCount}</p>
             </CardContent>
           </Card>
         </div>
+
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Order Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 grid gap-3 md:grid-cols-5">
+              <select
+                value={orderFilters.status}
+                onChange={(event) =>
+                  setOrderFilters((current) => ({
+                    ...current,
+                    status: event.target.value,
+                  }))
+                }
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="ALL">All Statuses</option>
+                {ORDER_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="date"
+                value={orderFilters.dateFrom}
+                onChange={(event) =>
+                  setOrderFilters((current) => ({
+                    ...current,
+                    dateFrom: event.target.value,
+                  }))
+                }
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              />
+
+              <input
+                type="date"
+                value={orderFilters.dateTo}
+                onChange={(event) =>
+                  setOrderFilters((current) => ({
+                    ...current,
+                    dateTo: event.target.value,
+                  }))
+                }
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              />
+
+              <input
+                type="text"
+                value={orderFilters.search}
+                onChange={(event) =>
+                  setOrderFilters((current) => ({
+                    ...current,
+                    search: event.target.value,
+                  }))
+                }
+                placeholder="Search by ID/email/name"
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              />
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => loadOrders()}
+                  className="flex-1"
+                  size="sm"
+                >
+                  Apply
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const reset = {
+                      status: "ALL",
+                      dateFrom: "",
+                      dateTo: "",
+                      search: "",
+                    };
+                    setOrderFilters(reset);
+                    loadOrders(reset);
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+            </div>
+
+            {loadingOrders ? (
+              <p className="text-center text-gray-600">Loading orders...</p>
+            ) : orders.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                No orders found for the selected filters.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.map((order) => {
+                      const isExpanded = expandedOrderIds.includes(order.id);
+
+                      return (
+                        <Fragment key={`order-group-${order.id}`}>
+                          <TableRow key={`order-${order.id}`}>
+                            <TableCell className="font-medium">
+                              #{order.id}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <p className="font-medium">{order.user_name}</p>
+                                <p className="text-muted-foreground">
+                                  {order.user_email}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell>{order.item_count}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <p className="font-semibold">
+                                  {formatPrice(order.total_amount)}
+                                </p>
+                                {Number(order.discount_amount) > 0 && (
+                                  <p className="text-emerald-600 text-xs">
+                                    Discount{" "}
+                                    {formatPrice(order.discount_amount)}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="rounded border px-2 py-1 text-xs font-semibold">
+                                {order.status}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {new Date(order.created_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <select
+                                  value={order.status}
+                                  onChange={(event) =>
+                                    updateOrderStatus(
+                                      order.id,
+                                      event.target.value,
+                                    )
+                                  }
+                                  className="h-8 rounded-md border bg-background px-2 text-xs"
+                                  disabled={savingOrderId === order.id}
+                                >
+                                  {ORDER_STATUSES.map((status) => (
+                                    <option key={status} value={status}>
+                                      {status}
+                                    </option>
+                                  ))}
+                                </select>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleOrderExpand(order.id)}
+                                >
+                                  {isExpanded ? "Hide" : "View"}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+
+                          {isExpanded && (
+                            <TableRow key={`order-${order.id}-details`}>
+                              <TableCell colSpan={7}>
+                                <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                                  <p className="font-semibold mb-2">
+                                    Shipping Address
+                                  </p>
+                                  <p className="mb-3">
+                                    {order.shipping_address || "N/A"}
+                                  </p>
+                                  <p className="font-semibold mb-2">Items</p>
+                                  <ul className="space-y-1">
+                                    {order.items.map((item) => (
+                                      <li key={item.id}>
+                                        {item.product_name} × {item.quantity} —{" "}
+                                        {formatPrice(item.unit_price)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Products</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loadingProducts ? (
               <p className="text-center text-gray-600">Loading...</p>
             ) : (
               <div className="overflow-x-auto">
@@ -194,6 +516,10 @@ export function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+
+        <p className="mt-4 text-xs text-muted-foreground">
+          Out of stock products: {outOfStockCount}
+        </p>
       </main>
     </div>
   );
