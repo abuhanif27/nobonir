@@ -29,5 +29,10 @@ class OrderServiceTests(TestCase):
 
 		self.product.refresh_from_db()
 		self.assertEqual(order.status, "PENDING")
+		self.assertEqual(order.billing_address, "")
 		self.assertEqual(order.items.count(), 1)
 		self.assertEqual(self.product.stock, 10)
+
+	def test_checkout_saves_billing_address(self):
+		order = create_order_from_cart(self.user, "Dhaka", "Baridhara, Dhaka")
+		self.assertEqual(order.billing_address, "Baridhara, Dhaka")

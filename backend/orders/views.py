@@ -15,7 +15,11 @@ class CheckoutAPIView(APIView):
 		serializer = CheckoutSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 		try:
-			order = create_order_from_cart(request.user, serializer.validated_data["shipping_address"])
+			order = create_order_from_cart(
+				request.user,
+				serializer.validated_data["shipping_address"],
+				serializer.validated_data.get("billing_address", ""),
+			)
 		except ValueError as exc:
 			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 		return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)

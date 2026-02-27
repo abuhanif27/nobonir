@@ -155,6 +155,13 @@ export function OrdersPage() {
       return;
     }
 
+    if (params.get("payment") === "cod") {
+      setPaymentNotice(
+        "Order placed with Cash on Delivery. Please keep payment ready upon delivery.",
+      );
+      return;
+    }
+
     setPaymentNotice("");
   }, [location.search]);
 

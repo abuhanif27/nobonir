@@ -35,11 +35,15 @@ export function CartPage() {
   const { formatPrice } = useCurrency();
   const location = useLocation();
   const navigate = useNavigate();
+
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [shippingAddress, setShippingAddress] = useState("");
+  const [billingAddress, setBillingAddress] = useState("");
+  const [useShippingAsBilling, setUseShippingAsBilling] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState<"CARD" | "COD">("CARD");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [paymentNotice, setPaymentNotice] = useState<string>("");
+  const [paymentNotice, setPaymentNotice] = useState("");
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
 
@@ -63,21 +67,6 @@ export function CartPage() {
     localStorage.setItem("nobonir_demo_cart", JSON.stringify(items));
   };
 
-  useEffect(() => {
-    loadCart();
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const paymentState = params.get("payment");
-
-    if (paymentState === "cancelled") {
-      setPaymentNotice("Payment was cancelled. Your order is still pending.");
-    } else {
-      setPaymentNotice("");
-    }
-  }, [location.search]);
-
   const loadCart = async () => {
     try {
       const response = await api.get("/cart/");
@@ -95,10 +84,33 @@ export function CartPage() {
     }
   };
 
+  useEffect(() => {
+    loadCart();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const paymentState = params.get("payment");
+
+    if (paymentState === "cancelled") {
+      setPaymentNotice("Payment was cancelled. Your order is still pending.");
+      return;
+    }
+
+    setPaymentNotice("");
+  }, [location.search]);
+
+  useEffect(() => {
+    if (useShippingAsBilling) {
+      setBillingAddress(shippingAddress);
+    }
+  }, [shippingAddress, useShippingAsBilling]);
+
   const updateQuantity = async (itemId: number, quantity: number) => {
     const localItem = cartItems.find(
       (item) => item.id === itemId && item.isLocal,
     );
+
     if (localItem) {
       const updated =
         quantity <= 0
@@ -127,6 +139,7 @@ export function CartPage() {
     const localItem = cartItems.find(
       (item) => item.id === itemId && item.isLocal,
     );
+
     if (localItem) {
       const updated = cartItems.filter((item) => item.id !== itemId);
       setCartItems(updated);
@@ -146,7 +159,6 @@ export function CartPage() {
     if (cartItems.length === 0) {
       return;
     }
-
     setClearConfirmOpen(true);
   };
 
@@ -178,26 +190,61 @@ export function CartPage() {
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
-      if (confirm("You must be logged in to checkout. Go to login page?")) {
-        navigate("/login");
-      }
+      setPaymentNotice(
+        "Please login or create an account to continue checkout.",
+      );
       return;
     }
 
     if (!shippingAddress.trim()) {
-      alert("Please enter a shipping address");
+      setPaymentNotice("Please enter your shipping address.");
+      return;
+    }
+
+    const resolvedBillingAddress = useShippingAsBilling
+      ? shippingAddress.trim()
+      : billingAddress.trim();
+
+    if (!resolvedBillingAddress) {
+      setPaymentNotice("Please enter your billing address.");
       return;
     }
 
     setCheckoutLoading(true);
+    setPaymentNotice("");
+
     try {
+      const localItems = getLocalCartItems();
+      if (localItems.length > 0) {
+        for (const item of localItems) {
+          await api.post("/cart/items/", {
+            product_id: item.product.id,
+            quantity: item.quantity,
+          });
+        }
+        setLocalCartItems([]);
+      }
+
       const orderResponse = await api.post("/orders/checkout/", {
-        shipping_address: shippingAddress,
+        shipping_address: shippingAddress.trim(),
+        billing_address: resolvedBillingAddress,
+        payment_method: paymentMethod,
       });
 
       const orderId = orderResponse.data?.id;
       if (!orderId) {
         throw new Error("Order creation failed");
+      }
+
+      if (paymentMethod === "COD") {
+        await api.post("/payments/cod/confirm/", {
+          order_id: orderId,
+        });
+
+        setShippingAddress("");
+        setBillingAddress("");
+        navigate("/orders?payment=cod");
+        return;
       }
 
       const stripeResponse = await api.post(
@@ -213,10 +260,13 @@ export function CartPage() {
       }
 
       setShippingAddress("");
+      setBillingAddress("");
 
       window.location.href = checkoutUrl;
     } catch (error: any) {
-      alert(error.response?.data?.detail || "Checkout failed");
+      setPaymentNotice(
+        error.response?.data?.detail || "Checkout failed. Please try again.",
+      );
     } finally {
       setCheckoutLoading(false);
     }
@@ -226,6 +276,11 @@ export function CartPage() {
     (sum, item) => sum + parseFloat(item.product.price) * item.quantity,
     0,
   );
+
+  const selectedPaymentHelper =
+    paymentMethod === "CARD"
+      ? "Pay securely with Stripe Checkout (test card: 4242 4242 4242 4242)."
+      : "Cash on Delivery: pay when your order is delivered.";
 
   return (
     <div className="min-h-screen bg-background">
@@ -282,7 +337,6 @@ export function CartPage() {
         </div>
       </div>
 
-      {/* Header */}
       <header className="bg-card shadow">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -299,7 +353,6 @@ export function CartPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {loading ? (
           <p className="text-center text-gray-600">Loading cart...</p>
@@ -320,7 +373,6 @@ export function CartPage() {
           </Card>
         ) : (
           <div className="grid gap-8 lg:grid-cols-3">
-            {/* Cart Items */}
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader className="flex flex-col items-start justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
@@ -367,7 +419,7 @@ export function CartPage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-9 px-2 rounded-r-none"
+                              className="h-9 rounded-r-none px-2"
                               onClick={() =>
                                 updateQuantity(item.id, item.quantity - 1)
                               }
@@ -381,7 +433,7 @@ export function CartPage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-9 px-2 rounded-l-none"
+                              className="h-9 rounded-l-none px-2"
                               onClick={() =>
                                 updateQuantity(
                                   item.id,
@@ -418,7 +470,6 @@ export function CartPage() {
               </Card>
             </div>
 
-            {/* Checkout Section */}
             <div>
               <Card>
                 <CardHeader>
@@ -439,7 +490,7 @@ export function CartPage() {
                   {!isAuthenticated && (
                     <div className="rounded-md bg-yellow-50 p-4">
                       <p className="text-sm text-yellow-800">
-                        You're browsing as a guest. Please{" "}
+                        You&apos;re browsing as a guest. Please{" "}
                         <Link to="/login" className="font-semibold underline">
                           login
                         </Link>{" "}
@@ -468,6 +519,63 @@ export function CartPage() {
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">
+                        Billing Address
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={useShippingAsBilling}
+                          onChange={(event) =>
+                            setUseShippingAsBilling(event.target.checked)
+                          }
+                          disabled={!isAuthenticated}
+                        />
+                        Same as shipping
+                      </label>
+                    </div>
+                    <Textarea
+                      placeholder="Enter your billing address..."
+                      value={billingAddress}
+                      onChange={(e) => setBillingAddress(e.target.value)}
+                      disabled={!isAuthenticated || useShippingAsBilling}
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Payment Method
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant={
+                          paymentMethod === "CARD" ? "default" : "outline"
+                        }
+                        onClick={() => setPaymentMethod("CARD")}
+                        disabled={!isAuthenticated}
+                      >
+                        Card (Stripe)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={
+                          paymentMethod === "COD" ? "default" : "outline"
+                        }
+                        onClick={() => setPaymentMethod("COD")}
+                        disabled={!isAuthenticated}
+                      >
+                        Cash on Delivery
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedPaymentHelper}
+                    </p>
+                  </div>
+
                   <Button
                     className="w-full"
                     onClick={handleCheckout}
@@ -480,8 +588,10 @@ export function CartPage() {
                       </>
                     ) : checkoutLoading ? (
                       "Processing..."
+                    ) : paymentMethod === "CARD" ? (
+                      "Proceed to Card Payment"
                     ) : (
-                      "Proceed to Payment"
+                      "Place COD Order"
                     )}
                   </Button>
 

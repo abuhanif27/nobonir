@@ -138,3 +138,19 @@ def handle_stripe_checkout_expired(session):
         success=False,
         transaction_id=transaction_id,
     )
+
+
+@transaction.atomic
+def create_cod_payment(order: Order) -> Payment:
+    if order.status not in [Order.Status.PENDING, Order.Status.CANCELLED]:
+        raise ValueError("Order is not payable in current state")
+
+    transaction_id = f"COD-{uuid.uuid4().hex[:18]}"
+    payment = Payment.objects.create(
+        order=order,
+        amount=order.total_amount,
+        method="COD",
+        status=Payment.Status.PENDING,
+        transaction_id=transaction_id,
+    )
+    return payment
