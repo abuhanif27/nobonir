@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/table";
 import { LogOut, Plus } from "lucide-react";
 
+const ADMIN_ORDER_NOTICE_KEY = "nobonir_admin_order_notice";
+
 interface Product {
   id: number;
   name: string;
@@ -78,11 +80,51 @@ export function AdminDashboard() {
   });
   const [savingOrderId, setSavingOrderId] = useState<number | null>(null);
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
+  const [orderStatusDrafts, setOrderStatusDrafts] = useState<
+    Record<number, string>
+  >({});
+  const [orderNotice, setOrderNotice] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     loadProducts();
     loadOrders();
+
+    const storedNotice = sessionStorage.getItem(ADMIN_ORDER_NOTICE_KEY);
+    if (storedNotice) {
+      try {
+        const parsed = JSON.parse(storedNotice);
+        if (parsed?.type && parsed?.message) {
+          setOrderNotice(parsed);
+        }
+      } catch {
+        // ignore malformed session notice
+      }
+      sessionStorage.removeItem(ADMIN_ORDER_NOTICE_KEY);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!orderNotice) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setOrderNotice(null);
+    }, 4500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [orderNotice]);
+
+  const pushOrderNotice = (type: "success" | "error", message: string) => {
+    const nextNotice = { type, message };
+    setOrderNotice(nextNotice);
+    sessionStorage.setItem(ADMIN_ORDER_NOTICE_KEY, JSON.stringify(nextNotice));
+  };
 
   const loadProducts = async () => {
     setLoadingProducts(true);
@@ -121,7 +163,13 @@ export function AdminDashboard() {
       }
 
       const response = await api.get("/orders/admin/", { params });
-      setOrders(response.data.results || response.data);
+      const fetchedOrders = response.data.results || response.data;
+      setOrders(fetchedOrders);
+      setOrderStatusDrafts(
+        Object.fromEntries(
+          fetchedOrders.map((order: AdminOrder) => [order.id, order.status]),
+        ),
+      );
     } catch (error) {
       console.error("Failed to load orders:", error);
       setOrders([]);
@@ -144,7 +192,18 @@ export function AdminDashboard() {
     }
   };
 
-  const updateOrderStatus = async (orderId: number, nextStatus: string) => {
+  const saveOrderStatus = async (orderId: number) => {
+    const order = orders.find((item) => item.id === orderId);
+    if (!order) {
+      return;
+    }
+
+    const nextStatus = orderStatusDrafts[orderId] || order.status;
+    if (nextStatus === order.status) {
+      pushOrderNotice("error", "No changes to save for this order.");
+      return;
+    }
+
     setSavingOrderId(orderId);
     try {
       const response = await api.patch(`/orders/admin/${orderId}/`, {
@@ -154,8 +213,19 @@ export function AdminDashboard() {
       setOrders((current) =>
         current.map((order) => (order.id === orderId ? response.data : order)),
       );
+      setOrderStatusDrafts((current) => ({
+        ...current,
+        [orderId]: response.data.status,
+      }));
+      pushOrderNotice(
+        "success",
+        `Order #${orderId} status saved successfully.`,
+      );
     } catch (error: any) {
-      alert(error.response?.data?.detail || "Failed to update order status");
+      pushOrderNotice(
+        "error",
+        error.response?.data?.detail || "Failed to save order status.",
+      );
     } finally {
       setSavingOrderId(null);
     }
@@ -205,6 +275,25 @@ export function AdminDashboard() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {orderNotice && (
+          <div
+            className={`mb-4 flex items-center justify-between rounded-md border px-4 py-3 text-sm ${
+              orderNotice.type === "success"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                : "border-red-300 bg-red-50 text-red-700"
+            }`}
+          >
+            <span>{orderNotice.message}</span>
+            <button
+              type="button"
+              onClick={() => setOrderNotice(null)}
+              className="ml-3 rounded border px-2 py-0.5 text-xs"
+            >
+              Close
+            </button>
+          </div>
+        )}
+
         <div className="grid gap-6 md:grid-cols-3 mb-8">
           <Card>
             <CardHeader>
@@ -389,12 +478,14 @@ export function AdminDashboard() {
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <select
-                                  value={order.status}
+                                  value={
+                                    orderStatusDrafts[order.id] || order.status
+                                  }
                                   onChange={(event) =>
-                                    updateOrderStatus(
-                                      order.id,
-                                      event.target.value,
-                                    )
+                                    setOrderStatusDrafts((current) => ({
+                                      ...current,
+                                      [order.id]: event.target.value,
+                                    }))
                                   }
                                   className="h-8 rounded-md border bg-background px-2 text-xs"
                                   disabled={savingOrderId === order.id}
@@ -405,6 +496,19 @@ export function AdminDashboard() {
                                     </option>
                                   ))}
                                 </select>
+                                <Button
+                                  size="sm"
+                                  onClick={() => saveOrderStatus(order.id)}
+                                  disabled={
+                                    savingOrderId === order.id ||
+                                    (orderStatusDrafts[order.id] ||
+                                      order.status) === order.status
+                                  }
+                                >
+                                  {savingOrderId === order.id
+                                    ? "Saving..."
+                                    : "Save"}
+                                </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
