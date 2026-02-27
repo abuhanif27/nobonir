@@ -83,7 +83,9 @@ export function AdminProductFormPage() {
           });
         }
       } catch (error: any) {
-        showError(error.response?.data?.detail || "Failed to load product form");
+        showError(
+          error.response?.data?.detail || "Failed to load product form",
+        );
       } finally {
         setLoading(false);
       }
