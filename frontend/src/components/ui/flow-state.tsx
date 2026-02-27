@@ -6,6 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 
 type Tone = "warning" | "error" | "info";
 
+// Tone policy for customer-flow states:
+// info = loading/in-progress, warning = degraded/fallback, error = failure.
+
 const bannerToneClasses: Record<Tone, string> = {
   warning:
     "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
