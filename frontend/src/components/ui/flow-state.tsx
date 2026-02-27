@@ -118,3 +118,52 @@ export function FlowStateBanner({
     </div>
   );
 }
+
+interface FlowStateSectionProps {
+  loading: boolean;
+  error: string | null;
+  isEmpty: boolean;
+  loadingMessage: ReactNode;
+  emptyTitle: string;
+  emptyMessage: ReactNode;
+  onRetry: () => void;
+  children: ReactNode;
+}
+
+export function FlowStateSection({
+  loading,
+  error,
+  isEmpty,
+  loadingMessage,
+  emptyTitle,
+  emptyMessage,
+  onRetry,
+  children,
+}: FlowStateSectionProps) {
+  if (loading) {
+    return <FlowStateBanner tone="info" message={loadingMessage} />;
+  }
+
+  if (error) {
+    return (
+      <FlowStateBanner
+        tone="error"
+        message={error}
+        actionLabel="Try Again"
+        onAction={onRetry}
+      />
+    );
+  }
+
+  if (isEmpty) {
+    return (
+      <FlowStateCard
+        title={emptyTitle}
+        message={emptyMessage}
+        contentClassName="py-8"
+      />
+    );
+  }
+
+  return <>{children}</>;
+}

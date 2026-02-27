@@ -6,7 +6,7 @@ import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
+import { FlowStateBanner, FlowStateSection } from "@/components/ui/flow-state";
 import {
   Table,
   TableBody,
@@ -523,51 +523,6 @@ export function AdminDashboard() {
     return "text-rose-600 dark:text-rose-400";
   };
 
-  const renderAdminSectionState = ({
-    loading,
-    error,
-    isEmpty,
-    loadingMessage,
-    emptyTitle,
-    emptyMessage,
-    onRetry,
-  }: {
-    loading: boolean;
-    error: string | null;
-    isEmpty: boolean;
-    loadingMessage: string;
-    emptyTitle: string;
-    emptyMessage: string;
-    onRetry: () => void;
-  }) => {
-    if (loading) {
-      return <FlowStateBanner tone="info" message={loadingMessage} />;
-    }
-
-    if (error) {
-      return (
-        <FlowStateBanner
-          tone="error"
-          message={error}
-          actionLabel="Try Again"
-          onAction={onRetry}
-        />
-      );
-    }
-
-    if (isEmpty) {
-      return (
-        <FlowStateCard
-          title={emptyTitle}
-          message={emptyMessage}
-          contentClassName="py-8"
-        />
-      );
-    }
-
-    return null;
-  };
-
   return (
     <div className="ds-page">
       {/* Header */}
@@ -962,15 +917,15 @@ export function AdminDashboard() {
                   </div>
                 </div>
 
-                {renderAdminSectionState({
-                  loading: loadingOrders,
-                  error: ordersError,
-                  isEmpty: orders.length === 0,
-                  loadingMessage: "Loading orders...",
-                  emptyTitle: "No orders found",
-                  emptyMessage: "No orders found for the selected filters.",
-                  onRetry: () => loadOrders(),
-                }) || (
+                <FlowStateSection
+                  loading={loadingOrders}
+                  error={ordersError}
+                  isEmpty={orders.length === 0}
+                  loadingMessage="Loading orders..."
+                  emptyTitle="No orders found"
+                  emptyMessage="No orders found for the selected filters."
+                  onRetry={() => loadOrders()}
+                >
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -1108,7 +1063,7 @@ export function AdminDashboard() {
                       </TableBody>
                     </Table>
                   </div>
-                )}
+                </FlowStateSection>
               </CardContent>
             </Card>
           </>
@@ -1176,15 +1131,15 @@ export function AdminDashboard() {
                 </Button>
               </div>
 
-              {renderAdminSectionState({
-                loading: loadingCoupons,
-                error: couponsError,
-                isEmpty: coupons.length === 0,
-                loadingMessage: "Loading coupons...",
-                emptyTitle: "No coupons found",
-                emptyMessage: "Create a new coupon to get started.",
-                onRetry: loadCoupons,
-              }) || (
+              <FlowStateSection
+                loading={loadingCoupons}
+                error={couponsError}
+                isEmpty={coupons.length === 0}
+                loadingMessage="Loading coupons..."
+                emptyTitle="No coupons found"
+                emptyMessage="Create a new coupon to get started."
+                onRetry={loadCoupons}
+              >
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1238,7 +1193,7 @@ export function AdminDashboard() {
                     </TableBody>
                   </Table>
                 </div>
-              )}
+              </FlowStateSection>
             </CardContent>
           </Card>
         )}
@@ -1249,15 +1204,15 @@ export function AdminDashboard() {
               <CardTitle>User & Permission Management</CardTitle>
             </CardHeader>
             <CardContent>
-              {renderAdminSectionState({
-                loading: loadingUsers,
-                error: usersError,
-                isEmpty: users.length === 0,
-                loadingMessage: "Loading users...",
-                emptyTitle: "No users found",
-                emptyMessage: "No users are available right now.",
-                onRetry: loadUsers,
-              }) || (
+              <FlowStateSection
+                loading={loadingUsers}
+                error={usersError}
+                isEmpty={users.length === 0}
+                loadingMessage="Loading users..."
+                emptyTitle="No users found"
+                emptyMessage="No users are available right now."
+                onRetry={loadUsers}
+              >
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1346,7 +1301,7 @@ export function AdminDashboard() {
                     </TableBody>
                   </Table>
                 </div>
-              )}
+              </FlowStateSection>
             </CardContent>
           </Card>
         )}
@@ -1357,15 +1312,15 @@ export function AdminDashboard() {
               <CardTitle>Products</CardTitle>
             </CardHeader>
             <CardContent>
-              {renderAdminSectionState({
-                loading: loadingProducts,
-                error: productsError,
-                isEmpty: products.length === 0,
-                loadingMessage: "Loading products...",
-                emptyTitle: "No products found",
-                emptyMessage: "Add products to start managing inventory.",
-                onRetry: loadProducts,
-              }) || (
+              <FlowStateSection
+                loading={loadingProducts}
+                error={productsError}
+                isEmpty={products.length === 0}
+                loadingMessage="Loading products..."
+                emptyTitle="No products found"
+                emptyMessage="Add products to start managing inventory."
+                onRetry={loadProducts}
+              >
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1422,7 +1377,7 @@ export function AdminDashboard() {
                     </TableBody>
                   </Table>
                 </div>
-              )}
+              </FlowStateSection>
             </CardContent>
           </Card>
         )}
@@ -1433,16 +1388,15 @@ export function AdminDashboard() {
               <CardTitle>Review Moderation</CardTitle>
             </CardHeader>
             <CardContent>
-              {renderAdminSectionState({
-                loading: loadingReviews,
-                error: reviewsError,
-                isEmpty: reviews.length === 0,
-                loadingMessage: "Loading reviews...",
-                emptyTitle: "No reviews found",
-                emptyMessage:
-                  "Customer reviews will appear here for moderation.",
-                onRetry: loadReviews,
-              }) || (
+              <FlowStateSection
+                loading={loadingReviews}
+                error={reviewsError}
+                isEmpty={reviews.length === 0}
+                loadingMessage="Loading reviews..."
+                emptyTitle="No reviews found"
+                emptyMessage="Customer reviews will appear here for moderation."
+                onRetry={loadReviews}
+              >
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1505,7 +1459,7 @@ export function AdminDashboard() {
                     </TableBody>
                   </Table>
                 </div>
-              )}
+              </FlowStateSection>
             </CardContent>
           </Card>
         )}
