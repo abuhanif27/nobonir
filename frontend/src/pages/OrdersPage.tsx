@@ -324,7 +324,7 @@ export function OrdersPage() {
               onClick={loadOrders}
             >
               <RefreshCw className="h-4 w-4" />
-              Refresh
+              Refresh Data
             </Button>
           </div>
         </div>

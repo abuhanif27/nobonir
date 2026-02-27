@@ -350,7 +350,7 @@ export function WishlistPage() {
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
               />
-              Refresh
+              Refresh Data
             </Button>
           </div>
         </div>
