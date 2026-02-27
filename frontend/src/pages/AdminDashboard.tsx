@@ -86,6 +86,8 @@ const ORDER_STATUSES = [
   "CANCELLED",
 ] as const;
 
+type AdminSection = "orders" | "coupons" | "users" | "products";
+
 export function AdminDashboard() {
   const { user, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
@@ -120,6 +122,7 @@ export function AdminDashboard() {
     expires_at: "",
     is_active: true,
   });
+  const [activeSection, setActiveSection] = useState<AdminSection>("orders");
 
   useEffect(() => {
     loadProducts();
@@ -379,6 +382,12 @@ export function AdminDashboard() {
   const pendingOrderCount = orders.filter(
     (order) => order.status === "PENDING",
   ).length;
+  const sectionMeta: Array<{ key: AdminSection; label: string }> = [
+    { key: "orders", label: "Orders" },
+    { key: "coupons", label: "Coupons" },
+    { key: "users", label: "Users" },
+    { key: "products", label: "Products" },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -464,527 +473,558 @@ export function AdminDashboard() {
         </div>
 
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Order Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4 grid gap-3 md:grid-cols-5">
-              <select
-                value={orderFilters.status}
-                onChange={(event) =>
-                  setOrderFilters((current) => ({
-                    ...current,
-                    status: event.target.value,
-                  }))
-                }
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="ALL">All Statuses</option>
-                {ORDER_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="date"
-                value={orderFilters.dateFrom}
-                onChange={(event) =>
-                  setOrderFilters((current) => ({
-                    ...current,
-                    dateFrom: event.target.value,
-                  }))
-                }
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              />
-
-              <input
-                type="date"
-                value={orderFilters.dateTo}
-                onChange={(event) =>
-                  setOrderFilters((current) => ({
-                    ...current,
-                    dateTo: event.target.value,
-                  }))
-                }
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              />
-
-              <input
-                type="text"
-                value={orderFilters.search}
-                onChange={(event) =>
-                  setOrderFilters((current) => ({
-                    ...current,
-                    search: event.target.value,
-                  }))
-                }
-                placeholder="Search by ID/email/name"
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              />
-
-              <div className="flex gap-2">
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-2">
+              {sectionMeta.map((section) => (
                 <Button
-                  onClick={() => loadOrders()}
-                  className="flex-1"
+                  key={section.key}
+                  type="button"
                   size="sm"
+                  variant={
+                    activeSection === section.key ? "default" : "outline"
+                  }
+                  onClick={() => setActiveSection(section.key)}
                 >
-                  Apply
+                  {section.label}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const reset = {
-                      status: "ALL",
-                      dateFrom: "",
-                      dateTo: "",
-                      search: "",
-                    };
-                    setOrderFilters(reset);
-                    loadOrders(reset);
-                  }}
-                >
-                  Reset
-                </Button>
-              </div>
+              ))}
             </div>
+          </CardContent>
+        </Card>
 
-            {loadingOrders ? (
-              <p className="text-center text-gray-600">Loading orders...</p>
-            ) : orders.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No orders found for the selected filters.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Items</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.map((order) => {
-                      const isExpanded = expandedOrderIds.includes(order.id);
+        {activeSection === "orders" && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Order Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 grid gap-3 md:grid-cols-5">
+                <select
+                  value={orderFilters.status}
+                  onChange={(event) =>
+                    setOrderFilters((current) => ({
+                      ...current,
+                      status: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="ALL">All Statuses</option>
+                  {ORDER_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
 
-                      return (
-                        <Fragment key={`order-group-${order.id}`}>
-                          <TableRow key={`order-${order.id}`}>
-                            <TableCell className="font-medium">
-                              #{order.id}
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p className="font-medium">{order.user_name}</p>
-                                <p className="text-muted-foreground">
-                                  {order.user_email}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell>{order.item_count}</TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p className="font-semibold">
-                                  {formatPrice(order.total_amount)}
-                                </p>
-                                {Number(order.discount_amount) > 0 && (
-                                  <p className="text-emerald-600 text-xs">
-                                    Discount{" "}
-                                    {formatPrice(order.discount_amount)}
-                                  </p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="rounded border px-2 py-1 text-xs font-semibold">
-                                {order.status}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              {new Date(order.created_at).toLocaleString()}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <select
-                                  value={
-                                    orderStatusDrafts[order.id] || order.status
-                                  }
-                                  onChange={(event) =>
-                                    setOrderStatusDrafts((current) => ({
-                                      ...current,
-                                      [order.id]: event.target.value,
-                                    }))
-                                  }
-                                  className="h-8 rounded-md border bg-background px-2 text-xs"
-                                  disabled={savingOrderId === order.id}
-                                >
-                                  {ORDER_STATUSES.map((status) => (
-                                    <option key={status} value={status}>
-                                      {status}
-                                    </option>
-                                  ))}
-                                </select>
-                                <Button
-                                  size="sm"
-                                  onClick={() => saveOrderStatus(order.id)}
-                                  disabled={
-                                    savingOrderId === order.id ||
-                                    (orderStatusDrafts[order.id] ||
-                                      order.status) === order.status
-                                  }
-                                >
-                                  {savingOrderId === order.id
-                                    ? "Saving..."
-                                    : "Save"}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => toggleOrderExpand(order.id)}
-                                >
-                                  {isExpanded ? "Hide" : "View"}
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                <input
+                  type="date"
+                  value={orderFilters.dateFrom}
+                  onChange={(event) =>
+                    setOrderFilters((current) => ({
+                      ...current,
+                      dateFrom: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                />
 
-                          {isExpanded && (
-                            <TableRow key={`order-${order.id}-details`}>
-                              <TableCell colSpan={7}>
-                                <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                                  <p className="font-semibold mb-2">
-                                    Shipping Address
+                <input
+                  type="date"
+                  value={orderFilters.dateTo}
+                  onChange={(event) =>
+                    setOrderFilters((current) => ({
+                      ...current,
+                      dateTo: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                />
+
+                <input
+                  type="text"
+                  value={orderFilters.search}
+                  onChange={(event) =>
+                    setOrderFilters((current) => ({
+                      ...current,
+                      search: event.target.value,
+                    }))
+                  }
+                  placeholder="Search by ID/email/name"
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                />
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => loadOrders()}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    Apply
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const reset = {
+                        status: "ALL",
+                        dateFrom: "",
+                        dateTo: "",
+                        search: "",
+                      };
+                      setOrderFilters(reset);
+                      loadOrders(reset);
+                    }}
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+
+              {loadingOrders ? (
+                <p className="text-center text-gray-600">Loading orders...</p>
+              ) : orders.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No orders found for the selected filters.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orders.map((order) => {
+                        const isExpanded = expandedOrderIds.includes(order.id);
+
+                        return (
+                          <Fragment key={`order-group-${order.id}`}>
+                            <TableRow key={`order-${order.id}`}>
+                              <TableCell className="font-medium">
+                                #{order.id}
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <p className="font-medium">
+                                    {order.user_name}
                                   </p>
-                                  <p className="mb-3">
-                                    {order.shipping_address || "N/A"}
+                                  <p className="text-muted-foreground">
+                                    {order.user_email}
                                   </p>
-                                  <p className="font-semibold mb-2">Items</p>
-                                  <ul className="space-y-1">
-                                    {order.items.map((item) => (
-                                      <li key={item.id}>
-                                        {item.product_name} × {item.quantity} —{" "}
-                                        {formatPrice(item.unit_price)}
-                                      </li>
+                                </div>
+                              </TableCell>
+                              <TableCell>{order.item_count}</TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <p className="font-semibold">
+                                    {formatPrice(order.total_amount)}
+                                  </p>
+                                  {Number(order.discount_amount) > 0 && (
+                                    <p className="text-emerald-600 text-xs">
+                                      Discount{" "}
+                                      {formatPrice(order.discount_amount)}
+                                    </p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="rounded border px-2 py-1 text-xs font-semibold">
+                                  {order.status}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {new Date(order.created_at).toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <select
+                                    value={
+                                      orderStatusDrafts[order.id] ||
+                                      order.status
+                                    }
+                                    onChange={(event) =>
+                                      setOrderStatusDrafts((current) => ({
+                                        ...current,
+                                        [order.id]: event.target.value,
+                                      }))
+                                    }
+                                    className="h-8 rounded-md border bg-background px-2 text-xs"
+                                    disabled={savingOrderId === order.id}
+                                  >
+                                    {ORDER_STATUSES.map((status) => (
+                                      <option key={status} value={status}>
+                                        {status}
+                                      </option>
                                     ))}
-                                  </ul>
+                                  </select>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => saveOrderStatus(order.id)}
+                                    disabled={
+                                      savingOrderId === order.id ||
+                                      (orderStatusDrafts[order.id] ||
+                                        order.status) === order.status
+                                    }
+                                  >
+                                    {savingOrderId === order.id
+                                      ? "Saving..."
+                                      : "Save"}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleOrderExpand(order.id)}
+                                  >
+                                    {isExpanded ? "Hide" : "View"}
+                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Coupon Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4 grid gap-3 md:grid-cols-5">
-              <input
-                type="text"
-                value={newCoupon.code}
-                onChange={(event) =>
-                  setNewCoupon((current) => ({
-                    ...current,
-                    code: event.target.value.toUpperCase(),
-                  }))
-                }
-                placeholder="Coupon code"
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              />
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={newCoupon.discount_percent}
-                onChange={(event) =>
-                  setNewCoupon((current) => ({
-                    ...current,
-                    discount_percent: Number(event.target.value || 0),
-                  }))
-                }
-                placeholder="Discount %"
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              />
-              <input
-                type="datetime-local"
-                value={newCoupon.expires_at}
-                onChange={(event) =>
-                  setNewCoupon((current) => ({
-                    ...current,
-                    expires_at: event.target.value,
-                  }))
-                }
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-              />
-              <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
+                            {isExpanded && (
+                              <TableRow key={`order-${order.id}-details`}>
+                                <TableCell colSpan={7}>
+                                  <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                                    <p className="font-semibold mb-2">
+                                      Shipping Address
+                                    </p>
+                                    <p className="mb-3">
+                                      {order.shipping_address || "N/A"}
+                                    </p>
+                                    <p className="font-semibold mb-2">Items</p>
+                                    <ul className="space-y-1">
+                                      {order.items.map((item) => (
+                                        <li key={item.id}>
+                                          {item.product_name} × {item.quantity}{" "}
+                                          — {formatPrice(item.unit_price)}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === "coupons" && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Coupon Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 grid gap-3 md:grid-cols-5">
                 <input
-                  type="checkbox"
-                  checked={newCoupon.is_active}
+                  type="text"
+                  value={newCoupon.code}
                   onChange={(event) =>
                     setNewCoupon((current) => ({
                       ...current,
-                      is_active: event.target.checked,
+                      code: event.target.value.toUpperCase(),
                     }))
                   }
+                  placeholder="Coupon code"
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
                 />
-                Active coupon
-              </label>
-              <Button size="sm" onClick={createCoupon}>
-                Create Coupon
-              </Button>
-            </div>
-
-            {loadingCoupons ? (
-              <p className="text-center text-gray-600">Loading coupons...</p>
-            ) : coupons.length === 0 ? (
-              <p className="text-center text-muted-foreground py-6">
-                No coupons found.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Discount</TableHead>
-                      <TableHead>Uses</TableHead>
-                      <TableHead>Expiry</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {coupons.map((coupon) => (
-                      <TableRow key={coupon.id}>
-                        <TableCell className="font-semibold">
-                          {coupon.code}
-                        </TableCell>
-                        <TableCell>{coupon.discount_percent}%</TableCell>
-                        <TableCell>{coupon.usage_count}</TableCell>
-                        <TableCell>
-                          {new Date(coupon.expires_at).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <span className="rounded border px-2 py-1 text-xs font-semibold">
-                            {coupon.is_active
-                              ? coupon.is_expired
-                                ? "EXPIRED"
-                                : "ACTIVE"
-                              : "INACTIVE"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={savingCouponId === coupon.id}
-                              onClick={() =>
-                                updateCoupon(coupon.id, {
-                                  is_active: !coupon.is_active,
-                                })
-                              }
-                            >
-                              {coupon.is_active ? "Disable" : "Enable"}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={newCoupon.discount_percent}
+                  onChange={(event) =>
+                    setNewCoupon((current) => ({
+                      ...current,
+                      discount_percent: Number(event.target.value || 0),
+                    }))
+                  }
+                  placeholder="Discount %"
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                />
+                <input
+                  type="datetime-local"
+                  value={newCoupon.expires_at}
+                  onChange={(event) =>
+                    setNewCoupon((current) => ({
+                      ...current,
+                      expires_at: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                />
+                <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={newCoupon.is_active}
+                    onChange={(event) =>
+                      setNewCoupon((current) => ({
+                        ...current,
+                        is_active: event.target.checked,
+                      }))
+                    }
+                  />
+                  Active coupon
+                </label>
+                <Button size="sm" onClick={createCoupon}>
+                  Create Coupon
+                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>User & Permission Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingUsers ? (
-              <p className="text-center text-gray-600">Loading users...</p>
-            ) : users.length === 0 ? (
-              <p className="text-center text-muted-foreground py-6">
-                No users found.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Account</TableHead>
-                      <TableHead>Staff</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((managedUser) => (
-                      <TableRow key={managedUser.id}>
-                        <TableCell>
-                          {`${managedUser.first_name} ${managedUser.last_name}`.trim() ||
-                            managedUser.username}
-                        </TableCell>
-                        <TableCell>{managedUser.email}</TableCell>
-                        <TableCell>
-                          <select
-                            value={managedUser.role}
-                            onChange={(event) =>
-                              updateUser(managedUser.id, {
-                                role: event.target.value as
-                                  | "ADMIN"
-                                  | "CUSTOMER",
-                              })
-                            }
-                            className="h-8 rounded-md border bg-background px-2 text-xs"
-                            disabled={savingUserId === managedUser.id}
-                          >
-                            <option value="CUSTOMER">CUSTOMER</option>
-                            <option value="ADMIN">ADMIN</option>
-                          </select>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`rounded border px-2 py-1 text-xs font-semibold ${
-                              managedUser.is_active
-                                ? "text-emerald-600"
-                                : "text-red-500"
-                            }`}
-                          >
-                            {managedUser.is_active ? "ACTIVE" : "INACTIVE"}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {managedUser.is_staff ? "Yes" : "No"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={savingUserId === managedUser.id}
-                              onClick={() =>
-                                updateUser(managedUser.id, {
-                                  is_active: !managedUser.is_active,
-                                })
-                              }
-                            >
-                              {managedUser.is_active
-                                ? "Deactivate"
-                                : "Activate"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={savingUserId === managedUser.id}
-                              onClick={() =>
-                                updateUser(managedUser.id, {
-                                  is_staff: !managedUser.is_staff,
-                                })
-                              }
-                            >
-                              {managedUser.is_staff
-                                ? "Unset Staff"
-                                : "Make Staff"}
-                            </Button>
-                          </div>
-                        </TableCell>
+              {loadingCoupons ? (
+                <p className="text-center text-gray-600">Loading coupons...</p>
+              ) : coupons.length === 0 ? (
+                <p className="text-center text-muted-foreground py-6">
+                  No coupons found.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Discount</TableHead>
+                        <TableHead>Uses</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loadingProducts ? (
-              <p className="text-center text-gray-600">Loading...</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Stock</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {products.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell>{product.id}</TableCell>
-                        <TableCell className="font-medium">
-                          {product.name}
-                        </TableCell>
-                        <TableCell>{product.category.name}</TableCell>
-                        <TableCell>{formatPrice(product.price)}</TableCell>
-                        <TableCell>
-                          <span
-                            className={`rounded px-2 py-1 text-xs font-semibold ${
-                              product.stock === 0
-                                ? "bg-red-100 text-red-800"
-                                : product.stock < 10
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            {product.stock}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Link to={`/admin/products/${product.id}`}>
-                              <Button variant="outline" size="sm">
-                                Edit
+                    </TableHeader>
+                    <TableBody>
+                      {coupons.map((coupon) => (
+                        <TableRow key={coupon.id}>
+                          <TableCell className="font-semibold">
+                            {coupon.code}
+                          </TableCell>
+                          <TableCell>{coupon.discount_percent}%</TableCell>
+                          <TableCell>{coupon.usage_count}</TableCell>
+                          <TableCell>
+                            {new Date(coupon.expires_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <span className="rounded border px-2 py-1 text-xs font-semibold">
+                              {coupon.is_active
+                                ? coupon.is_expired
+                                  ? "EXPIRED"
+                                  : "ACTIVE"
+                                : "INACTIVE"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={savingCouponId === coupon.id}
+                                onClick={() =>
+                                  updateCoupon(coupon.id, {
+                                    is_active: !coupon.is_active,
+                                  })
+                                }
+                              >
+                                {coupon.is_active ? "Disable" : "Enable"}
                               </Button>
-                            </Link>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => deleteProduct(product.id)}
-                              className="bg-red-600 text-white hover:bg-red-700"
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === "users" && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>User & Permission Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingUsers ? (
+                <p className="text-center text-gray-600">Loading users...</p>
+              ) : users.length === 0 ? (
+                <p className="text-center text-muted-foreground py-6">
+                  No users found.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Account</TableHead>
+                        <TableHead>Staff</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((managedUser) => (
+                        <TableRow key={managedUser.id}>
+                          <TableCell>
+                            {`${managedUser.first_name} ${managedUser.last_name}`.trim() ||
+                              managedUser.username}
+                          </TableCell>
+                          <TableCell>{managedUser.email}</TableCell>
+                          <TableCell>
+                            <select
+                              value={managedUser.role}
+                              onChange={(event) =>
+                                updateUser(managedUser.id, {
+                                  role: event.target.value as
+                                    | "ADMIN"
+                                    | "CUSTOMER",
+                                })
+                              }
+                              className="h-8 rounded-md border bg-background px-2 text-xs"
+                              disabled={savingUserId === managedUser.id}
+                            >
+                              <option value="CUSTOMER">CUSTOMER</option>
+                              <option value="ADMIN">ADMIN</option>
+                            </select>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`rounded border px-2 py-1 text-xs font-semibold ${
+                                managedUser.is_active
+                                  ? "text-emerald-600"
+                                  : "text-red-500"
+                              }`}
+                            >
+                              {managedUser.is_active ? "ACTIVE" : "INACTIVE"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {managedUser.is_staff ? "Yes" : "No"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={savingUserId === managedUser.id}
+                                onClick={() =>
+                                  updateUser(managedUser.id, {
+                                    is_active: !managedUser.is_active,
+                                  })
+                                }
+                              >
+                                {managedUser.is_active
+                                  ? "Deactivate"
+                                  : "Activate"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={savingUserId === managedUser.id}
+                                onClick={() =>
+                                  updateUser(managedUser.id, {
+                                    is_staff: !managedUser.is_staff,
+                                  })
+                                }
+                              >
+                                {managedUser.is_staff
+                                  ? "Unset Staff"
+                                  : "Make Staff"}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSection === "products" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Products</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingProducts ? (
+                <p className="text-center text-gray-600">Loading...</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Stock</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {products.map((product) => (
+                        <TableRow key={product.id}>
+                          <TableCell>{product.id}</TableCell>
+                          <TableCell className="font-medium">
+                            {product.name}
+                          </TableCell>
+                          <TableCell>{product.category.name}</TableCell>
+                          <TableCell>{formatPrice(product.price)}</TableCell>
+                          <TableCell>
+                            <span
+                              className={`rounded px-2 py-1 text-xs font-semibold ${
+                                product.stock === 0
+                                  ? "bg-red-100 text-red-800"
+                                  : product.stock < 10
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-green-100 text-green-800"
+                              }`}
+                            >
+                              {product.stock}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Link to={`/admin/products/${product.id}`}>
+                                <Button variant="outline" size="sm">
+                                  Edit
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => deleteProduct(product.id)}
+                                className="bg-red-600 text-white hover:bg-red-700"
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <p className="mt-4 text-xs text-muted-foreground">
           Out of stock products: {outOfStockCount}
