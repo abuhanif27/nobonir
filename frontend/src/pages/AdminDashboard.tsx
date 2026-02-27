@@ -1083,7 +1083,7 @@ export function AdminDashboard() {
                                           {downloadingInvoiceOrderId ===
                                           order.id
                                             ? "Downloading..."
-                                            : "Invoice"}
+                                            : "Download PDF"}
                                         </Button>
                                       </div>
                                       <p className="font-semibold mb-2">
