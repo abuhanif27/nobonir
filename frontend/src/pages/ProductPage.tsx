@@ -16,6 +16,8 @@ import {
   ShoppingCart,
   Star,
   Tag,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 
 interface Product {
@@ -51,12 +53,14 @@ export function ProductPage() {
   const [cartCount, setCartCount] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
-  const [myReviews, setMyReviews] = useState<Array<{ product: number }>>([]);
+  const [myReviews, setMyReviews] = useState<ProductReview[]>([]);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewHoverRating, setReviewHoverRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewNotice, setReviewNotice] = useState("");
   const [savingReview, setSavingReview] = useState(false);
+  const [isEditingReview, setIsEditingReview] = useState(false);
+  const [userReviewId, setUserReviewId] = useState<number | null>(null);
   const [productLoadError, setProductLoadError] = useState<
     "not-found" | "unavailable" | null
   >(null);
@@ -191,6 +195,31 @@ export function ProductPage() {
     loadMyReviews();
   }, [isAuthenticated]);
 
+  const currentProductId = Number(product?.id || 0);
+  const hasReviewedProduct = myReviews.some(
+    (review) => Number(review.product) === currentProductId,
+  );
+
+  useEffect(() => {
+    if (!product || isEditingReview) {
+      return;
+    }
+
+    const userReview = myReviews.find(
+      (review) => Number(review.product) === Number(product.id),
+    );
+
+    if (userReview) {
+      setUserReviewId(userReview.id);
+      setReviewRating(userReview.rating || 5);
+      setReviewComment(userReview.comment || "");
+    } else {
+      setUserReviewId(null);
+      setReviewRating(5);
+      setReviewComment("");
+    }
+  }, [product, myReviews, isEditingReview]);
+
   const addToCart = async (sourceElement?: HTMLElement) => {
     if (!product) {
       return;
@@ -254,14 +283,27 @@ export function ProductPage() {
     setSavingReview(true);
     setReviewNotice("");
     try {
-      await api.post("/reviews/", {
-        product: product.id,
-        rating: reviewRating,
-        comment: reviewComment,
-      });
+      if (isEditingReview && userReviewId) {
+        // Update existing review
+        await api.patch(`/reviews/my/${userReviewId}/`, {
+          rating: reviewRating,
+          comment: reviewComment,
+        });
+        setReviewNotice("Review updated successfully.");
+      } else {
+        // Create new review
+        await api.post("/reviews/", {
+          product: product.id,
+          rating: reviewRating,
+          comment: reviewComment,
+        });
+        setReviewNotice("Review submitted successfully.");
+      }
+
       setReviewComment("");
       setReviewRating(5);
-      setReviewNotice("Review submitted successfully.");
+      setIsEditingReview(false);
+      setUserReviewId(null);
 
       const [publicResponse, myResponse] = await Promise.all([
         api.get("/reviews/", { params: { product: product.id } }),
@@ -279,6 +321,43 @@ export function ProductPage() {
         error.response?.data?.detail ||
           error.response?.data?.product?.[0] ||
           "Unable to submit review.",
+      );
+    } finally {
+      setSavingReview(false);
+    }
+  };
+
+  const deleteReview = async () => {
+    if (!userReviewId) return;
+
+    if (!window.confirm("Are you sure you want to delete your review?")) {
+      return;
+    }
+
+    setSavingReview(true);
+    setReviewNotice("");
+    try {
+      await api.delete(`/reviews/my/${userReviewId}/`);
+      setReviewNotice("Review deleted successfully.");
+      setReviewComment("");
+      setReviewRating(5);
+      setIsEditingReview(false);
+      setUserReviewId(null);
+
+      const [publicResponse, myResponse] = await Promise.all([
+        api.get("/reviews/", { params: { product: product?.id } }),
+        isAuthenticated
+          ? api.get("/reviews/my/")
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      setReviews(publicResponse.data.results || publicResponse.data || []);
+      if (isAuthenticated) {
+        setMyReviews(myResponse.data.results || myResponse.data || []);
+      }
+    } catch (error: any) {
+      setReviewNotice(
+        error.response?.data?.detail || "Unable to delete review.",
       );
     } finally {
       setSavingReview(false);
@@ -334,9 +413,6 @@ export function ProductPage() {
     );
   }
 
-  const hasReviewedProduct = myReviews.some(
-    (review) => Number(review.product) === Number(product.id),
-  );
   const productImage =
     product.image_url ||
     product.image ||
@@ -534,8 +610,7 @@ export function ProductPage() {
                 <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
                   <p className="font-medium">✓ You've reviewed this product</p>
                   <p className="mt-1">
-                    Thank you for sharing your feedback. Each product can only
-                    be reviewed once.
+                    You can edit or delete your review below.
                   </p>
                 </div>
               )}
@@ -546,9 +621,7 @@ export function ProductPage() {
                 </div>
               )}
 
-              <div
-                className={`mt-6 space-y-4 ${!isAuthenticated || hasReviewedProduct ? "opacity-50 pointer-events-none" : ""}`}
-              >
+              <div className="mt-6 space-y-4">
                 <div>
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-semibold text-gray-900 dark:text-slate-100">
@@ -580,11 +653,7 @@ export function ProductPage() {
                             onMouseEnter={() => setReviewHoverRating(value)}
                             onMouseLeave={() => setReviewHoverRating(0)}
                             onClick={() => setReviewRating(value)}
-                            disabled={
-                              !isAuthenticated ||
-                              hasReviewedProduct ||
-                              savingReview
-                            }
+                            disabled={!isAuthenticated || savingReview}
                             className="rounded-lg p-2 transition-transform duration-200 hover:scale-125 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
                           >
@@ -621,27 +690,48 @@ export function ProductPage() {
                     onChange={(event) =>
                       setReviewComment(event.target.value.slice(0, 500))
                     }
-                    disabled={
-                      !isAuthenticated || hasReviewedProduct || savingReview
-                    }
+                    disabled={!isAuthenticated || savingReview}
                     className="mt-2"
                   />
                 </div>
                 <Button
                   onClick={submitReview}
-                  disabled={
-                    !isAuthenticated || hasReviewedProduct || savingReview
-                  }
+                  disabled={!isAuthenticated || savingReview}
                   className="w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
                 >
                   {savingReview
-                    ? "Submitting..."
-                    : hasReviewedProduct
-                      ? "Already Reviewed"
+                    ? isEditingReview
+                      ? "Updating..."
+                      : "Submitting..."
+                    : isEditingReview
+                      ? "Update Review"
                       : isAuthenticated
                         ? "Submit Review"
                         : "Login to Review"}
                 </Button>
+
+                {isAuthenticated && hasReviewedProduct && (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setIsEditingReview(!isEditingReview)}
+                      variant="outline"
+                      className="flex-1"
+                      disabled={savingReview}
+                    >
+                      <Edit2 className="mr-2 h-4 w-4" />
+                      {isEditingReview ? "Cancel Edit" : "Edit Review"}
+                    </Button>
+                    <Button
+                      onClick={deleteReview}
+                      variant="outline"
+                      className="flex-1 border-red-500/40 text-red-500 hover:bg-red-500/10 hover:text-red-400"
+                      disabled={savingReview}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
