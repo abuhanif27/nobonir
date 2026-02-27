@@ -10,6 +10,7 @@ import { ProductPage } from "@/pages/ProductPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { WishlistPage } from "@/pages/WishlistPage";
+import { AdminProductFormPage } from "@/pages/AdminProductFormPage";
 import { ThemeProvider } from "@/lib/theme";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CurrencyProvider } from "@/lib/currency";
@@ -62,6 +63,14 @@ function App() {
             {/* Admin routes */}
             <Route element={<ProtectedRoute requireAdmin />}>
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route
+                path="/admin/products/new"
+                element={<AdminProductFormPage />}
+              />
+              <Route
+                path="/admin/products/:id"
+                element={<AdminProductFormPage />}
+              />
             </Route>
 
             {/* Fallback */}
