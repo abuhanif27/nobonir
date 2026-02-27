@@ -39,6 +39,10 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
 - axios 1.13.5
 - react-router-dom 6.28.2
 
+## UX Documentation
+
+- Feedback copy and toast standards: [frontend/FEEDBACK_COPY_STYLE_GUIDE.md](frontend/FEEDBACK_COPY_STYLE_GUIDE.md)
+
 ## Setup Instructions
 
 ### Backend Setup

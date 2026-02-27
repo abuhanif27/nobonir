@@ -23,6 +23,7 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 - Admin dashboard: Product management, order tracking, analytics
 - TypeScript + Tailwind CSS + shadcn/ui components
 - Automatic token refresh on API 401 errors
+- Unified global feedback copy/toast standard: `frontend/FEEDBACK_COPY_STYLE_GUIDE.md`
 
 ✅ **AI Features** (sentence-transformers)
 
@@ -195,6 +196,7 @@ python3 manage.py test
 ## Notes
 
 - AI model (all-MiniLM-L6-v2) downloads automatically on first migration (~91MB)
+- Feedback copy/toast standards are documented in `frontend/FEEDBACK_COPY_STYLE_GUIDE.md`
 - Superuser created via `createsuperuser` gets ADMIN role automatically
 - Regular registrations via API get CUSTOMER role
 - Stock updates are atomic - no race conditions
