@@ -136,7 +136,7 @@ export function ProductPage() {
 
     try {
       await api.post("/cart/items/", {
-        product: product.id,
+        product_id: product.id,
         quantity,
       });
       await refreshCartCount();

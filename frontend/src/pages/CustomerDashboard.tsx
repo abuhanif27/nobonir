@@ -803,31 +803,26 @@ export function CustomerDashboard() {
 
   const addToCart = async (product: Product, sourceElement?: HTMLElement) => {
     const addToLocalDemoCart = () => {
-      const selectedProduct = products.find((item) => item.id === product.id);
-      if (!selectedProduct) {
-        return;
-      }
-
       const key = "nobonir_demo_cart";
       const existingRaw = localStorage.getItem(key);
       const existing = existingRaw ? JSON.parse(existingRaw) : [];
       const existingIndex = existing.findIndex(
-        (item: any) => item.product.id === selectedProduct.id,
+        (item: any) => item.product.id === product.id,
       );
 
       if (existingIndex >= 0) {
         existing[existingIndex].quantity += 1;
       } else {
         existing.push({
-          id: selectedProduct.id,
+          id: product.id,
           quantity: 1,
           isLocal: true,
           product: {
-            id: selectedProduct.id,
-            name: selectedProduct.name,
-            price: selectedProduct.price,
-            image: selectedProduct.image,
-            stock: selectedProduct.stock,
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            stock: product.stock,
           },
         });
       }
@@ -842,7 +837,7 @@ export function CustomerDashboard() {
 
     try {
       await api.post("/cart/items/", {
-        product: product.id,
+        product_id: product.id,
         quantity: 1,
       });
       await refreshCartCount();
