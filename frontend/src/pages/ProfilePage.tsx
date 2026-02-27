@@ -99,15 +99,32 @@ export function ProfilePage() {
 
   const loadAccountStats = async () => {
     try {
+      const getItems = (payload: any) => {
+        if (Array.isArray(payload)) {
+          return payload;
+        }
+
+        if (Array.isArray(payload?.results)) {
+          return payload.results;
+        }
+
+        return [];
+      };
+
       const [ordersRes, wishlistRes, cartRes] = await Promise.all([
         api.get("/orders/my/"),
         api.get("/cart/wishlist/"),
-        api.get("/cart/items/"),
+        api.get("/cart/"),
       ]);
+
+      const orderItems = getItems(ordersRes.data);
+      const wishlistItems = getItems(wishlistRes.data);
+      const cartItems = getItems(cartRes.data);
+
       setStats({
-        totalOrders: ordersRes.data.length || 0,
-        wishlistCount: wishlistRes.data.length || 0,
-        cartCount: cartRes.data.length || 0,
+        totalOrders: orderItems.length,
+        wishlistCount: wishlistItems.length,
+        cartCount: cartItems.length,
       });
     } catch (error) {
       console.error("Failed to load stats:", error);
