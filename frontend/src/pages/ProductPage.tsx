@@ -740,15 +740,11 @@ export function ProductPage() {
               </div>
 
               <div className="mt-3 space-y-3">
-                {reviewsLoading ? (
-                  <FlowStateBanner tone="info" message="Fetching reviews..." />
-                ) : reviewsError ? (
-                  <FlowStateBanner tone="error" message={reviewsError} />
-                ) : reviews.length === 0 ? (
+                {!reviewsLoading && !reviewsError && reviews.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Be the first to review this product.
                   </p>
-                ) : (
+                ) : !reviewsLoading && !reviewsError ? (
                   reviews.map((review) => (
                     <div key={review.id} className="rounded-lg border p-3">
                       <div className="flex items-center justify-between">
@@ -774,7 +770,7 @@ export function ProductPage() {
                       )}
                     </div>
                   ))
-                )}
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -986,7 +982,7 @@ export function ProductPage() {
                 </Button>
 
                 {isAuthenticated && hasReviewedProduct && (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       onClick={() => setIsEditingReview(!isEditingReview)}
                       variant="outline"
