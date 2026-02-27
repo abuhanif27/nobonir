@@ -101,3 +101,33 @@ class AdminUserGuardTests(APITestCase):
 		)
 
 		self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+	def test_non_super_admin_cannot_demote_admin_user(self):
+		non_super_admin = User.objects.create_user(
+			username="opsadmin",
+			email="opsadmin@example.com",
+			password="StrongPass123!",
+			role="ADMIN",
+			is_active=True,
+			is_staff=True,
+			is_superuser=False,
+		)
+		target_admin = User.objects.create_user(
+			username="targetadmin",
+			email="targetadmin@example.com",
+			password="StrongPass123!",
+			role="ADMIN",
+			is_active=True,
+			is_staff=True,
+			is_superuser=True,
+		)
+
+		self.client.force_authenticate(user=non_super_admin)
+		response = self.client.patch(
+			f"/api/accounts/users/{target_admin.id}/",
+			{"role": "CUSTOMER"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+		self.assertIn("super admin", response.data.get("detail", "").lower())

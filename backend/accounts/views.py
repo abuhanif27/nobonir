@@ -146,9 +146,20 @@ class UserAdminDetailAPIView(generics.RetrieveUpdateAPIView):
 
 	def patch(self, request, *args, **kwargs):
 		instance = self.get_object()
+		next_role = request.data.get("role", instance.role)
 
 		if request.user.id == instance.id and request.data.get("is_active") is False:
 			return Response({"detail": "You cannot deactivate your own account."}, status=status.HTTP_400_BAD_REQUEST)
+
+		is_demoting_admin = (
+			instance.role == User.Role.ADMIN
+			and next_role != User.Role.ADMIN
+		)
+		if is_demoting_admin and not request.user.is_superuser:
+			return Response(
+				{"detail": "Only a super admin can remove admin role from a user."},
+				status=status.HTTP_403_FORBIDDEN,
+			)
 
 		if self._would_break_last_main_admin(instance, request.data):
 			return Response(
