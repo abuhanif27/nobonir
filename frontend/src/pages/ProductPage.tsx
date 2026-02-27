@@ -8,7 +8,7 @@ import { useFeedback } from "@/lib/feedback";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FlowStateCard } from "@/components/ui/flow-state";
+import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -638,11 +638,19 @@ export function ProductPage() {
                 Customer Reviews
               </h3>
               {reviewsLoading ? (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Loading customer reviews...
-                </p>
+                <FlowStateBanner
+                  className="mt-3"
+                  tone="info"
+                  message="Loading customer reviews..."
+                />
               ) : reviewsError ? (
-                <p className="mt-1 text-sm text-rose-600">{reviewsError}</p>
+                <FlowStateBanner
+                  className="mt-3"
+                  tone="error"
+                  message={reviewsError}
+                  actionLabel="Retry Reviews"
+                  onAction={() => id && loadPublicReviews(String(id))}
+                />
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">
                   {reviews.length > 0
@@ -653,22 +661,14 @@ export function ProductPage() {
 
               <div className="mt-4 space-y-3">
                 {reviewsLoading ? (
-                  <p className="text-sm text-muted-foreground">
-                    Fetching reviews...
-                  </p>
+                  <FlowStateBanner tone="info" message="Fetching reviews..." />
                 ) : reviewsError ? (
-                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">
-                    <p className="text-sm text-rose-600">{reviewsError}</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={() => id && loadPublicReviews(String(id))}
-                    >
-                      Retry Reviews
-                    </Button>
-                  </div>
+                  <FlowStateBanner
+                    tone="error"
+                    message={reviewsError}
+                    actionLabel="Retry Reviews"
+                    onAction={() => id && loadPublicReviews(String(id))}
+                  />
                 ) : reviews.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Be the first to review this product.
@@ -782,30 +782,29 @@ export function ProductPage() {
               )}
 
               {checkingReviewEligibility && isAuthenticated && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Checking review eligibility...
-                </p>
+                <FlowStateBanner
+                  className="mt-3"
+                  tone="info"
+                  message="Checking review eligibility..."
+                />
               )}
 
               {isAuthenticated && myReviewsLoading && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Loading your review data...
-                </p>
+                <FlowStateBanner
+                  className="mt-3"
+                  tone="info"
+                  message="Loading your review data..."
+                />
               )}
 
               {isAuthenticated && myReviewsError && (
-                <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600">
-                  <p>{myReviewsError}</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={loadMyReviews}
-                  >
-                    Retry Review Status
-                  </Button>
-                </div>
+                <FlowStateBanner
+                  className="mt-3"
+                  tone="error"
+                  message={myReviewsError}
+                  actionLabel="Retry Review Status"
+                  onAction={loadMyReviews}
+                />
               )}
 
               <div className="mt-6 space-y-4">

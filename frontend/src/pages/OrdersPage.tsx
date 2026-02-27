@@ -5,7 +5,7 @@ import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FlowStateCard } from "@/components/ui/flow-state";
+import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
@@ -581,24 +581,19 @@ export function OrdersPage() {
                                 {order.status === "DELIVERED" && (
                                   <div className="sm:col-span-3 rounded-md border border-border p-3">
                                     {myReviewsLoading ? (
-                                      <p className="text-xs text-muted-foreground">
-                                        Loading review panel...
-                                      </p>
+                                      <FlowStateBanner
+                                        tone="info"
+                                        message="Loading review panel..."
+                                        className="text-xs"
+                                      />
                                     ) : myReviewsError ? (
-                                      <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <p className="text-xs text-rose-600">
-                                          {myReviewsError}
-                                        </p>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="outline"
-                                          className="h-7 px-2 text-xs"
-                                          onClick={loadMyReviews}
-                                        >
-                                          Retry
-                                        </Button>
-                                      </div>
+                                      <FlowStateBanner
+                                        tone="error"
+                                        message={myReviewsError}
+                                        actionLabel="Retry"
+                                        onAction={loadMyReviews}
+                                        className="text-xs"
+                                      />
                                     ) : hasReviewedProduct(item.product) ? (
                                       <div className="flex flex-wrap items-center justify-between gap-2">
                                         <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
