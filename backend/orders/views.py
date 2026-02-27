@@ -5,8 +5,8 @@ from django.db.models import Q
 from django.utils.dateparse import parse_date
 
 from common.permissions import IsAdminRole, IsCustomerRole
-from .models import Order
-from .serializers import AdminOrderSerializer, CheckoutSerializer, CouponValidateSerializer, OrderSerializer
+from .models import Coupon, Order
+from .serializers import AdminCouponSerializer, AdminOrderSerializer, CheckoutSerializer, CouponValidateSerializer, OrderSerializer
 from .services import create_order_from_cart, get_coupon_preview
 
 
@@ -98,3 +98,25 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
 		instance.status = next_status
 		instance.save(update_fields=["status", "updated_at"])
 		return Response(self.get_serializer(instance).data)
+
+
+class AdminCouponViewSet(viewsets.ModelViewSet):
+	permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+	queryset = Coupon.objects.all().order_by("-created_at")
+	serializer_class = AdminCouponSerializer
+	http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+	def get_queryset(self):
+		queryset = self.queryset
+		status_filter = self.request.query_params.get("status", "").strip().lower()
+		search = self.request.query_params.get("search", "").strip()
+
+		if status_filter == "active":
+			queryset = queryset.filter(is_active=True)
+		elif status_filter == "inactive":
+			queryset = queryset.filter(is_active=False)
+
+		if search:
+			queryset = queryset.filter(code__icontains=search)
+
+		return queryset

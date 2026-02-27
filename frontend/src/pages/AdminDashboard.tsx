@@ -56,6 +56,27 @@ interface AdminOrder {
   created_at: string;
 }
 
+interface AdminCoupon {
+  id: number;
+  code: string;
+  discount_percent: number;
+  expires_at: string;
+  is_active: boolean;
+  is_expired: boolean;
+  usage_count: number;
+}
+
+interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: "ADMIN" | "CUSTOMER";
+  is_active: boolean;
+  is_staff: boolean;
+}
+
 const ORDER_STATUSES = [
   "PENDING",
   "PAID",
@@ -79,6 +100,8 @@ export function AdminDashboard() {
     search: "",
   });
   const [savingOrderId, setSavingOrderId] = useState<number | null>(null);
+  const [savingCouponId, setSavingCouponId] = useState<number | null>(null);
+  const [savingUserId, setSavingUserId] = useState<number | null>(null);
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
   const [orderStatusDrafts, setOrderStatusDrafts] = useState<
     Record<number, string>
@@ -87,10 +110,22 @@ export function AdminDashboard() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [newCoupon, setNewCoupon] = useState({
+    code: "",
+    discount_percent: 10,
+    expires_at: "",
+    is_active: true,
+  });
 
   useEffect(() => {
     loadProducts();
     loadOrders();
+    loadCoupons();
+    loadUsers();
 
     const storedNotice = sessionStorage.getItem(ADMIN_ORDER_NOTICE_KEY);
     if (storedNotice) {
@@ -178,6 +213,32 @@ export function AdminDashboard() {
     }
   };
 
+  const loadCoupons = async () => {
+    setLoadingCoupons(true);
+    try {
+      const response = await api.get("/orders/admin/coupons/");
+      setCoupons(response.data.results || response.data);
+    } catch (error) {
+      console.error("Failed to load coupons:", error);
+      setCoupons([]);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await api.get("/accounts/users/");
+      setUsers(response.data.results || response.data);
+    } catch (error) {
+      console.error("Failed to load users:", error);
+      setUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
   const deleteProduct = async (id: number) => {
     if (!confirm("Are you sure you want to delete this product?")) {
       return;
@@ -237,6 +298,80 @@ export function AdminDashboard() {
         ? current.filter((id) => id !== orderId)
         : [...current, orderId],
     );
+  };
+
+  const createCoupon = async () => {
+    if (!newCoupon.code.trim() || !newCoupon.expires_at) {
+      pushOrderNotice("error", "Coupon code and expiry date are required.");
+      return;
+    }
+
+    try {
+      await api.post("/orders/admin/coupons/", {
+        ...newCoupon,
+        code: newCoupon.code.trim().toUpperCase(),
+      });
+      setNewCoupon({
+        code: "",
+        discount_percent: 10,
+        expires_at: "",
+        is_active: true,
+      });
+      pushOrderNotice("success", "Coupon created successfully.");
+      loadCoupons();
+    } catch (error: any) {
+      pushOrderNotice(
+        "error",
+        error.response?.data?.detail || "Failed to create coupon.",
+      );
+    }
+  };
+
+  const updateCoupon = async (
+    couponId: number,
+    payload: Partial<AdminCoupon>,
+  ) => {
+    setSavingCouponId(couponId);
+    try {
+      const response = await api.patch(
+        `/orders/admin/coupons/${couponId}/`,
+        payload,
+      );
+      setCoupons((current) =>
+        current.map((coupon) =>
+          coupon.id === couponId ? response.data : coupon,
+        ),
+      );
+      pushOrderNotice("success", `Coupon ${response.data.code} updated.`);
+    } catch (error: any) {
+      pushOrderNotice(
+        "error",
+        error.response?.data?.detail || "Failed to update coupon.",
+      );
+    } finally {
+      setSavingCouponId(null);
+    }
+  };
+
+  const updateUser = async (userId: number, payload: Partial<AdminUser>) => {
+    setSavingUserId(userId);
+    try {
+      const response = await api.patch(`/accounts/users/${userId}/`, payload);
+      setUsers((current) =>
+        current.map((u) => (u.id === userId ? response.data : u)),
+      );
+      pushOrderNotice(
+        "success",
+        `Permissions updated for ${response.data.email}.`,
+      );
+    } catch (error: any) {
+      pushOrderNotice(
+        "error",
+        error.response?.data?.detail || "Failed to update user permissions.",
+      );
+    } finally {
+      setSavingUserId(null);
+    }
   };
 
   const lowStockCount = products.filter((p) => p.stock < 10).length;
@@ -547,6 +682,235 @@ export function AdminDashboard() {
                         </Fragment>
                       );
                     })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Coupon Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 grid gap-3 md:grid-cols-5">
+              <input
+                type="text"
+                value={newCoupon.code}
+                onChange={(event) =>
+                  setNewCoupon((current) => ({
+                    ...current,
+                    code: event.target.value.toUpperCase(),
+                  }))
+                }
+                placeholder="Coupon code"
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              />
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={newCoupon.discount_percent}
+                onChange={(event) =>
+                  setNewCoupon((current) => ({
+                    ...current,
+                    discount_percent: Number(event.target.value || 0),
+                  }))
+                }
+                placeholder="Discount %"
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              />
+              <input
+                type="datetime-local"
+                value={newCoupon.expires_at}
+                onChange={(event) =>
+                  setNewCoupon((current) => ({
+                    ...current,
+                    expires_at: event.target.value,
+                  }))
+                }
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+              />
+              <label className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={newCoupon.is_active}
+                  onChange={(event) =>
+                    setNewCoupon((current) => ({
+                      ...current,
+                      is_active: event.target.checked,
+                    }))
+                  }
+                />
+                Active coupon
+              </label>
+              <Button size="sm" onClick={createCoupon}>
+                Create Coupon
+              </Button>
+            </div>
+
+            {loadingCoupons ? (
+              <p className="text-center text-gray-600">Loading coupons...</p>
+            ) : coupons.length === 0 ? (
+              <p className="text-center text-muted-foreground py-6">
+                No coupons found.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Discount</TableHead>
+                      <TableHead>Uses</TableHead>
+                      <TableHead>Expiry</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {coupons.map((coupon) => (
+                      <TableRow key={coupon.id}>
+                        <TableCell className="font-semibold">
+                          {coupon.code}
+                        </TableCell>
+                        <TableCell>{coupon.discount_percent}%</TableCell>
+                        <TableCell>{coupon.usage_count}</TableCell>
+                        <TableCell>
+                          {new Date(coupon.expires_at).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <span className="rounded border px-2 py-1 text-xs font-semibold">
+                            {coupon.is_active
+                              ? coupon.is_expired
+                                ? "EXPIRED"
+                                : "ACTIVE"
+                              : "INACTIVE"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingCouponId === coupon.id}
+                              onClick={() =>
+                                updateCoupon(coupon.id, {
+                                  is_active: !coupon.is_active,
+                                })
+                              }
+                            >
+                              {coupon.is_active ? "Disable" : "Enable"}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>User & Permission Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingUsers ? (
+              <p className="text-center text-gray-600">Loading users...</p>
+            ) : users.length === 0 ? (
+              <p className="text-center text-muted-foreground py-6">
+                No users found.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Account</TableHead>
+                      <TableHead>Staff</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((managedUser) => (
+                      <TableRow key={managedUser.id}>
+                        <TableCell>
+                          {`${managedUser.first_name} ${managedUser.last_name}`.trim() ||
+                            managedUser.username}
+                        </TableCell>
+                        <TableCell>{managedUser.email}</TableCell>
+                        <TableCell>
+                          <select
+                            value={managedUser.role}
+                            onChange={(event) =>
+                              updateUser(managedUser.id, {
+                                role: event.target.value as
+                                  | "ADMIN"
+                                  | "CUSTOMER",
+                              })
+                            }
+                            className="h-8 rounded-md border bg-background px-2 text-xs"
+                            disabled={savingUserId === managedUser.id}
+                          >
+                            <option value="CUSTOMER">CUSTOMER</option>
+                            <option value="ADMIN">ADMIN</option>
+                          </select>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`rounded border px-2 py-1 text-xs font-semibold ${
+                              managedUser.is_active
+                                ? "text-emerald-600"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {managedUser.is_active ? "ACTIVE" : "INACTIVE"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {managedUser.is_staff ? "Yes" : "No"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingUserId === managedUser.id}
+                              onClick={() =>
+                                updateUser(managedUser.id, {
+                                  is_active: !managedUser.is_active,
+                                })
+                              }
+                            >
+                              {managedUser.is_active
+                                ? "Deactivate"
+                                : "Activate"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingUserId === managedUser.id}
+                              onClick={() =>
+                                updateUser(managedUser.id, {
+                                  is_staff: !managedUser.is_staff,
+                                })
+                              }
+                            >
+                              {managedUser.is_staff
+                                ? "Unset Staff"
+                                : "Make Staff"}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>

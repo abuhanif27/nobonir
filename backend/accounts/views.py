@@ -1,11 +1,20 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from common.permissions import IsAdminRole
-from .serializers import EmailTokenObtainSerializer, PasswordChangeSerializer, ProfileUpdateSerializer, RegisterSerializer, UserSerializer
+from .serializers import (
+	AdminUserSerializer,
+	AdminUserUpdateSerializer,
+	EmailTokenObtainSerializer,
+	PasswordChangeSerializer,
+	ProfileUpdateSerializer,
+	RegisterSerializer,
+	UserSerializer,
+)
 
 User = get_user_model()
 
@@ -72,6 +81,45 @@ class PasswordChangeAPIView(APIView):
 
 
 class UserListAPIView(generics.ListAPIView):
-	serializer_class = UserSerializer
+	serializer_class = AdminUserSerializer
 	permission_classes = [permissions.IsAuthenticated, IsAdminRole]
 	queryset = User.objects.all().order_by("id")
+
+	def get_queryset(self):
+		queryset = self.queryset
+		search = self.request.query_params.get("search", "").strip()
+		role = self.request.query_params.get("role", "").strip().upper()
+		status_filter = self.request.query_params.get("status", "").strip().lower()
+
+		if search:
+			queryset = queryset.filter(
+				Q(email__icontains=search)
+				| Q(first_name__icontains=search)
+				| Q(last_name__icontains=search)
+				| Q(username__icontains=search)
+			)
+
+		if role in {"ADMIN", "CUSTOMER"}:
+			queryset = queryset.filter(role=role)
+
+		if status_filter == "active":
+			queryset = queryset.filter(is_active=True)
+		elif status_filter == "inactive":
+			queryset = queryset.filter(is_active=False)
+
+		return queryset
+
+
+class UserAdminDetailAPIView(generics.RetrieveUpdateAPIView):
+	permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+	queryset = User.objects.all()
+	serializer_class = AdminUserUpdateSerializer
+
+	def patch(self, request, *args, **kwargs):
+		instance = self.get_object()
+
+		if request.user.id == instance.id and request.data.get("is_active") is False:
+			return Response({"detail": "You cannot deactivate your own account."}, status=status.HTTP_400_BAD_REQUEST)
+
+		response = super().patch(request, *args, **kwargs)
+		return Response(AdminUserSerializer(self.get_object()).data, status=response.status_code)

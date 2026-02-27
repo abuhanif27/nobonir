@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Order, OrderItem
+from .models import Coupon, CouponUsage, Order, OrderItem
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -81,3 +81,36 @@ class AdminOrderSerializer(serializers.ModelSerializer):
 
     def get_item_count(self, obj):
         return sum(item.quantity for item in obj.items.all())
+
+
+class AdminCouponSerializer(serializers.ModelSerializer):
+    usage_count = serializers.SerializerMethodField()
+    is_expired = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Coupon
+        fields = [
+            "id",
+            "code",
+            "discount_percent",
+            "expires_at",
+            "is_active",
+            "is_expired",
+            "usage_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "usage_count", "is_expired", "created_at"]
+
+    def validate_code(self, value):
+        return value.strip().upper()
+
+    def validate_discount_percent(self, value):
+        if value < 1 or value > 100:
+            raise serializers.ValidationError("Discount percent must be between 1 and 100")
+        return value
+
+    def get_usage_count(self, obj):
+        return CouponUsage.objects.filter(coupon=obj).count()
+
+    def get_is_expired(self, obj):
+        return obj.is_expired

@@ -94,3 +94,33 @@ class EmailTokenObtainSerializer(serializers.Serializer):
             "access": str(refresh.access_token),
             "user": UserSerializer(user).data,
         }
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "email", "username", "is_superuser", "date_joined"]
+
+
+class AdminUserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["role", "is_active", "is_staff"]
+
+    def validate_role(self, value):
+        valid_roles = {choice[0] for choice in User.Role.choices}
+        if value not in valid_roles:
+            raise serializers.ValidationError("Invalid role")
+        return value
