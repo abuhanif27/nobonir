@@ -1,12 +1,28 @@
 import uuid
+import os
+from pathlib import Path
 
 import stripe
 from django.conf import settings
 from django.db import transaction
+from dotenv import load_dotenv
 
 from orders.models import Order
 from products.models import Product
 from .models import Payment
+
+
+ENV_PATH = Path(__file__).resolve().parents[1].parent / ".env"
+
+
+def get_live_stripe_secret_key() -> str:
+    load_dotenv(ENV_PATH, override=True)
+    return (os.getenv("STRIPE_SECRET_KEY") or settings.STRIPE_SECRET_KEY or "").strip()
+
+
+def get_live_stripe_webhook_secret() -> str:
+    load_dotenv(ENV_PATH, override=True)
+    return (os.getenv("STRIPE_WEBHOOK_SECRET") or settings.STRIPE_WEBHOOK_SECRET or "").strip()
 
 
 @transaction.atomic
@@ -43,13 +59,14 @@ def process_payment(order: Order, method: str, success: bool, transaction_id: st
 
 
 def create_stripe_checkout_session(order: Order, success_url: str, cancel_url: str):
-    if not settings.STRIPE_SECRET_KEY:
+    stripe_secret_key = get_live_stripe_secret_key()
+    if not stripe_secret_key:
         raise ValueError("Stripe is not configured")
 
     if order.status not in [Order.Status.PENDING, Order.Status.CANCELLED]:
         raise ValueError("Order is not payable in current state")
 
-    stripe.api_key = settings.STRIPE_SECRET_KEY
+    stripe.api_key = stripe_secret_key
 
     line_items = [
         {

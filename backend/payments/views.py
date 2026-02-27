@@ -11,6 +11,8 @@ from .serializers import PaymentSerializer, PaymentSimulationSerializer, StripeC
 from .services import (
 	create_cod_payment,
 	create_stripe_checkout_session,
+	get_live_stripe_secret_key,
+	get_live_stripe_webhook_secret,
 	handle_stripe_checkout_completed,
 	handle_stripe_checkout_expired,
 	process_payment,
@@ -69,7 +71,10 @@ class StripeWebhookAPIView(APIView):
 	authentication_classes = []
 
 	def post(self, request):
-		if not settings.STRIPE_SECRET_KEY or not settings.STRIPE_WEBHOOK_SECRET:
+		stripe_secret_key = get_live_stripe_secret_key()
+		webhook_secret = get_live_stripe_webhook_secret()
+
+		if not stripe_secret_key or not webhook_secret:
 			return Response({"detail": "Stripe webhook is not configured"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 		payload = request.body
@@ -78,13 +83,13 @@ class StripeWebhookAPIView(APIView):
 		if not signature:
 			return Response({"detail": "Missing stripe signature"}, status=status.HTTP_400_BAD_REQUEST)
 
-		stripe.api_key = settings.STRIPE_SECRET_KEY
+		stripe.api_key = stripe_secret_key
 
 		try:
 			event = stripe.Webhook.construct_event(
 				payload=payload,
 				sig_header=signature,
-				secret=settings.STRIPE_WEBHOOK_SECRET,
+				secret=webhook_secret,
 			)
 		except (ValueError, stripe.error.SignatureVerificationError):
 			return Response({"detail": "Invalid webhook payload"}, status=status.HTTP_400_BAD_REQUEST)
