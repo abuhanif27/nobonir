@@ -43,6 +43,15 @@ interface ProductReview {
   created_at: string;
 }
 
+interface OrderItemSummary {
+  product: number;
+}
+
+interface OrderSummary {
+  status: string;
+  items: OrderItemSummary[];
+}
+
 export function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -61,6 +70,9 @@ export function ProductPage() {
   const [savingReview, setSavingReview] = useState(false);
   const [isEditingReview, setIsEditingReview] = useState(false);
   const [userReviewId, setUserReviewId] = useState<number | null>(null);
+  const [canReviewProduct, setCanReviewProduct] = useState(false);
+  const [checkingReviewEligibility, setCheckingReviewEligibility] =
+    useState(false);
   const [productLoadError, setProductLoadError] = useState<
     "not-found" | "unavailable" | null
   >(null);
@@ -195,6 +207,43 @@ export function ProductPage() {
     loadMyReviews();
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    const checkReviewEligibility = async () => {
+      if (!isAuthenticated || !id) {
+        setCanReviewProduct(false);
+        setCheckingReviewEligibility(false);
+        return;
+      }
+
+      setCheckingReviewEligibility(true);
+
+      try {
+        const response = await api.get("/orders/my/");
+        const orders = Array.isArray(response.data)
+          ? (response.data as OrderSummary[])
+          : [];
+        const currentProduct = Number(id);
+
+        const eligible = orders.some(
+          (order) =>
+            String(order.status).toUpperCase() === "DELIVERED" &&
+            Array.isArray(order.items) &&
+            order.items.some(
+              (item) => Number(item.product) === Number(currentProduct),
+            ),
+        );
+
+        setCanReviewProduct(eligible);
+      } catch {
+        setCanReviewProduct(false);
+      } finally {
+        setCheckingReviewEligibility(false);
+      }
+    };
+
+    checkReviewEligibility();
+  }, [isAuthenticated, id]);
+
   const currentProductId = Number(product?.id || 0);
   const hasReviewedProduct = myReviews.some(
     (review) => Number(review.product) === currentProductId,
@@ -277,6 +326,18 @@ export function ProductPage() {
 
   const submitReview = async () => {
     if (!product) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setReviewNotice("Please sign in to submit a review.");
+      return;
+    }
+
+    if (!hasReviewedProduct && !canReviewProduct) {
+      setReviewNotice(
+        "You can review only products from your delivered orders.",
+      );
       return;
     }
 
@@ -596,12 +657,22 @@ export function ProductPage() {
                 </div>
               )}
 
-              {isAuthenticated && !hasReviewedProduct && (
+              {isAuthenticated && !hasReviewedProduct && !canReviewProduct && (
                 <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                   <p className="font-medium">Verified purchase required</p>
                   <p className="mt-1">
                     You can review this product after receiving a delivered
                     order containing it.
+                  </p>
+                </div>
+              )}
+
+              {isAuthenticated && !hasReviewedProduct && canReviewProduct && (
+                <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+                  <p className="font-medium">✓ You can review this product</p>
+                  <p className="mt-1">
+                    Your delivered order includes this item. Share your feedback
+                    below.
                   </p>
                 </div>
               )}
@@ -615,10 +686,22 @@ export function ProductPage() {
                 </div>
               )}
 
-              {reviewNotice && !isAuthenticated && !hasReviewedProduct && (
-                <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+              {reviewNotice && (
+                <div
+                  className={`mt-3 rounded-lg px-4 py-3 text-sm ${
+                    /successfully/i.test(reviewNotice)
+                      ? "border border-green-500/30 bg-green-500/10 text-green-300"
+                      : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                  }`}
+                >
                   {reviewNotice}
                 </div>
+              )}
+
+              {checkingReviewEligibility && isAuthenticated && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Checking review eligibility...
+                </p>
               )}
 
               <div className="mt-6 space-y-4">
@@ -653,7 +736,11 @@ export function ProductPage() {
                             onMouseEnter={() => setReviewHoverRating(value)}
                             onMouseLeave={() => setReviewHoverRating(0)}
                             onClick={() => setReviewRating(value)}
-                            disabled={!isAuthenticated || savingReview}
+                            disabled={
+                              !isAuthenticated ||
+                              savingReview ||
+                              (!hasReviewedProduct && !canReviewProduct)
+                            }
                             className="rounded-lg p-2 transition-transform duration-200 hover:scale-125 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
                           >
@@ -690,13 +777,21 @@ export function ProductPage() {
                     onChange={(event) =>
                       setReviewComment(event.target.value.slice(0, 500))
                     }
-                    disabled={!isAuthenticated || savingReview}
+                    disabled={
+                      !isAuthenticated ||
+                      savingReview ||
+                      (!hasReviewedProduct && !canReviewProduct)
+                    }
                     className="mt-2"
                   />
                 </div>
                 <Button
                   onClick={submitReview}
-                  disabled={!isAuthenticated || savingReview}
+                  disabled={
+                    !isAuthenticated ||
+                    savingReview ||
+                    (!hasReviewedProduct && !canReviewProduct)
+                  }
                   className="w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
                 >
                   {savingReview
@@ -705,9 +800,13 @@ export function ProductPage() {
                       : "Submitting..."
                     : isEditingReview
                       ? "Update Review"
-                      : isAuthenticated
-                        ? "Submit Review"
-                        : "Login to Review"}
+                      : isAuthenticated &&
+                          !hasReviewedProduct &&
+                          !canReviewProduct
+                        ? "Delivered Order Required"
+                        : isAuthenticated
+                          ? "Submit Review"
+                          : "Login to Review"}
                 </Button>
 
                 {isAuthenticated && hasReviewedProduct && (
