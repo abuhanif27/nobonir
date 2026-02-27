@@ -1049,22 +1049,6 @@ export function AdminDashboard() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      className="gap-1"
-                                      onClick={() =>
-                                        downloadAdminInvoice(order.id)
-                                      }
-                                      disabled={
-                                        downloadingInvoiceOrderId === order.id
-                                      }
-                                    >
-                                      <Download className="h-3.5 w-3.5" />
-                                      {downloadingInvoiceOrderId === order.id
-                                        ? "Downloading..."
-                                        : "Invoice"}
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
                                       onClick={() =>
                                         toggleOrderExpand(order.id)
                                       }
