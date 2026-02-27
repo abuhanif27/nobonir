@@ -510,6 +510,18 @@ export function AdminDashboard() {
   ];
   const formatRate = (value: number | null) =>
     value === null ? "—" : `${value.toFixed(2)}%`;
+  const getRateToneClass = (value: number | null) => {
+    if (value === null) {
+      return "text-muted-foreground";
+    }
+    if (value >= 60) {
+      return "text-emerald-600 dark:text-emerald-400";
+    }
+    if (value >= 30) {
+      return "text-amber-600 dark:text-amber-400";
+    }
+    return "text-rose-600 dark:text-rose-400";
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -664,7 +676,11 @@ export function AdminDashboard() {
                         <p className="text-2xl font-semibold">
                           {analyticsSummary.totals.add_to_cart ?? 0}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p
+                          className={`text-xs ${getRateToneClass(
+                            analyticsSummary.rates.view_to_add_to_cart_pct,
+                          )}`}
+                        >
                           {formatRate(
                             analyticsSummary.rates.view_to_add_to_cart_pct,
                           )}{" "}
@@ -678,7 +694,12 @@ export function AdminDashboard() {
                         <p className="text-2xl font-semibold">
                           {analyticsSummary.totals.begin_checkout ?? 0}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p
+                          className={`text-xs ${getRateToneClass(
+                            analyticsSummary.rates
+                              .add_to_cart_to_begin_checkout_pct,
+                          )}`}
+                        >
                           {formatRate(
                             analyticsSummary.rates
                               .add_to_cart_to_begin_checkout_pct,
@@ -693,7 +714,12 @@ export function AdminDashboard() {
                         <p className="text-2xl font-semibold">
                           {analyticsSummary.totals.order_created ?? 0}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p
+                          className={`text-xs ${getRateToneClass(
+                            analyticsSummary.rates
+                              .begin_checkout_to_order_created_pct,
+                          )}`}
+                        >
                           {formatRate(
                             analyticsSummary.rates
                               .begin_checkout_to_order_created_pct,
@@ -708,7 +734,12 @@ export function AdminDashboard() {
                         <p className="text-2xl font-semibold">
                           {analyticsSummary.totals.payment_success ?? 0}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p
+                          className={`text-xs ${getRateToneClass(
+                            analyticsSummary.rates
+                              .order_created_to_payment_success_pct,
+                          )}`}
+                        >
                           {formatRate(
                             analyticsSummary.rates
                               .order_created_to_payment_success_pct,
@@ -762,12 +793,21 @@ export function AdminDashboard() {
                                   <TableCell>
                                     {item.counts.payment_success ?? 0}
                                   </TableCell>
-                                  <TableCell>
+                                  <TableCell
+                                    className={getRateToneClass(
+                                      item.rates.view_to_add_to_cart_pct,
+                                    )}
+                                  >
                                     {formatRate(
                                       item.rates.view_to_add_to_cart_pct,
                                     )}
                                   </TableCell>
-                                  <TableCell>
+                                  <TableCell
+                                    className={getRateToneClass(
+                                      item.rates
+                                        .order_created_to_payment_success_pct,
+                                    )}
+                                  >
                                     {formatRate(
                                       item.rates
                                         .order_created_to_payment_success_pct,
