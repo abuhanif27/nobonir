@@ -636,13 +636,19 @@ export function ProductPage() {
                       }`}
                       onClick={() => setSelectedImage(image)}
                       onKeyDown={(event) => {
-                        if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                        if (
+                          event.key === "ArrowRight" ||
+                          event.key === "ArrowDown"
+                        ) {
                           event.preventDefault();
                           const nextIndex = isLast ? 0 : index + 1;
                           setSelectedImage(galleryImages[nextIndex]);
                         }
 
-                        if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                        if (
+                          event.key === "ArrowLeft" ||
+                          event.key === "ArrowUp"
+                        ) {
                           event.preventDefault();
                           const prevIndex = isFirst
                             ? galleryImages.length - 1
