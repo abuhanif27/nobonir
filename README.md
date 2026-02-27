@@ -73,6 +73,24 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
    FRONTEND_BASE_URL=http://localhost:5173
    ```
 
+   Optional invoice currency settings in `backend/.env`:
+
+   ```env
+   # Base currency used by stored order amounts
+   INVOICE_BASE_CURRENCY=USD
+
+   # Override rates using CSV pairs (USD -> target currency)
+   INVOICE_USD_TO_RATES=BDT:121.50,INR:83.20,EUR:0.93
+
+   # Or override with JSON (takes precedence over defaults, can be used instead of CSV)
+   INVOICE_USD_TO_RATES_JSON={"BDT":"121.50","INR":"83.20","EUR":"0.93"}
+   ```
+
+   Notes:
+   - Invoices are converted from `INVOICE_BASE_CURRENCY` to the user region currency.
+   - If no geo header is available, local/private IP defaults to `BDT` and otherwise falls back to configured defaults.
+   - Rates are static values from env and should be updated periodically for accuracy.
+
 4. Run migrations:
 
    ```bash
