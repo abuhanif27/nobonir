@@ -1,0 +1,16 @@
+{
+  "total_raw_bytes": 477869,
+  "total_gzip_bytes": 130554,
+  "files": [
+    {
+      "file": "assets/index-CSKiaH12.css",
+      "raw_bytes": 69305,
+      "gzip_bytes": 10883
+    },
+    {
+      "file": "assets/index-DoMEj1kH.js",
+      "raw_bytes": 408564,
+      "gzip_bytes": 119671
+    }
+  ]
+}

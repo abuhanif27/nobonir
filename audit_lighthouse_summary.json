@@ -1,0 +1,28 @@
+{
+  "home": {
+    "url": "http://127.0.0.1:4173/",
+    "performance": 93,
+    "accessibility": 94,
+    "best_practices": 96,
+    "seo": 82,
+    "fcp_ms": 417.665,
+    "lcp_ms": 1719.8089999999997,
+    "tbt_ms": 0,
+    "cls": 0,
+    "si_ms": 1187.6119301664633,
+    "tti_ms": 417.665
+  },
+  "product": {
+    "url": "http://127.0.0.1:4173/product/1",
+    "performance": 100,
+    "accessibility": 93,
+    "best_practices": 96,
+    "seo": 80,
+    "fcp_ms": 376.47075,
+    "lcp_ms": 503.47075,
+    "tbt_ms": 0,
+    "cls": 0,
+    "si_ms": 376.47075,
+    "tti_ms": 376.47075
+  }
+}

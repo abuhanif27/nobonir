@@ -1,0 +1,62 @@
+{
+  "products_list": {
+    "url": "http://127.0.0.1:8000/api/products/",
+    "samples": 30,
+    "status_code_set": [
+      "200"
+    ],
+    "avg_ms": 9.36,
+    "median_ms": 8.08,
+    "p95_ms": 12.58,
+    "min_ms": 6.1,
+    "max_ms": 41.5
+  },
+  "categories_list": {
+    "url": "http://127.0.0.1:8000/api/products/categories/",
+    "samples": 30,
+    "status_code_set": [
+      "200"
+    ],
+    "avg_ms": 5.82,
+    "median_ms": 5.2,
+    "p95_ms": 8.2,
+    "min_ms": 3.99,
+    "max_ms": 10.66
+  },
+  "reviews_list_product_1": {
+    "url": "http://127.0.0.1:8000/api/reviews/?product=1",
+    "samples": 30,
+    "status_code_set": [
+      "200"
+    ],
+    "avg_ms": 8.17,
+    "median_ms": 7.95,
+    "p95_ms": 10.39,
+    "min_ms": 6.29,
+    "max_ms": 12.31
+  },
+  "cart_overview_guest": {
+    "url": "http://127.0.0.1:8000/api/cart/",
+    "samples": 30,
+    "status_code_set": [
+      "200"
+    ],
+    "avg_ms": 25.71,
+    "median_ms": 25.0,
+    "p95_ms": 29.28,
+    "min_ms": 22.47,
+    "max_ms": 33.25
+  },
+  "swagger_docs": {
+    "url": "http://127.0.0.1:8000/api/docs/swagger/",
+    "samples": 30,
+    "status_code_set": [
+      "200"
+    ],
+    "avg_ms": 4.26,
+    "median_ms": 3.58,
+    "p95_ms": 6.49,
+    "min_ms": 2.72,
+    "max_ms": 9.53
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "counts": {
+    "customer_users": 2,
+    "admin_users": 1,
+    "all_carts": 336,
+    "guest_carts": 335,
+    "authenticated_carts": 1,
+    "all_cart_items": 0,
+    "nonempty_carts": 0,
+    "nonempty_guest_carts": 0,
+    "nonempty_authenticated_carts": 0,
+    "orders_total": 10,
+    "orders_paid_or_beyond": 5,
+    "orders_delivered": 2,
+    "orders_cancelled": 1,
+    "reviews_total": 2,
+    "eligible_review_user_product_pairs": 2,
+    "reviewed_eligible_user_product_pairs": 2
+  },
+  "funnel_rates": {
+    "cart_to_order_rate_overall_pct": null,
+    "authed_cart_to_order_rate_pct": null,
+    "order_to_paid_rate_pct": 50.0,
+    "order_to_delivered_rate_pct": 20.0
+  },
+  "review_completion": {
+    "completion_rate_pct": 100.0
+  }
+}
