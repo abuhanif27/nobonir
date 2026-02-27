@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AdminOrderInvoicePDFAPIView,
     AdminCouponViewSet,
     AdminOrderViewSet,
     CheckoutAPIView,
@@ -21,6 +22,7 @@ urlpatterns = [
         "admin/coupons/<int:pk>/",
         AdminCouponViewSet.as_view({"get": "retrieve", "patch": "partial_update", "delete": "destroy"}),
     ),
+    path("admin/<int:order_id>/invoice.pdf/", AdminOrderInvoicePDFAPIView.as_view()),
     path("admin/", AdminOrderViewSet.as_view({"get": "list"})),
     path("admin/<int:pk>/", AdminOrderViewSet.as_view({"patch": "partial_update", "get": "retrieve"})),
 ]

@@ -97,6 +97,13 @@ class OrderInvoiceAPITests(APITestCase):
 	def setUp(self):
 		self.user = User.objects.create_user(username="invoice-user", email="invoice@example.com", password="Secret123!")
 		self.other_user = User.objects.create_user(username="other-user", email="other@example.com", password="Secret123!")
+		self.admin_user = User.objects.create_user(
+			username="admin-user",
+			email="admin@example.com",
+			password="Secret123!",
+			role="ADMIN",
+			is_staff=True,
+		)
 		category = Category.objects.create(name="Books", slug="books")
 		product = Product.objects.create(
 			category=category,
@@ -160,3 +167,21 @@ class OrderInvoiceAPITests(APITestCase):
 		response = self.client.get(f"/api/orders/my/{self.order.id}/invoice.pdf/")
 
 		self.assertEqual(response.status_code, 404)
+
+	def test_admin_can_download_any_order_invoice_pdf(self):
+		self.client.force_authenticate(user=self.admin_user)
+		response = self.client.get(f"/api/orders/admin/{self.order.id}/invoice.pdf/")
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response["Content-Type"], "application/pdf")
+		self.assertIn(
+			f'attachment; filename="invoice-order-{self.order.id}.pdf"',
+			response["Content-Disposition"],
+		)
+		self.assertTrue(response.content.startswith(b"%PDF"))
+
+	def test_customer_cannot_access_admin_invoice_pdf(self):
+		self.client.force_authenticate(user=self.user)
+		response = self.client.get(f"/api/orders/admin/{self.order.id}/invoice.pdf/")
+
+		self.assertEqual(response.status_code, 403)

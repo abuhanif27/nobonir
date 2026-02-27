@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LogOut, Plus } from "lucide-react";
+import { Download, LogOut, Plus } from "lucide-react";
 
 interface Product {
   id: number;
@@ -139,6 +139,9 @@ export function AdminDashboard() {
     search: "",
   });
   const [savingOrderId, setSavingOrderId] = useState<number | null>(null);
+  const [downloadingInvoiceOrderId, setDownloadingInvoiceOrderId] = useState<
+    number | null
+  >(null);
   const [savingCouponId, setSavingCouponId] = useState<number | null>(null);
   const [savingUserId, setSavingUserId] = useState<number | null>(null);
   const [expandedOrderIds, setExpandedOrderIds] = useState<number[]>([]);
@@ -375,6 +378,36 @@ export function AdminDashboard() {
         ? current.filter((id) => id !== orderId)
         : [...current, orderId],
     );
+  };
+
+  const downloadAdminInvoice = async (orderId: number) => {
+    setDownloadingInvoiceOrderId(orderId);
+    try {
+      const response = await api.get(`/orders/admin/${orderId}/invoice.pdf/`, {
+        responseType: "blob",
+      });
+      const blob = response.data as Blob;
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      const contentDisposition = String(
+        response.headers["content-disposition"] || "",
+      );
+      const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+      anchor.download = filenameMatch?.[1] || `invoice-order-${orderId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(url);
+      pushOrderNotice("success", `Invoice downloaded for order #${orderId}.`);
+    } catch (error: any) {
+      pushOrderNotice(
+        "error",
+        error.response?.data?.detail || "Failed to download invoice.",
+      );
+    } finally {
+      setDownloadingInvoiceOrderId(null);
+    }
   };
 
   const createCoupon = async () => {
@@ -1012,6 +1045,22 @@ export function AdminDashboard() {
                                       {savingOrderId === order.id
                                         ? "Saving..."
                                         : "Save"}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1"
+                                      onClick={() =>
+                                        downloadAdminInvoice(order.id)
+                                      }
+                                      disabled={
+                                        downloadingInvoiceOrderId === order.id
+                                      }
+                                    >
+                                      <Download className="h-3.5 w-3.5" />
+                                      {downloadingInvoiceOrderId === order.id
+                                        ? "Downloading..."
+                                        : "Invoice"}
                                     </Button>
                                     <Button
                                       variant="outline"
