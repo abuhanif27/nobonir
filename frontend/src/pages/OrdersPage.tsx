@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlowStateCard } from "@/components/ui/flow-state";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
@@ -128,6 +129,7 @@ const getStatusIcon = (status: OrderStatus) => {
 };
 
 export function OrdersPage() {
+  const navigate = useNavigate();
   const { formatPrice } = useCurrency();
   const { showError, showSuccess } = useFeedback();
   const location = useLocation();
@@ -388,37 +390,30 @@ export function OrdersPage() {
         </Card>
 
         {loading ? (
-          <Card className="ds-surface-card">
-            <CardContent className="py-16 text-center text-muted-foreground">
-              Loading your orders...
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="ds-surface-card"
+            message="Loading your orders..."
+          />
         ) : error ? (
-          <Card className="ds-surface-card">
-            <CardContent className="py-16 text-center">
-              <p className="text-rose-600">{error}</p>
-              <Button className="mt-4" onClick={loadOrders}>
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="ds-surface-card"
+            title="Unable to load orders"
+            message={error}
+            messageClassName="text-rose-600"
+            actionLabel="Try Again"
+            actionVariant="default"
+            onAction={loadOrders}
+          />
         ) : filteredOrders.length === 0 ? (
-          <Card className="ds-surface-card">
-            <CardContent className="py-16 text-center">
-              <Package className="mx-auto h-12 w-12 text-muted-foreground/60" />
-              <h3 className="mt-4 text-xl font-semibold text-foreground">
-                No orders yet
-              </h3>
-              <p className="mt-2 text-muted-foreground">
-                Once you place an order, it will appear here.
-              </p>
-              <Link to="/" className="inline-block">
-                <Button className="mt-5 bg-gradient-to-r from-teal-500 to-cyan-600">
-                  Start Shopping
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="ds-surface-card"
+            icon={Package}
+            title="No orders yet"
+            message="Once you place an order, it will appear here."
+            actionLabel="Start Shopping"
+            actionVariant="default"
+            onAction={() => navigate("/")}
+          />
         ) : (
           <div className="space-y-4">
             {filteredOrders.map((order) => {

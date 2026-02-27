@@ -7,6 +7,7 @@ import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -479,52 +480,37 @@ export function CartPage() {
 
       <main className="ds-page-container">
         {loading ? (
-          <p className="text-center text-muted-foreground">Loading cart...</p>
+          <FlowStateCard message="Loading cart..." contentClassName="py-12" />
         ) : cartLoadError && cartItems.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <AlertTriangle className="mx-auto h-16 w-16 text-rose-500/80" />
-              <h2 className="mt-4 text-xl font-semibold text-foreground">
-                Unable to load cart
-              </h2>
-              <p className="mt-2 text-muted-foreground">{cartLoadError}</p>
-              <Button className="mt-4" variant="outline" onClick={loadCart}>
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            icon={AlertTriangle}
+            title="Unable to load cart"
+            message={cartLoadError}
+            actionLabel="Try Again"
+            onAction={loadCart}
+            contentClassName="py-12"
+          />
         ) : cartItems.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <ShoppingCart className="mx-auto h-16 w-16 text-muted-foreground/70" />
-              <h2 className="mt-4 text-xl font-semibold text-foreground">
-                Your cart is empty
-              </h2>
-              <p className="mt-2 text-muted-foreground">
-                Add some products to get started!
-              </p>
-              <Link to="/">
-                <Button className="mt-4">Browse Products</Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            icon={ShoppingCart}
+            title="Your cart is empty"
+            message="Add some products to get started!"
+            actionLabel="Browse Products"
+            actionVariant="default"
+            onAction={() => navigate("/")}
+            contentClassName="py-12"
+          />
         ) : (
           <div className="grid gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
               {cartLoadError && (
-                <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p>{cartLoadError}</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8"
-                      onClick={loadCart}
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                </div>
+                <FlowStateBanner
+                  className="mb-4"
+                  message={cartLoadError}
+                  tone="warning"
+                  actionLabel="Retry"
+                  onAction={loadCart}
+                />
               )}
               <Card>
                 <CardHeader className="flex flex-col items-start justify-between gap-2 space-y-0 sm:flex-row sm:items-center">

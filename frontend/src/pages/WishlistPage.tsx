@@ -5,6 +5,7 @@ import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -438,79 +439,54 @@ export function WishlistPage() {
         </Card>
 
         {loading ? (
-          <Card className="ds-surface-card">
-            <CardContent className="py-16 text-center text-muted-foreground">
-              Loading your wishlist...
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="ds-surface-card"
+            message="Loading your wishlist..."
+          />
         ) : error ? (
-          <Card className="ds-surface-card">
-            <CardContent className="py-16 text-center">
-              <p className="text-rose-600">{error}</p>
-              <Button className="mt-4" onClick={() => loadWishlist()}>
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="ds-surface-card"
+            title="Unable to load wishlist"
+            message={error}
+            messageClassName="text-rose-600"
+            actionLabel="Try Again"
+            actionVariant="default"
+            onAction={() => loadWishlist()}
+          />
         ) : items.length === 0 ? (
-          <Card className="ds-surface-card">
-            <CardContent className="py-16 text-center">
-              <Heart className="mx-auto h-12 w-12 text-muted-foreground/60" />
-              <h3 className="mt-4 text-xl font-semibold text-foreground">
-                Your wishlist is empty
-              </h3>
-              <p className="mt-2 text-muted-foreground">
-                Save products you love to revisit them quickly.
-              </p>
-              <Button className="mt-5" onClick={() => navigate("/")}>
-                Explore Products
-              </Button>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="ds-surface-card"
+            icon={Heart}
+            title="Your wishlist is empty"
+            message="Save products you love to revisit them quickly."
+            actionLabel="Explore Products"
+            actionVariant="default"
+            onAction={() => navigate("/")}
+          />
         ) : filteredItems.length === 0 ? (
-          <Card className="ds-surface-card">
-            <CardContent className="py-16 text-center">
-              <Search className="mx-auto h-12 w-12 text-muted-foreground/60" />
-              <h3 className="mt-4 text-xl font-semibold text-foreground">
-                No matching wishlist items
-              </h3>
-              <p className="mt-2 text-muted-foreground">
-                Try a different search term or category filter.
-              </p>
-              <Button
-                className="mt-5"
-                variant="outline"
-                onClick={() => {
-                  setQuery("");
-                  setActiveCategory("ALL");
-                }}
-              >
-                Clear Filters
-              </Button>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="ds-surface-card"
+            icon={Search}
+            title="No matching wishlist items"
+            message="Try a different search term or category filter."
+            actionLabel="Clear Filters"
+            onAction={() => {
+              setQuery("");
+              setActiveCategory("ALL");
+            }}
+          />
         ) : (
           <>
             {fallbackWarning && (
-              <Card className="mb-4 ds-surface-card">
-                <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    {fallbackWarning}
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => loadWishlist(true)}
-                    disabled={refreshing}
-                  >
-                    <RefreshCw
-                      className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-                    />
-                    Retry Sync
-                  </Button>
-                </CardContent>
-              </Card>
+              <FlowStateBanner
+                className="mb-4"
+                message={fallbackWarning}
+                tone="warning"
+                actionLabel="Retry Sync"
+                onAction={() => loadWishlist(true)}
+                actionDisabled={refreshing}
+                actionIcon={RefreshCw}
+              />
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

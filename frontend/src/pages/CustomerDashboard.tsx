@@ -7,6 +7,7 @@ import { useFeedback } from "@/lib/feedback";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,7 +32,6 @@ import {
   Globe2,
   Menu,
   X,
-  AlertTriangle,
 } from "lucide-react";
 
 interface Product {
@@ -1586,20 +1586,14 @@ export function CustomerDashboard() {
             </p>
           </div>
         ) : productsError && products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="mb-6 rounded-full bg-rose-100 p-5 dark:bg-rose-900/30">
-              <AlertTriangle className="h-12 w-12 text-rose-600 dark:text-rose-300" />
-            </div>
-            <h3 className="mb-2 text-2xl font-black text-foreground">
-              Couldn&apos;t load products
-            </h3>
-            <p className="mb-6 max-w-md text-center text-muted-foreground">
-              {productsError}
-            </p>
-            <Button onClick={loadProducts} variant="outline">
-              Try Again
-            </Button>
-          </div>
+          <FlowStateCard
+            title="Couldn’t load products"
+            message={productsError}
+            actionLabel="Try Again"
+            onAction={loadProducts}
+            className="mx-auto max-w-xl"
+            contentClassName="py-12"
+          />
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24">
             <div className="relative mb-8">
@@ -1640,19 +1634,13 @@ export function CustomerDashboard() {
         ) : (
           <>
             {productsError && (
-              <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p>{productsError}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={loadProducts}
-                  >
-                    Retry Live Products
-                  </Button>
-                </div>
-              </div>
+              <FlowStateBanner
+                className="mb-6"
+                message={productsError}
+                tone="warning"
+                actionLabel="Retry Live Products"
+                onAction={loadProducts}
+              />
             )}
             <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>

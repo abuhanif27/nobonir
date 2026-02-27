@@ -8,6 +8,7 @@ import { useFeedback } from "@/lib/feedback";
 import { animateFlyToCart } from "@/lib/flyToCart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlowStateCard } from "@/components/ui/flow-state";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -457,8 +458,13 @@ export function ProductPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading product...</p>
+      <div className="min-h-screen bg-background px-4 py-16">
+        <main className="mx-auto max-w-4xl">
+          <FlowStateCard
+            message="Loading product..."
+            contentClassName="py-12"
+          />
+        </main>
       </div>
     );
   }
@@ -469,36 +475,41 @@ export function ProductPage() {
     return (
       <div className="min-h-screen bg-background">
         <main className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-          <Card>
-            <CardContent className="py-12 text-center">
-              <h1 className="text-2xl font-bold text-foreground">
-                {isUnavailable
-                  ? "Can’t load product right now"
-                  : "Product not found"}
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                {isUnavailable
-                  ? "Server is temporarily unavailable. Please try again."
-                  : "This product is unavailable right now."}
-              </p>
-              <div className="mt-6 flex justify-center gap-3">
-                {isUnavailable && (
-                  <Button
-                    variant="outline"
-                    onClick={() => id && loadProductById(String(id))}
-                  >
-                    Try Again
-                  </Button>
-                )}
-                <Link to="/">
-                  <Button>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Products
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            title={
+              isUnavailable
+                ? "Can’t load product right now"
+                : "Product not found"
+            }
+            message={
+              isUnavailable
+                ? "Server is temporarily unavailable. Please try again."
+                : "This product is unavailable right now."
+            }
+            actionLabel={isUnavailable ? "Try Again" : "Back to Products"}
+            onAction={() => {
+              if (isUnavailable) {
+                if (id) {
+                  void loadProductById(String(id));
+                }
+                return;
+              }
+              navigate("/");
+            }}
+            children={
+              isUnavailable ? (
+                <div className="mt-3">
+                  <Link to="/">
+                    <Button>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to Products
+                    </Button>
+                  </Link>
+                </div>
+              ) : null
+            }
+            contentClassName="py-12"
+          />
         </main>
       </div>
     );

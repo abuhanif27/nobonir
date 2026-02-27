@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
 import { useFeedback } from "@/lib/feedback";
 import {
   Package,
@@ -24,7 +25,6 @@ import {
   Calendar,
   Shield,
   Clock,
-  AlertTriangle,
   RefreshCw,
 } from "lucide-react";
 
@@ -281,11 +281,10 @@ export function ProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-6 sm:py-10 dark:from-slate-950 dark:to-slate-900">
         <div className="mx-auto max-w-6xl">
-          <Card className="border-none shadow-lg">
-            <CardContent className="py-16 text-center text-muted-foreground">
-              Loading your profile...
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="border-none shadow-lg"
+            message="Loading your profile..."
+          />
         </div>
       </div>
     );
@@ -295,21 +294,18 @@ export function ProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-6 sm:py-10 dark:from-slate-950 dark:to-slate-900">
         <div className="mx-auto max-w-6xl">
-          <Card className="border-none shadow-lg">
-            <CardContent className="py-16 text-center">
-              <AlertTriangle className="mx-auto h-12 w-12 text-rose-500" />
-              <p className="mt-4 text-rose-600">
-                {profileLoadError || "Couldn’t load your profile right now."}
-              </p>
-              <Button
-                className="mt-4"
-                variant="outline"
-                onClick={() => fetchMe()}
-              >
-                Retry Profile
-              </Button>
-            </CardContent>
-          </Card>
+          <FlowStateCard
+            className="border-none shadow-lg"
+            title="Unable to load profile"
+            message={
+              profileLoadError || "Couldn’t load your profile right now."
+            }
+            messageClassName="text-rose-600"
+            actionLabel="Retry Profile"
+            onAction={() => {
+              void fetchMe();
+            }}
+          />
         </div>
       </div>
     );
@@ -430,23 +426,15 @@ export function ProfilePage() {
 
         {/* Stats Cards */}
         {statsError && (
-          <Card className="border-none shadow-md">
-            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <p className="text-sm text-amber-600 dark:text-amber-300">
-                {statsError}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2"
-                onClick={loadAccountStats}
-                disabled={statsLoading}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Retry Stats
-              </Button>
-            </CardContent>
-          </Card>
+          <FlowStateBanner
+            message={statsError}
+            tone="warning"
+            actionLabel="Retry Stats"
+            onAction={loadAccountStats}
+            actionDisabled={statsLoading}
+            actionIcon={RefreshCw}
+            className="border-none shadow-md"
+          />
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">
