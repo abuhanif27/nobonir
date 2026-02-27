@@ -43,15 +43,6 @@ interface ProductReview {
   created_at: string;
 }
 
-interface OrderItemSummary {
-  product: number;
-}
-
-interface OrderSummary {
-  status: string;
-  items: OrderItemSummary[];
-}
-
 export function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -218,22 +209,10 @@ export function ProductPage() {
       setCheckingReviewEligibility(true);
 
       try {
-        const response = await api.get("/orders/my/");
-        const orders = Array.isArray(response.data)
-          ? (response.data as OrderSummary[])
-          : [];
-        const currentProduct = Number(id);
-
-        const eligible = orders.some(
-          (order) =>
-            String(order.status).toUpperCase() === "DELIVERED" &&
-            Array.isArray(order.items) &&
-            order.items.some(
-              (item) => Number(item.product) === Number(currentProduct),
-            ),
-        );
-
-        setCanReviewProduct(eligible);
+        const response = await api.get("/reviews/can-review/", {
+          params: { product: id },
+        });
+        setCanReviewProduct(Boolean(response.data?.can_review));
       } catch {
         setCanReviewProduct(false);
       } finally {
