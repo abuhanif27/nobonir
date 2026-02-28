@@ -105,6 +105,8 @@ type LocalWishlistItem = {
 const SUGGESTION_CAROUSEL_AUTOPLAY_MS = 3000;
 const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 const PRODUCTS_PAGE_SIZE = 12;
+const FALLBACK_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop";
 
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -205,6 +207,19 @@ export function CustomerDashboard() {
       ? `${user.profile_picture}?v=${avatarVersion}`
       : `${MEDIA_BASE_URL}${user.profile_picture}?v=${avatarVersion}`
     : null;
+
+  const resolveProductImage = useCallback((imageUrl?: string) => {
+    if (!imageUrl) {
+      return FALLBACK_PRODUCT_IMAGE;
+    }
+
+    if (imageUrl.startsWith("http")) {
+      return imageUrl;
+    }
+
+    const normalizedPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+    return `${MEDIA_BASE_URL}${normalizedPath}`;
+  }, []);
 
   const normalizeProducts = useCallback((items: unknown[]): Product[] => {
     if (!Array.isArray(items)) {
@@ -1542,9 +1557,9 @@ export function CustomerDashboard() {
         className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8"
       >
         {isAuthenticated && (
-          <section className="mb-10 rounded-2xl border border-border bg-card/85 p-6 shadow-lg backdrop-blur-sm">
+          <section className="mb-8 rounded-xl border border-border bg-card/85 p-4 shadow-lg backdrop-blur-sm sm:mb-10 sm:rounded-2xl sm:p-6">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h4 className="text-lg font-bold text-foreground">
+              <h4 className="text-base font-bold text-foreground sm:text-lg">
                 Exclusive Suggestions for You
               </h4>
               {isAutoPersonalizing && (
@@ -1567,7 +1582,7 @@ export function CustomerDashboard() {
                         : "outline"
                     }
                     onClick={() => setActiveSuggestionCategory(category)}
-                    className="h-8"
+                    className="h-7 px-2.5 text-xs sm:h-8 sm:px-3 sm:text-sm"
                   >
                     {category}
                   </Button>
@@ -1601,20 +1616,20 @@ export function CustomerDashboard() {
                 }}
                 tabIndex={0}
               >
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
                   <Badge
                     variant="secondary"
-                    className="rounded-full px-3 py-1 text-xs font-semibold"
+                    className="rounded-full px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1"
                   >
                     {isSuggestionAutoplayPaused ? "Paused" : "Auto Playing"}
                   </Badge>
 
-                  <div className="inline-flex items-center gap-1 rounded-full border border-teal-200/70 bg-background/90 p-1.5 shadow-md backdrop-blur-sm">
+                  <div className="inline-flex items-center gap-1 rounded-full border border-teal-200/70 bg-background/90 p-1 shadow-md backdrop-blur-sm sm:p-1.5">
                     <Button
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 rounded-full"
+                      className="h-7 w-7 rounded-full sm:h-8 sm:w-8"
                       onClick={() => scrollSuggestionCarousel("left")}
                       aria-label="Previous suggestions"
                       disabled={visibleSuggestions.length <= 1}
@@ -1631,7 +1646,7 @@ export function CustomerDashboard() {
                           ? "Pause auto sliding"
                           : "Play auto sliding"
                       }
-                      className="h-9 w-9 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-sm hover:from-teal-600 hover:to-cyan-700"
+                      className="h-8 w-8 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-sm hover:from-teal-600 hover:to-cyan-700 sm:h-9 sm:w-9"
                       disabled={visibleSuggestions.length <= 1}
                     >
                       {isSuggestionAutoplayEnabled ? (
@@ -1645,7 +1660,7 @@ export function CustomerDashboard() {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 rounded-full"
+                      className="h-7 w-7 rounded-full sm:h-8 sm:w-8"
                       onClick={() => scrollSuggestionCarousel("right")}
                       aria-label="Next suggestions"
                       disabled={visibleSuggestions.length <= 1}
@@ -1655,38 +1670,39 @@ export function CustomerDashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {suggestionWindowProducts.map((product, cardIndex) => (
                     <Card
                       key={`pref-${product.id}-${cardIndex}`}
-                      className={`border shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg ${
+                      className={`h-full overflow-hidden border shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg ${
                         cardIndex === 1 ? "ring-1 ring-teal-200" : ""
                       }`}
                     >
                       <CardHeader className="p-0">
                         <img
-                          src={
-                            product.image ||
-                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-                          }
+                          src={resolveProductImage(product.image)}
                           alt={product.name}
-                          className="h-36 w-full rounded-t-lg object-cover"
+                          className="h-32 w-full rounded-t-lg object-cover sm:h-36"
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
+                          }}
                         />
                       </CardHeader>
-                      <CardContent className="p-3">
-                        <p className="line-clamp-1 font-semibold text-foreground">
+                      <CardContent className="flex h-full flex-col p-2.5 sm:p-3">
+                        <p className="line-clamp-1 text-sm font-semibold text-foreground sm:text-base">
                           {product.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {product.category.name}
                         </p>
-                        <p className="text-sm font-bold text-teal-800 dark:text-teal-300">
+                        <p className="mt-1 text-sm font-bold text-teal-800 dark:text-teal-300">
                           {formatPrice(product.price)}
                         </p>
                         <Button
                           onClick={(e) => addToCart(product, e.currentTarget)}
                           size="sm"
-                          className="mt-2 w-full"
+                          className="mt-auto w-full"
                         >
                           Add to Cart
                         </Button>
@@ -1806,7 +1822,7 @@ export function CustomerDashboard() {
               merchandising.just_restocked?.length ||
               merchandising.back_in_stock?.length
             ) && (
-              <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="mb-6 grid grid-cols-1 gap-3 sm:mb-8 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
                   {
                     title: "Trending Now",
@@ -1829,24 +1845,31 @@ export function CustomerDashboard() {
                     items: merchandising.back_in_stock || [],
                   },
                 ].map((section) => (
-                  <Card key={section.key} className="border border-border/70">
-                    <CardContent className="p-4">
-                      <p className="text-sm font-bold text-foreground">
+                  <Card
+                    key={section.key}
+                    className="h-full border border-border/70 bg-card/95"
+                  >
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-xs font-bold text-foreground sm:text-sm">
                         {section.title}
                       </p>
                       {section.items[0] ? (
                         <button
                           type="button"
-                          className="mt-3 flex w-full items-center gap-3 text-left"
+                          className="mt-2.5 flex w-full items-center gap-2.5 text-left sm:mt-3 sm:gap-3"
                           onClick={() => viewProduct(section.items[0])}
                         >
                           <img
-                            src={section.items[0].image}
+                            src={resolveProductImage(section.items[0].image)}
                             alt={section.items[0].name}
-                            className="h-12 w-12 rounded-md object-cover"
+                            className="h-10 w-10 rounded-md object-cover sm:h-12 sm:w-12"
+                            loading="lazy"
+                            onError={(event) => {
+                              event.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
+                            }}
                           />
                           <div className="min-w-0">
-                            <p className="line-clamp-1 text-sm font-semibold">
+                            <p className="line-clamp-1 text-xs font-semibold sm:text-sm">
                               {section.items[0].name}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -1855,9 +1878,11 @@ export function CustomerDashboard() {
                           </div>
                         </button>
                       ) : (
-                        <p className="mt-3 text-xs text-muted-foreground">
-                          No items yet.
-                        </p>
+                        <div className="mt-3 rounded-md border border-dashed border-border bg-muted/30 px-3 py-4">
+                          <p className="text-xs text-muted-foreground">
+                            No items yet.
+                          </p>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -1912,11 +1937,11 @@ export function CustomerDashboard() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {products.map((product) => (
                 <Card
                   key={product.id}
-                  className="group relative overflow-hidden rounded-2xl border-0 bg-card shadow-lg transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl"
+                  className="group relative overflow-hidden rounded-xl border-0 bg-card shadow-lg transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl sm:rounded-2xl"
                 >
                   {/* Hover Gradient Border Effect */}
                   <div
@@ -1927,24 +1952,20 @@ export function CustomerDashboard() {
                   <CardHeader className="p-0">
                     <div className="relative overflow-hidden bg-gradient-to-br from-muted to-muted">
                       <img
-                        src={
-                          product.image ||
-                          "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-                        }
+                        src={resolveProductImage(product.image)}
                         alt={product.name}
-                        className="h-56 w-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-110"
+                        className="h-48 w-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-110 sm:h-56"
                         onError={(e) => {
-                          e.currentTarget.src =
-                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop";
+                          e.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
                         }}
                       />
                       {/* Shimmer Effect on Hover */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-30 transition-opacity duration-500 -translate-x-full group-hover:translate-x-full transform"></div>
 
-                      <div className="absolute top-3 right-3">
+                      <div className="absolute right-2 top-2 sm:right-3 sm:top-3">
                         <Badge
                           variant="secondary"
-                          className="bg-background/95 backdrop-blur-md text-foreground gap-1.5 shadow-lg font-semibold"
+                          className="gap-1 bg-background/95 px-2 py-1 text-[10px] font-semibold text-foreground shadow-lg backdrop-blur-md sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
                         >
                           <Tag className="h-3 w-3" />
                           {product.category.name}
@@ -1954,7 +1975,7 @@ export function CustomerDashboard() {
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                           <Badge
                             variant="destructive"
-                            className="text-sm px-4 py-2"
+                            className="px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm"
                           >
                             Out of Stock
                           </Badge>
@@ -1962,15 +1983,15 @@ export function CustomerDashboard() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="bg-gradient-to-br from-background to-muted/30 p-5 sm:p-6">
-                    <CardTitle className="mb-2 line-clamp-1 text-base font-bold text-foreground transition-all duration-300 group-hover:bg-gradient-to-r group-hover:from-teal-600 group-hover:to-cyan-600 group-hover:bg-clip-text group-hover:text-transparent sm:text-lg">
+                  <CardContent className="bg-gradient-to-br from-background to-muted/30 p-4 sm:p-6">
+                    <CardTitle className="mb-1.5 line-clamp-1 text-sm font-bold text-foreground transition-all duration-300 group-hover:bg-gradient-to-r group-hover:from-teal-600 group-hover:to-cyan-600 group-hover:bg-clip-text group-hover:text-transparent sm:mb-2 sm:text-lg">
                       {product.name}
                     </CardTitle>
-                    <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                    <p className="mb-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:mb-4 sm:text-sm">
                       {product.description}
                     </p>
-                    <div className="mb-5 flex items-baseline justify-between">
-                      <p className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-2xl font-black text-transparent drop-shadow-sm sm:text-3xl">
+                    <div className="mb-4 flex items-baseline justify-between sm:mb-5">
+                      <p className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-xl font-black text-transparent drop-shadow-sm sm:text-3xl">
                         {formatPrice(product.price)}
                       </p>
                       <Badge
@@ -1981,7 +2002,7 @@ export function CustomerDashboard() {
                               ? "secondary"
                               : "destructive"
                         }
-                        className="text-xs font-bold shadow-sm"
+                        className="text-[10px] font-bold shadow-sm sm:text-xs"
                       >
                         {product.availability_status === "ALMOST_GONE"
                           ? "Almost Gone"
@@ -1999,10 +2020,10 @@ export function CustomerDashboard() {
                         Sold in last 30 days: {product.total_sold_30d}
                       </p>
                     )}
-                    <div className="space-y-2">
+                    <div className="space-y-1.5 sm:space-y-2">
                       <Button
                         onClick={(e) => addToCart(product, e.currentTarget)}
-                        className={styles.productAddToCartButton}
+                        className={`${styles.productAddToCartButton} h-9 text-sm sm:h-10`}
                         disabled={
                           (product.available_stock ?? product.stock) === 0
                         }
@@ -2017,9 +2038,9 @@ export function CustomerDashboard() {
                         <Button
                           onClick={() => viewProduct(product)}
                           variant="outline"
-                          className="hover:bg-gradient-to-br hover:from-blue-50 hover:to-cyan-50 hover:text-cyan-700 hover:border-cyan-300 transition-all shadow-md"
+                          className="h-9 text-xs transition-all shadow-md hover:border-cyan-300 hover:bg-gradient-to-br hover:from-blue-50 hover:to-cyan-50 hover:text-cyan-700 sm:text-sm"
                         >
-                          <Eye className="mr-2 h-4 w-4" />
+                          <Eye className="mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
                           View Product
                         </Button>
                         <Button
@@ -2031,9 +2052,9 @@ export function CustomerDashboard() {
                             )
                           }
                           variant="outline"
-                          className="hover:bg-gradient-to-br hover:from-red-50 hover:to-pink-50 hover:text-red-600 hover:border-red-300 transition-all shadow-md"
+                          className="h-9 text-xs transition-all shadow-md hover:border-red-300 hover:bg-gradient-to-br hover:from-red-50 hover:to-pink-50 hover:text-red-600 sm:text-sm"
                         >
-                          <Heart className="mr-2 h-4 w-4" />
+                          <Heart className="mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
                           Wishlist
                         </Button>
                       </div>
