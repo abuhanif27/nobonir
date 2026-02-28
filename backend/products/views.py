@@ -1,4 +1,5 @@
-from django.db.models import F, Q, Sum
+from django.db.models import F, IntegerField, Q, Sum, Value
+from django.db.models.expressions import ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -43,8 +44,28 @@ class ProductViewSet(viewsets.ModelViewSet):
 	filterset_fields = ["category", "is_active"]
 	ordering_fields = ["price", "created_at", "name"]
 
+	def _with_available_stock(self, queryset):
+		now = timezone.now()
+		return queryset.annotate(
+			reserved_stock=Coalesce(
+				Sum(
+					"stock_reservations__quantity",
+					filter=Q(
+						stock_reservations__status="ACTIVE",
+						stock_reservations__expires_at__gte=now,
+					),
+				),
+				Value(0),
+			),
+		).annotate(
+			available_stock=ExpressionWrapper(
+				F("stock") - F("reserved_stock"),
+				output_field=IntegerField(),
+			)
+		)
+
 	def get_queryset(self):
-		queryset = super().get_queryset()
+		queryset = self._with_available_stock(super().get_queryset())
 		min_price = self.request.query_params.get("min_price")
 		max_price = self.request.query_params.get("max_price")
 
@@ -55,19 +76,19 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 		availability_status = (self.request.query_params.get("availability_status") or "").strip().upper()
 		if availability_status == "OUT_OF_STOCK":
-			queryset = queryset.filter(stock=0)
+			queryset = queryset.filter(available_stock__lte=0)
 		elif availability_status == "ALMOST_GONE":
-			queryset = queryset.filter(stock__gt=0, stock__lte=5)
+			queryset = queryset.filter(available_stock__gt=0, available_stock__lte=5)
 		elif availability_status == "IN_STOCK":
-			queryset = queryset.filter(stock__gt=0)
+			queryset = queryset.filter(available_stock__gt=0)
 		elif availability_status == "JUST_RESTOCKED":
 			queryset = queryset.filter(
-				stock__gt=0,
+				available_stock__gt=0,
 				last_restocked_at__gte=timezone.now() - timezone.timedelta(days=7),
 			)
 		elif availability_status == "BACK_IN_STOCK":
 			queryset = queryset.filter(
-				stock__gt=0,
+				available_stock__gt=0,
 				last_out_of_stock_at__isnull=False,
 				last_restocked_at__gt=F("last_out_of_stock_at"),
 			)
@@ -112,14 +133,14 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 	@action(detail=False, methods=["get"], url_path="merchandising")
 	def merchandising(self, request):
-		base = super().get_queryset().filter(is_active=True)
+		base = self._with_available_stock(super().get_queryset().filter(is_active=True))
 		now = timezone.now()
 
 		trending = self._top_selling_last_30_days_queryset().filter(total_sold_30d__gt=0)[:12]
-		almost_gone = base.filter(stock__gt=0, stock__lte=5).order_by("stock", "-updated_at")[:12]
-		just_restocked = base.filter(stock__gt=0, last_restocked_at__gte=now - timezone.timedelta(days=7)).order_by("-last_restocked_at")[:12]
+		almost_gone = base.filter(available_stock__gt=0, available_stock__lte=5).order_by("available_stock", "-updated_at")[:12]
+		just_restocked = base.filter(available_stock__gt=0, last_restocked_at__gte=now - timezone.timedelta(days=7)).order_by("-last_restocked_at")[:12]
 		back_in_stock = base.filter(
-			stock__gt=0,
+			available_stock__gt=0,
 			last_out_of_stock_at__isnull=False,
 			last_restocked_at__gt=F("last_out_of_stock_at"),
 		).order_by("-last_restocked_at")[:12]

@@ -38,7 +38,13 @@ interface Product {
   image_url?: string;
   stock: number;
   available_stock?: number;
-  media?: Array<{ id: number; url: string; variant_id?: number | null }>;
+  media?: Array<{
+    id: number;
+    url: string;
+    variant_id?: number | null;
+    is_primary?: boolean;
+    sort_order?: number;
+  }>;
   variants?: Array<{
     id: number;
     color?: string;
@@ -346,6 +352,12 @@ export function ProductPage() {
       : [];
     const genericMedia = (product.media || [])
       .filter((item) => !item.variant_id)
+      .sort(
+        (left, right) =>
+          Number(Boolean(right.is_primary)) -
+            Number(Boolean(left.is_primary)) ||
+          (left.sort_order ?? 0) - (right.sort_order ?? 0),
+      )
       .map((item) => item.url)
       .filter(Boolean);
 

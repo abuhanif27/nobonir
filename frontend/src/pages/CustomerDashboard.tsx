@@ -46,7 +46,7 @@ interface Product {
   availability_status?: string;
   merchandising_tags?: string[];
   total_sold_30d?: number;
-  media?: Array<{ url?: string }>;
+  media?: Array<{ url?: string; is_primary?: boolean; sort_order?: number }>;
   category: {
     id: number;
     name: string;
@@ -79,7 +79,7 @@ type ProductPayload = {
   availability_status?: string;
   merchandising_tags?: string[];
   total_sold_30d?: number;
-  media?: Array<{ url?: string }>;
+  media?: Array<{ url?: string; is_primary?: boolean; sort_order?: number }>;
   category?: {
     id?: number;
     name?: string;
@@ -209,12 +209,21 @@ export function CustomerDashboard() {
         return;
       }
 
+      const primaryMediaUrl = Array.isArray(item.media)
+        ? item.media.find((mediaItem) => mediaItem?.is_primary)?.url
+        : "";
+
       normalized.push({
         id: normalizedId,
         name: normalizedName,
         description: item.description || "",
         price: String(item.price ?? ""),
-        image: item.image || item.image_url || item.media?.[0]?.url || "",
+        image:
+          primaryMediaUrl ||
+          item.image ||
+          item.image_url ||
+          item.media?.[0]?.url ||
+          "",
         stock: Number(item.stock ?? 0),
         available_stock: Number(item.available_stock ?? item.stock ?? 0),
         availability_status: String(item.availability_status || "IN_STOCK"),

@@ -25,7 +25,6 @@ interface ProductPayload {
   description: string;
   price: string;
   stock: string;
-  image_url: string;
   is_active: boolean;
 }
 
@@ -98,7 +97,6 @@ const EMPTY_FORM: ProductPayload = {
   description: "",
   price: "",
   stock: "0",
-  image_url: "",
   is_active: true,
 };
 
@@ -181,7 +179,6 @@ export function AdminProductFormPage() {
           description: product.description || "",
           price: String(product.price || ""),
           stock: String(product.stock ?? 0),
-          image_url: product.image_url || "",
           is_active: Boolean(product.is_active),
         });
         setVariants(Array.isArray(product.variants) ? product.variants : []);
@@ -292,7 +289,6 @@ export function AdminProductFormPage() {
       description: form.description.trim(),
       price: form.price,
       stock: Number(form.stock || 0),
-      image_url: form.image_url.trim(),
       is_active: form.is_active,
     };
 
@@ -635,19 +631,6 @@ export function AdminProductFormPage() {
                         setForm((current) => ({
                           ...current,
                           slug: toSlug(event.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium">Image URL</label>
-                    <Input
-                      value={form.image_url}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          image_url: event.target.value,
                         }))
                       }
                     />

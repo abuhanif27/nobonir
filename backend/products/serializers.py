@@ -90,6 +90,7 @@ class ProductSerializer(serializers.ModelSerializer):
                     "variant_id": media.variant_id,
                 }
             )
+        payload.sort(key=lambda item: (not bool(item.get("is_primary")), item.get("sort_order", 0), item.get("id", 0)))
         return payload
 
     def get_variants(self, obj: Product):
