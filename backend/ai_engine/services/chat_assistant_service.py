@@ -131,8 +131,8 @@ def _build_llm_prompt(intent: str, message: str, products: list[Product], fallba
     auth_line = "authenticated" if is_authenticated else "guest"
 
     return (
-        "You are an e-commerce AI shopping assistant. "
-        "Reply in plain, concise, helpful English in 2-5 short lines. "
+        "You are a professional e-commerce shopping advisor. "
+        "Reply in plain, concise, business-friendly English in 2-5 short lines. "
         "Use ONLY the provided product context for facts like price/stock. "
         "If data is missing, clearly say that.\n"
         f"User type: {auth_line}\n"
@@ -142,6 +142,68 @@ def _build_llm_prompt(intent: str, message: str, products: list[Product], fallba
         f"Fallback draft reply: {fallback_reply}\n"
         "Now provide the best final reply."
     )
+
+
+SMALL_TALK_KEYWORDS = {
+    "hi",
+    "hello",
+    "hey",
+    "yo",
+    "good morning",
+    "good evening",
+    "how are you",
+}
+
+
+TERM_STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "with",
+    "that",
+    "this",
+    "show",
+    "find",
+    "want",
+    "need",
+    "best",
+    "price",
+    "stock",
+    "product",
+    "products",
+    "under",
+    "below",
+}
+
+
+def _is_small_talk(normalized_message: str) -> bool:
+    compact = normalized_message.strip()
+    if compact in SMALL_TALK_KEYWORDS:
+        return True
+    if len(compact.split()) <= 2 and any(keyword in compact for keyword in {"hi", "hey", "hello"}):
+        return True
+    return False
+
+
+def _query_terms(normalized_message: str) -> list[str]:
+    terms = re.findall(r"[a-z0-9]+", normalized_message)
+    return [term for term in terms if len(term) >= 3 and term not in TERM_STOPWORDS]
+
+
+def _filter_relevant_products(products: list[Product], normalized_message: str, limit: int = 4) -> list[Product]:
+    terms = _query_terms(normalized_message)
+    if not terms:
+        return products[:limit]
+
+    scored: list[tuple[int, Product]] = []
+    for product in products:
+        text = f"{product.name} {product.category.name} {product.description or ''}".lower()
+        score = sum(1 for term in terms if term in text)
+        if score > 0:
+            scored.append((score, product))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [product for _, product in scored[:limit]]
 
 
 def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Product], fallback_reply: str, user) -> str:
@@ -400,6 +462,13 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         reply = f"Share what you are shopping for, and I will suggest products that match your needs.{guest_hint}"
         return _result_with_enhancement("GENERAL", normalized_message, products, reply, user)
 
+    if _is_small_talk(normalized_message):
+        reply = (
+            "Hello — I’m your shopping assistant. "
+            "Tell me a product type, budget, or exact item name, and I’ll provide relevant options with accurate price and stock."
+        )
+        return _result_with_enhancement("GENERAL", normalized_message, [], reply, user)
+
     intent = _detect_intent(normalized_message)
     budget_cap = _extract_budget_cap(normalized_message)
 
@@ -435,7 +504,8 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
     if intent == "PRICE_STOCK_LOOKUP":
-        products = _apply_budget_filter(semantic_product_search(normalized_message, limit=6), budget_cap, limit=4)
+        products = _apply_budget_filter(semantic_product_search(normalized_message, limit=8), budget_cap, limit=6)
+        products = _filter_relevant_products(products, normalized_message, limit=4)
         reply = _build_price_stock_reply(products)
         if not products:
             products = (
@@ -446,27 +516,31 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
     if intent == "FIT_HELP":
-        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=4)
+        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=6)
+        products = _filter_relevant_products(products, normalized_message, limit=4)
         reply = "For better fit, compare size guides on product pages and check recent reviews before checkout."
         return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
     if intent in {"BUDGET_SEARCH", "RECOMMENDATION"}:
-        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=4)
+        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=8)
+        products = _filter_relevant_products(products, normalized_message, limit=4)
         if products:
-            reply = "Here are matching products based on your message and shopping intent."
+            reply = "Here are the most relevant products based on your request."
             if budget_cap is not None:
                 reply += f" I applied your budget limit under ৳{budget_cap}."
         else:
-            reply = "I could not find strong matches right now. Try a more specific query like category, color, or budget."
+            reply = (
+                "I couldn’t find relevant products for that query. "
+                "Please share a more specific item name or category so I can return accurate options."
+            )
         return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
-    products = (
-        get_personalized_recommendations_for_user(user, limit=4)
-        if _is_authenticated_user(user)
-        else _fallback_products(limit=4)
-    )
+    products: list[Product] = []
     guest_hint = " Sign in to unlock personalized recommendations and order help." if not _is_authenticated_user(user) else ""
-    reply = f"I can help with recommendations, order tracking, and fit guidance. Tell me what you need.{guest_hint}"
+    reply = (
+        "I can help with product discovery, price/stock checks, and order guidance. "
+        f"Tell me exactly what you want to buy.{guest_hint}"
+    )
     return _result_with_enhancement("GENERAL", normalized_message, products, reply, user)
 
 

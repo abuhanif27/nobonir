@@ -116,8 +116,7 @@ export function AIAssistantPage() {
     }
   };
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const sendMessage = async () => {
     const trimmed = query.trim();
     if (!trimmed || isLoading) {
       return;
@@ -163,6 +162,11 @@ export function AIAssistantPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    await sendMessage();
   };
 
   return (
@@ -262,6 +266,12 @@ export function AIAssistantPage() {
               <Textarea
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendMessage();
+                  }
+                }}
                 placeholder="Example: suggest breathable shirts under 2000"
                 rows={3}
               />

@@ -112,9 +112,7 @@ export function FloatingAssistantWidget() {
     }
   };
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-
+  const sendMessage = async () => {
     const trimmed = query.trim();
     if (!trimmed || isLoading) {
       return;
@@ -162,6 +160,11 @@ export function FloatingAssistantWidget() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    await sendMessage();
   };
 
   return (
@@ -258,6 +261,12 @@ export function FloatingAssistantWidget() {
                 <Textarea
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendMessage();
+                    }
+                  }}
                   rows={2}
                   placeholder="Ask about product price, stock, or best options"
                 />
