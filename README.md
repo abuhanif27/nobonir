@@ -190,6 +190,25 @@ cd backend
 python manage.py test
 ```
 
+## Backend Hardening
+
+The backend enforces stricter input validation and scoped API throttling for abuse-prone write paths.
+
+### Rate-Limited Scopes
+
+- `review_create`: `10/hour` (review submission)
+- `review_update`: `30/hour` (review edit/delete)
+- `cart_write`: `120/hour` (cart add/update/delete)
+- `order_checkout`: `15/hour` (checkout)
+- `order_coupon_validate`: `60/hour` (coupon validation)
+- `order_invoice_download`: `30/hour` (invoice text/pdf download)
+
+### API Behavior on Limit Exceeded
+
+- Exceeding a scoped limit returns `429 Too Many Requests`.
+- Response body follows DRF throttle format (includes a `detail` message).
+- Clients should treat `429` as retryable and back off before retrying.
+
 ## User Roles
 
 ### Guest (No Account Required)
