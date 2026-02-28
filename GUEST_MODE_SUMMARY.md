@@ -151,6 +151,19 @@ cart = Cart.objects.create(
 - ✅ Session cookies have security flags enabled
 - ✅ No sensitive data stored for guests
 
+### Security Changelog (2026-02-28)
+
+- ✅ Validation hardening added for cart/review/order flows (stricter input normalization and safer quantity parsing)
+- ✅ RBAC edge case fixed: active `is_staff`/`is_superuser` users are accepted on admin-only endpoints
+- ✅ Scoped API throttling enabled for abuse-prone operations:
+  - `review_create`: `10/hour`
+  - `review_update`: `30/hour`
+  - `cart_write`: `120/hour`
+  - `order_checkout`: `15/hour`
+  - `order_coupon_validate`: `60/hour`
+  - `order_invoice_download`: `30/hour`
+- ✅ Throttle-limit responses now return standard `429 Too Many Requests` from DRF
+
 ## 📚 Documentation
 
 Created comprehensive guest mode documentation in:

@@ -94,6 +94,31 @@ A **complete, production-ready, AI-powered e-commerce platform** with:
 - `test_failed_payment_cancels_order_and_does_not_reduce_stock` - Passes
 - `test_recommendations_returns_products` - Passes
 
+## Backend Hardening (Validation + Abuse Controls)
+
+Recent backend hardening covers validation cleanup, permission edge cases, and scoped API throttling on sensitive write/download paths.
+
+### Validation & Permission Cleanup ✓
+
+- Cart writes now validate numeric bounds for `product_id` and `quantity` (including safe quantity parsing on patch).
+- Review validation now enforces active products, trims/sanitizes comments, and prevents product changes after review creation.
+- Checkout/coupon validation now normalizes trimmed/uppercased coupon codes and rejects empty required inputs.
+- RBAC edge case fixed: active `is_staff`/`is_superuser` users are treated as admin for admin-only endpoints.
+
+### Scoped Rate Limits ✓
+
+- `review_create`: `10/hour`
+- `review_update`: `30/hour`
+- `cart_write`: `120/hour`
+- `order_checkout`: `15/hour`
+- `order_coupon_validate`: `60/hour`
+- `order_invoice_download`: `30/hour`
+
+### Expected API Behavior ✓
+
+- Exceeding a scoped limit returns `429 Too Many Requests` (DRF throttle response shape).
+- Frontend/clients should back off and retry instead of immediately replaying requests.
+
 ## Quick Start
 
 ### First Time Setup
