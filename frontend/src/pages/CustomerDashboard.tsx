@@ -111,6 +111,10 @@ export function CustomerDashboard() {
   const { showError, showSuccess } = useFeedback();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productPage, setProductPage] = useState(1);
+  const [productTotalCount, setProductTotalCount] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPrevPage, setHasPrevPage] = useState(false);
   const [merchandising, setMerchandising] = useState<MerchandisingResponse>({});
   const [availabilityFilter, setAvailabilityFilter] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -660,80 +664,125 @@ export function CustomerDashboard() {
     }
   };
 
-  const loadProducts = useCallback(async () => {
-    setLoading(true);
-    setIsTopSellingView(false);
-    setProductsError(null);
-    try {
-      const response = await api.get("/products/", {
-        params:
-          availabilityFilter !== "ALL"
-            ? { availability_status: availabilityFilter }
-            : undefined,
-      });
-      const apiProducts = normalizeProducts(
-        response.data.results || response.data,
-      );
-      setProducts(apiProducts);
-      await loadMerchandising();
-    } catch (error) {
-      console.error("Failed to load products:", error);
-      setProducts([]);
-      setProductsError("Couldn't load products right now.");
-    } finally {
-      setLoading(false);
-    }
-  }, [availabilityFilter, loadMerchandising, normalizeProducts]);
+  const loadProducts = useCallback(
+    async (page: number = 1) => {
+      setLoading(true);
+      setIsTopSellingView(false);
+      setProductsError(null);
+      try {
+        const response = await api.get("/products/", {
+          params:
+            availabilityFilter !== "ALL"
+              ? { availability_status: availabilityFilter, page }
+              : { page },
+        });
+        const isPaginated = Array.isArray(response.data?.results);
+        const rows = isPaginated ? response.data.results : response.data;
+        const apiProducts = normalizeProducts(rows || []);
+        setProducts(apiProducts);
+        setProductPage(page);
+        setProductTotalCount(
+          isPaginated
+            ? Number(response.data?.count || apiProducts.length)
+            : apiProducts.length,
+        );
+        setHasNextPage(Boolean(isPaginated && response.data?.next));
+        setHasPrevPage(Boolean(isPaginated && response.data?.previous));
+        await loadMerchandising();
+      } catch (error) {
+        console.error("Failed to load products:", error);
+        setProducts([]);
+        setProductTotalCount(0);
+        setHasNextPage(false);
+        setHasPrevPage(false);
+        setProductsError("Couldn't load products right now.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [availabilityFilter, loadMerchandising, normalizeProducts],
+  );
 
-  const loadTopSellingProducts = async () => {
+  const loadTopSellingProducts = async (page: number = 1) => {
     setLoading(true);
     setIsTopSellingView(true);
     setSearch("");
     setProductsError(null);
 
     try {
-      const response = await api.get("/products/top-selling/");
-      const topSellingProducts = normalizeProducts(
-        response.data.results || response.data,
-      );
+      const response = await api.get("/products/top-selling/", {
+        params: { page },
+      });
+      const isPaginated = Array.isArray(response.data?.results);
+      const rows = isPaginated ? response.data.results : response.data;
+      const topSellingProducts = normalizeProducts(rows || []);
       setProducts(topSellingProducts);
+      setProductPage(page);
+      setProductTotalCount(
+        isPaginated
+          ? Number(response.data?.count || topSellingProducts.length)
+          : topSellingProducts.length,
+      );
+      setHasNextPage(Boolean(isPaginated && response.data?.next));
+      setHasPrevPage(Boolean(isPaginated && response.data?.previous));
     } catch (error) {
       console.error("Failed to load top selling products:", error);
       setProducts([]);
+      setProductTotalCount(0);
+      setHasNextPage(false);
+      setHasPrevPage(false);
       setProductsError("Couldn't load top selling products right now.");
     } finally {
       setLoading(false);
     }
   };
 
+  const loadSearchedProducts = useCallback(
+    async (query: string, page: number = 1) => {
+      setLoading(true);
+      setIsTopSellingView(false);
+      setProductsError(null);
+      try {
+        const response = await api.get("/products/", {
+          params: { search: query, page },
+        });
+        const isPaginated = Array.isArray(response.data?.results);
+        const rows = isPaginated ? response.data.results : response.data;
+        const searchedProducts = normalizeProducts(rows || []);
+        setProducts(searchedProducts);
+        setProductPage(page);
+        setProductTotalCount(
+          isPaginated
+            ? Number(response.data?.count || searchedProducts.length)
+            : searchedProducts.length,
+        );
+        setHasNextPage(Boolean(isPaginated && response.data?.next));
+        setHasPrevPage(Boolean(isPaginated && response.data?.previous));
+      } catch (error) {
+        console.error("Search failed:", error);
+        setProducts([]);
+        setProductTotalCount(0);
+        setHasNextPage(false);
+        setHasPrevPage(false);
+        setProductsError("Search is temporarily unavailable.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [normalizeProducts],
+  );
+
   const handleSearch = useCallback(async () => {
     const query = search.trim();
 
     if (!query) {
       setIsTopSellingView(false);
-      await loadProducts();
+      await loadProducts(1);
       return;
     }
 
-    setLoading(true);
-    setIsTopSellingView(false);
-    setProductsError(null);
-    try {
-      const response = await api.get("/products/", {
-        params: { search: query },
-      });
-      const searchedProducts = normalizeProducts(
-        response.data.results || response.data,
-      );
-      setProducts(searchedProducts);
-    } catch (error) {
-      console.error("Search failed:", error);
-      setProducts([]);
-      setProductsError("Search is temporarily unavailable.");
-    } finally {
-      setLoading(false);
-    }
-  }, [loadProducts, normalizeProducts, search]);
+    await loadSearchedProducts(query, 1);
+  }, [loadProducts, loadSearchedProducts, search]);
 
   useEffect(() => {
     void loadProducts();
@@ -1073,7 +1122,9 @@ export function CustomerDashboard() {
                     variant="ghost"
                     size="sm"
                     className="gap-2"
-                    onClick={loadTopSellingProducts}
+                    onClick={() => {
+                      void loadTopSellingProducts(1);
+                    }}
                   >
                     <Trophy className="h-4 w-4" />
                     <span className="hidden sm:inline">Top Selling</span>
@@ -1191,7 +1242,9 @@ export function CustomerDashboard() {
                     variant="ghost"
                     size="sm"
                     className="gap-2"
-                    onClick={loadTopSellingProducts}
+                    onClick={() => {
+                      void loadTopSellingProducts(1);
+                    }}
                   >
                     <Trophy className="h-4 w-4" />
                     <span className="hidden sm:inline">Top Selling</span>
@@ -1235,7 +1288,7 @@ export function CustomerDashboard() {
                   size="sm"
                   className="justify-start"
                   onClick={() => {
-                    loadTopSellingProducts();
+                    void loadTopSellingProducts(1);
                     setIsMobileMenuOpen(false);
                   }}
                 >
@@ -1367,7 +1420,11 @@ export function CustomerDashboard() {
                   aria-label="Search products"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      void handleSearch();
+                    }
+                  }}
                   className="relative h-14 rounded-2xl border border-border/50 bg-background/95 pl-12 text-base font-medium text-foreground caret-teal-600 placeholder:text-muted-foreground shadow-2xl backdrop-blur-md focus-visible:ring-2 focus-visible:ring-white/60 sm:text-lg"
                 />
               </div>
@@ -1723,8 +1780,8 @@ export function CustomerDashboard() {
                       : "✨ All Products"}
                 </h3>
                 <p className="mt-2 text-sm font-medium text-muted-foreground">
-                  Found {products.length}{" "}
-                  {products.length === 1
+                  Found {productTotalCount}{" "}
+                  {productTotalCount === 1
                     ? "amazing product"
                     : "amazing products"}
                 </p>
@@ -1750,7 +1807,7 @@ export function CustomerDashboard() {
                   onClick={() => {
                     setIsTopSellingView(false);
                     setSearch("");
-                    loadProducts();
+                    void loadProducts(1);
                   }}
                   variant="outline"
                   size="sm"
@@ -1889,6 +1946,54 @@ export function CustomerDashboard() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loading || !hasPrevPage}
+                onClick={() => {
+                  const nextPage = Math.max(productPage - 1, 1);
+                  if (isTopSellingView) {
+                    void loadTopSellingProducts(nextPage);
+                    return;
+                  }
+
+                  const query = search.trim();
+                  if (query) {
+                    void loadSearchedProducts(query, nextPage);
+                    return;
+                  }
+                  void loadProducts(nextPage);
+                }}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {productPage}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loading || !hasNextPage}
+                onClick={() => {
+                  const nextPage = productPage + 1;
+                  if (isTopSellingView) {
+                    void loadTopSellingProducts(nextPage);
+                    return;
+                  }
+
+                  const query = search.trim();
+                  if (query) {
+                    void loadSearchedProducts(query, nextPage);
+                    return;
+                  }
+                  void loadProducts(nextPage);
+                }}
+              >
+                Next
+              </Button>
             </div>
           </>
         )}

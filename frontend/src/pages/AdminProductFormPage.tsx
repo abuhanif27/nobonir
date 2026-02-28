@@ -292,11 +292,17 @@ export function AdminProductFormPage() {
       if (isEditMode && id) {
         await api.patch(`/products/products/${id}/`, payload);
         showSuccess("Product updated successfully");
+        navigate("/admin");
       } else {
-        await api.post("/products/products/", payload);
-        showSuccess("Product created successfully");
+        const response = await api.post("/products/products/", payload);
+        const createdId = response.data?.id;
+        showSuccess("Product created. Now upload gallery images.");
+        if (createdId) {
+          navigate(`/admin/products/${createdId}`);
+          return;
+        }
+        navigate("/admin");
       }
-      navigate("/admin");
     } catch (error: unknown) {
       const data = getErrorData(error);
       const slugError = getErrorFieldMessages(error, "slug")[0];
