@@ -395,6 +395,13 @@ export function AdminProductFormPage() {
       return;
     }
 
+    const shouldDelete = window.confirm(
+      "Delete this variant? This will also remove any media linked to it.",
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
     setDeletingVariantId(variantId);
     try {
       await api.delete(`/products/${id}/variants/${variantId}/`);
@@ -442,6 +449,11 @@ export function AdminProductFormPage() {
 
   const deleteMedia = async (mediaId: number) => {
     if (!id) {
+      return;
+    }
+
+    const shouldDelete = window.confirm("Delete this media item?");
+    if (!shouldDelete) {
       return;
     }
 
