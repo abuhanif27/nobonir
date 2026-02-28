@@ -1,12 +1,13 @@
 from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from common.permissions import IsAdminRole
-from .models import Category, InventoryMovement, Product
+from .models import Category, InventoryMovement, Product, ProductMedia, ProductVariant
 from .serializers import (
 	CategorySerializer,
 	ProductMediaUploadSerializer,
@@ -160,6 +161,12 @@ class ProductViewSet(viewsets.ModelViewSet):
 		product = self.get_object()
 		serializer = ProductMediaUploadSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
+		variant = serializer.validated_data.get("variant")
+		if variant and variant.product_id != product.id:
+			return Response(
+				{"detail": "Variant must belong to this product."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
 		media = serializer.save(product=product)
 		return Response(ProductMediaUploadSerializer(media).data)
 
@@ -170,6 +177,50 @@ class ProductViewSet(viewsets.ModelViewSet):
 		serializer.is_valid(raise_exception=True)
 		variant = serializer.save(product=product)
 		return Response(ProductVariantSerializer(variant).data)
+
+	@action(
+		detail=True,
+		methods=["patch", "delete"],
+		url_path=r"variants/(?P<variant_id>[^/.]+)",
+		permission_classes=[permissions.IsAuthenticated, IsAdminRole],
+	)
+	def variant_detail(self, request, pk=None, variant_id=None):
+		product = self.get_object()
+		variant = get_object_or_404(ProductVariant, pk=variant_id, product=product)
+
+		if request.method == "DELETE":
+			variant.delete()
+			return Response(status=status.HTTP_204_NO_CONTENT)
+
+		serializer = ProductVariantSerializer(variant, data=request.data, partial=True)
+		serializer.is_valid(raise_exception=True)
+		updated_variant = serializer.save()
+		return Response(ProductVariantSerializer(updated_variant).data)
+
+	@action(
+		detail=True,
+		methods=["patch", "delete"],
+		url_path=r"media/(?P<media_id>[^/.]+)",
+		permission_classes=[permissions.IsAuthenticated, IsAdminRole],
+	)
+	def media_detail(self, request, pk=None, media_id=None):
+		product = self.get_object()
+		media = get_object_or_404(ProductMedia, pk=media_id, product=product)
+
+		if request.method == "DELETE":
+			media.delete()
+			return Response(status=status.HTTP_204_NO_CONTENT)
+
+		serializer = ProductMediaUploadSerializer(media, data=request.data, partial=True)
+		serializer.is_valid(raise_exception=True)
+		variant = serializer.validated_data.get("variant")
+		if variant and variant.product_id != product.id:
+			return Response(
+				{"detail": "Variant must belong to this product."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+		updated_media = serializer.save()
+		return Response(ProductMediaUploadSerializer(updated_media).data)
 
 	@action(detail=False, methods=["get"], url_path="admin/inventory-insights", permission_classes=[permissions.IsAuthenticated, IsAdminRole])
 	def inventory_insights(self, request):

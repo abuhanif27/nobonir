@@ -188,7 +188,13 @@ class ProductMediaUploadSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
     def validate(self, attrs):
-        if not attrs.get("image_file") and not attrs.get("image_url"):
+        image_file = attrs.get("image_file")
+        image_url = attrs.get("image_url")
+        if self.instance:
+            image_file = image_file or self.instance.image_file
+            image_url = image_url or self.instance.image_url
+
+        if not image_file and not image_url:
             raise serializers.ValidationError("Provide either image_file or image_url.")
         return attrs
 

@@ -35,6 +35,7 @@ interface ProductVariant {
   size?: string;
   sku?: string;
   stock?: number | null;
+  stock_override?: number | null;
 }
 
 interface ProductMedia {
@@ -44,6 +45,21 @@ interface ProductMedia {
   sort_order?: number;
   is_primary?: boolean;
   variant_id?: number | null;
+}
+
+interface VariantDraft {
+  color: string;
+  size: string;
+  sku: string;
+  stock_override: string;
+}
+
+interface MediaDraft {
+  image_url: string;
+  alt_text: string;
+  sort_order: string;
+  is_primary: boolean;
+  variant_id: string;
 }
 
 interface VariantFormPayload {
@@ -110,6 +126,18 @@ export function AdminProductFormPage() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [savingVariant, setSavingVariant] = useState(false);
   const [savingMedia, setSavingMedia] = useState(false);
+  const [savingVariantId, setSavingVariantId] = useState<number | null>(null);
+  const [deletingVariantId, setDeletingVariantId] = useState<number | null>(
+    null,
+  );
+  const [variantDrafts, setVariantDrafts] = useState<
+    Record<number, VariantDraft>
+  >({});
+  const [savingMediaId, setSavingMediaId] = useState<number | null>(null);
+  const [deletingMediaId, setDeletingMediaId] = useState<number | null>(null);
+  const [mediaDrafts, setMediaDrafts] = useState<Record<number, MediaDraft>>(
+    {},
+  );
 
   const title = useMemo(
     () => (isEditMode ? "Edit Product" : "Add Product"),
@@ -156,9 +184,58 @@ export function AdminProductFormPage() {
     }
   }, [id, isEditMode]);
 
+  const refreshProductAssets = useCallback(async () => {
+    if (!id) {
+      return;
+    }
+
+    const refreshed = await api.get(`/products/products/${id}/`);
+    setMediaItems(
+      Array.isArray(refreshed.data?.media) ? refreshed.data.media : [],
+    );
+    setVariants(
+      Array.isArray(refreshed.data?.variants) ? refreshed.data.variants : [],
+    );
+  }, [id]);
+
   useEffect(() => {
     void loadForm();
   }, [loadForm]);
+
+  useEffect(() => {
+    setVariantDrafts(
+      Object.fromEntries(
+        variants.map((variant) => [
+          variant.id,
+          {
+            color: variant.color || "",
+            size: variant.size || "",
+            sku: variant.sku || "",
+            stock_override: String(
+              variant.stock_override ?? variant.stock ?? "",
+            ),
+          },
+        ]),
+      ),
+    );
+  }, [variants]);
+
+  useEffect(() => {
+    setMediaDrafts(
+      Object.fromEntries(
+        mediaItems.map((media) => [
+          media.id,
+          {
+            image_url: media.url || "",
+            alt_text: media.alt_text || "",
+            sort_order: String(media.sort_order ?? 0),
+            is_primary: Boolean(media.is_primary),
+            variant_id: media.variant_id ? String(media.variant_id) : "",
+          },
+        ]),
+      ),
+    );
+  }, [mediaItems]);
 
   const onSubmit = async () => {
     if (
@@ -225,6 +302,7 @@ export function AdminProductFormPage() {
       };
       const response = await api.post(`/products/${id}/variants/`, payload);
       setVariants((current) => [...current, response.data]);
+      await refreshProductAssets();
       setVariantForm({ color: "", size: "", sku: "", stock_override: "" });
       showSuccess("Variant added.");
     } catch (error: unknown) {
@@ -265,14 +343,7 @@ export function AdminProductFormPage() {
           "Content-Type": "multipart/form-data",
         },
       });
-
-      const refreshed = await api.get(`/products/products/${id}/`);
-      setMediaItems(
-        Array.isArray(refreshed.data?.media) ? refreshed.data.media : [],
-      );
-      setVariants(
-        Array.isArray(refreshed.data?.variants) ? refreshed.data.variants : [],
-      );
+      await refreshProductAssets();
 
       setMediaForm({
         image_url: "",
@@ -287,6 +358,107 @@ export function AdminProductFormPage() {
       showError(getErrorMessage(error, "Failed to upload media."));
     } finally {
       setSavingMedia(false);
+    }
+  };
+
+  const updateVariant = async (variantId: number) => {
+    if (!id) {
+      return;
+    }
+
+    const draft = variantDrafts[variantId];
+    if (!draft) {
+      return;
+    }
+
+    setSavingVariantId(variantId);
+    try {
+      await api.patch(`/products/${id}/variants/${variantId}/`, {
+        color: draft.color.trim(),
+        size: draft.size.trim(),
+        sku: draft.sku.trim(),
+        stock_override: draft.stock_override.trim()
+          ? Number(draft.stock_override)
+          : null,
+      });
+      await refreshProductAssets();
+      showSuccess("Variant updated.");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to update variant."));
+    } finally {
+      setSavingVariantId(null);
+    }
+  };
+
+  const deleteVariant = async (variantId: number) => {
+    if (!id) {
+      return;
+    }
+
+    setDeletingVariantId(variantId);
+    try {
+      await api.delete(`/products/${id}/variants/${variantId}/`);
+      await refreshProductAssets();
+      setVariantDrafts((current) => {
+        const next = { ...current };
+        delete next[variantId];
+        return next;
+      });
+      showSuccess("Variant deleted.");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to delete variant."));
+    } finally {
+      setDeletingVariantId(null);
+    }
+  };
+
+  const updateMedia = async (mediaId: number) => {
+    if (!id) {
+      return;
+    }
+
+    const draft = mediaDrafts[mediaId];
+    if (!draft) {
+      return;
+    }
+
+    setSavingMediaId(mediaId);
+    try {
+      await api.patch(`/products/${id}/media/${mediaId}/`, {
+        image_url: draft.image_url.trim(),
+        alt_text: draft.alt_text.trim(),
+        sort_order: Number(draft.sort_order || 0),
+        is_primary: draft.is_primary,
+        variant_id: draft.variant_id ? Number(draft.variant_id) : null,
+      });
+      await refreshProductAssets();
+      showSuccess("Media updated.");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to update media."));
+    } finally {
+      setSavingMediaId(null);
+    }
+  };
+
+  const deleteMedia = async (mediaId: number) => {
+    if (!id) {
+      return;
+    }
+
+    setDeletingMediaId(mediaId);
+    try {
+      await api.delete(`/products/${id}/media/${mediaId}/`);
+      await refreshProductAssets();
+      setMediaDrafts((current) => {
+        const next = { ...current };
+        delete next[mediaId];
+        return next;
+      });
+      showSuccess("Media deleted.");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to delete media."));
+    } finally {
+      setDeletingMediaId(null);
     }
   };
 
@@ -552,21 +724,106 @@ export function AdminProductFormPage() {
                           </p>
                         ) : (
                           <div className="grid gap-2 md:grid-cols-2">
-                            {variants.map((variant) => (
-                              <div
-                                key={variant.id}
-                                className="rounded-md border px-3 py-2 text-sm"
-                              >
-                                <p className="font-medium">
-                                  {variant.color || "Default"}
-                                  {variant.size ? ` / ${variant.size}` : ""}
-                                </p>
-                                <p className="text-muted-foreground">
-                                  SKU: {variant.sku || "—"} • Stock:{" "}
-                                  {variant.stock ?? "—"}
-                                </p>
-                              </div>
-                            ))}
+                            {variants.map((variant) => {
+                              const draft = variantDrafts[variant.id] || {
+                                color: variant.color || "",
+                                size: variant.size || "",
+                                sku: variant.sku || "",
+                                stock_override: String(
+                                  variant.stock_override ?? variant.stock ?? "",
+                                ),
+                              };
+
+                              return (
+                                <div
+                                  key={variant.id}
+                                  className="space-y-2 rounded-md border p-3 text-sm"
+                                >
+                                  <div className="grid gap-2 sm:grid-cols-2">
+                                    <Input
+                                      value={draft.color}
+                                      onChange={(event) =>
+                                        setVariantDrafts((current) => ({
+                                          ...current,
+                                          [variant.id]: {
+                                            ...draft,
+                                            color: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      placeholder="Color"
+                                    />
+                                    <Input
+                                      value={draft.size}
+                                      onChange={(event) =>
+                                        setVariantDrafts((current) => ({
+                                          ...current,
+                                          [variant.id]: {
+                                            ...draft,
+                                            size: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      placeholder="Size"
+                                    />
+                                    <Input
+                                      value={draft.sku}
+                                      onChange={(event) =>
+                                        setVariantDrafts((current) => ({
+                                          ...current,
+                                          [variant.id]: {
+                                            ...draft,
+                                            sku: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      placeholder="SKU"
+                                    />
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={draft.stock_override}
+                                      onChange={(event) =>
+                                        setVariantDrafts((current) => ({
+                                          ...current,
+                                          [variant.id]: {
+                                            ...draft,
+                                            stock_override: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      placeholder="Stock override"
+                                    />
+                                  </div>
+
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => updateVariant(variant.id)}
+                                      disabled={savingVariantId === variant.id}
+                                    >
+                                      {savingVariantId === variant.id
+                                        ? "Saving..."
+                                        : "Save"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="bg-red-600 text-white hover:bg-red-700"
+                                      onClick={() => deleteVariant(variant.id)}
+                                      disabled={
+                                        deletingVariantId === variant.id
+                                      }
+                                    >
+                                      {deletingVariantId === variant.id
+                                        ? "Deleting..."
+                                        : "Delete"}
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -681,25 +938,140 @@ export function AdminProductFormPage() {
                           </p>
                         ) : (
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {mediaItems.map((media) => (
-                              <div
-                                key={media.id}
-                                className="rounded-md border p-2"
-                              >
-                                <img
-                                  src={media.url}
-                                  alt={media.alt_text || "Product media"}
-                                  className="h-28 w-full rounded object-cover"
-                                />
-                                <p className="mt-2 text-xs text-muted-foreground">
-                                  Variant: {media.variant_id || "Default"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Order: {media.sort_order ?? 0}
-                                  {media.is_primary ? " • Primary" : ""}
-                                </p>
-                              </div>
-                            ))}
+                            {mediaItems.map((media) => {
+                              const draft = mediaDrafts[media.id] || {
+                                image_url: media.url,
+                                alt_text: media.alt_text || "",
+                                sort_order: String(media.sort_order ?? 0),
+                                is_primary: Boolean(media.is_primary),
+                                variant_id: media.variant_id
+                                  ? String(media.variant_id)
+                                  : "",
+                              };
+
+                              return (
+                                <div
+                                  key={media.id}
+                                  className="space-y-2 rounded-md border p-2"
+                                >
+                                  <img
+                                    src={media.url}
+                                    alt={media.alt_text || "Product media"}
+                                    className="h-28 w-full rounded object-cover"
+                                  />
+
+                                  <Input
+                                    value={draft.image_url}
+                                    onChange={(event) =>
+                                      setMediaDrafts((current) => ({
+                                        ...current,
+                                        [media.id]: {
+                                          ...draft,
+                                          image_url: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    placeholder="Image URL"
+                                  />
+                                  <Input
+                                    value={draft.alt_text}
+                                    onChange={(event) =>
+                                      setMediaDrafts((current) => ({
+                                        ...current,
+                                        [media.id]: {
+                                          ...draft,
+                                          alt_text: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    placeholder="Alt text"
+                                  />
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={draft.sort_order}
+                                      onChange={(event) =>
+                                        setMediaDrafts((current) => ({
+                                          ...current,
+                                          [media.id]: {
+                                            ...draft,
+                                            sort_order: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      placeholder="Order"
+                                    />
+                                    <select
+                                      value={draft.variant_id}
+                                      onChange={(event) =>
+                                        setMediaDrafts((current) => ({
+                                          ...current,
+                                          [media.id]: {
+                                            ...draft,
+                                            variant_id: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                      <option value="">Default</option>
+                                      {variants.map((variant) => (
+                                        <option
+                                          key={variant.id}
+                                          value={variant.id}
+                                        >
+                                          {variant.color || "Default"}
+                                          {variant.size
+                                            ? ` / ${variant.size}`
+                                            : ""}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <label className="inline-flex items-center gap-2 text-xs">
+                                    <input
+                                      type="checkbox"
+                                      checked={draft.is_primary}
+                                      onChange={(event) =>
+                                        setMediaDrafts((current) => ({
+                                          ...current,
+                                          [media.id]: {
+                                            ...draft,
+                                            is_primary: event.target.checked,
+                                          },
+                                        }))
+                                      }
+                                    />
+                                    Primary
+                                  </label>
+
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => updateMedia(media.id)}
+                                      disabled={savingMediaId === media.id}
+                                    >
+                                      {savingMediaId === media.id
+                                        ? "Saving..."
+                                        : "Save"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="bg-red-600 text-white hover:bg-red-700"
+                                      onClick={() => deleteMedia(media.id)}
+                                      disabled={deletingMediaId === media.id}
+                                    >
+                                      {deletingMediaId === media.id
+                                        ? "Deleting..."
+                                        : "Delete"}
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
