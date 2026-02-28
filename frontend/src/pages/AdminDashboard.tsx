@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
@@ -172,18 +172,6 @@ export function AdminDashboard() {
   });
   const [activeSection, setActiveSection] = useState<AdminSection>("orders");
 
-  useEffect(() => {
-    loadProducts();
-    loadOrders();
-    loadCoupons();
-    loadUsers();
-    loadReviews();
-  }, []);
-
-  useEffect(() => {
-    loadAnalyticsSummary(analyticsDays);
-  }, [analyticsDays]);
-
   const pushOrderNotice = (type: "success" | "error", message: string) => {
     if (type === "success") {
       showSuccess(message);
@@ -193,7 +181,7 @@ export function AdminDashboard() {
     showError(message);
   };
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     setLoadingProducts(true);
     setProductsError(null);
     try {
@@ -206,51 +194,52 @@ export function AdminDashboard() {
     } finally {
       setLoadingProducts(false);
     }
-  };
+  }, []);
 
-  const loadOrders = async (
-    filters: {
+  const loadOrders = useCallback(
+    async (filters: {
       status: string;
       dateFrom: string;
       dateTo: string;
       search: string;
-    } = orderFilters,
-  ) => {
-    setLoadingOrders(true);
-    setOrdersError(null);
-    try {
-      const params: Record<string, string> = {};
-      if (filters.status !== "ALL") {
-        params.status = filters.status;
-      }
-      if (filters.dateFrom) {
-        params.date_from = filters.dateFrom;
-      }
-      if (filters.dateTo) {
-        params.date_to = filters.dateTo;
-      }
-      if (filters.search.trim()) {
-        params.search = filters.search.trim();
-      }
+    }) => {
+      setLoadingOrders(true);
+      setOrdersError(null);
+      try {
+        const params: Record<string, string> = {};
+        if (filters.status !== "ALL") {
+          params.status = filters.status;
+        }
+        if (filters.dateFrom) {
+          params.date_from = filters.dateFrom;
+        }
+        if (filters.dateTo) {
+          params.date_to = filters.dateTo;
+        }
+        if (filters.search.trim()) {
+          params.search = filters.search.trim();
+        }
 
-      const response = await api.get("/orders/admin/", { params });
-      const fetchedOrders = response.data.results || response.data;
-      setOrders(fetchedOrders);
-      setOrderStatusDrafts(
-        Object.fromEntries(
-          fetchedOrders.map((order: AdminOrder) => [order.id, order.status]),
-        ),
-      );
-    } catch (error: unknown) {
-      console.error("Failed to load orders:", error);
-      setOrders([]);
-      setOrdersError(getErrorMessage(error, "Failed to load orders."));
-    } finally {
-      setLoadingOrders(false);
-    }
-  };
+        const response = await api.get("/orders/admin/", { params });
+        const fetchedOrders = response.data.results || response.data;
+        setOrders(fetchedOrders);
+        setOrderStatusDrafts(
+          Object.fromEntries(
+            fetchedOrders.map((order: AdminOrder) => [order.id, order.status]),
+          ),
+        );
+      } catch (error: unknown) {
+        console.error("Failed to load orders:", error);
+        setOrders([]);
+        setOrdersError(getErrorMessage(error, "Failed to load orders."));
+      } finally {
+        setLoadingOrders(false);
+      }
+    },
+    [],
+  );
 
-  const loadCoupons = async () => {
+  const loadCoupons = useCallback(async () => {
     setLoadingCoupons(true);
     setCouponsError(null);
     try {
@@ -263,9 +252,9 @@ export function AdminDashboard() {
     } finally {
       setLoadingCoupons(false);
     }
-  };
+  }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoadingUsers(true);
     setUsersError(null);
     try {
@@ -278,9 +267,9 @@ export function AdminDashboard() {
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, []);
 
-  const loadReviews = async () => {
+  const loadReviews = useCallback(async () => {
     setLoadingReviews(true);
     setReviewsError(null);
     try {
@@ -293,9 +282,9 @@ export function AdminDashboard() {
     } finally {
       setLoadingReviews(false);
     }
-  };
+  }, []);
 
-  const loadAnalyticsSummary = async (days = analyticsDays) => {
+  const loadAnalyticsSummary = useCallback(async (days: number) => {
     setLoadingAnalytics(true);
     setAnalyticsError(null);
     try {
@@ -312,7 +301,25 @@ export function AdminDashboard() {
     } finally {
       setLoadingAnalytics(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const initialFilters = {
+      status: "ALL",
+      dateFrom: "",
+      dateTo: "",
+      search: "",
+    };
+    void loadProducts();
+    void loadOrders(initialFilters);
+    void loadCoupons();
+    void loadUsers();
+    void loadReviews();
+  }, [loadCoupons, loadOrders, loadProducts, loadReviews, loadUsers]);
+
+  useEffect(() => {
+    void loadAnalyticsSummary(analyticsDays);
+  }, [analyticsDays, loadAnalyticsSummary]);
 
   const deleteProduct = async (id: number) => {
     if (!confirm("Are you sure you want to delete this product?")) {
@@ -915,7 +922,7 @@ export function AdminDashboard() {
 
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => loadOrders()}
+                      onClick={() => loadOrders(orderFilters)}
                       className="flex-1"
                       size="sm"
                     >
@@ -947,7 +954,7 @@ export function AdminDashboard() {
                   loadingMessage="Loading orders..."
                   emptyTitle="No orders found"
                   emptyMessage="No orders found for the selected filters."
-                  onRetry={() => loadOrders()}
+                  onRetry={() => loadOrders(orderFilters)}
                 >
                   <div className="overflow-x-auto">
                     <Table>

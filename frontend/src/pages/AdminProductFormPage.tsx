@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/api";
 import {
@@ -66,7 +66,7 @@ export function AdminProductFormPage() {
     [isEditMode],
   );
 
-  const loadForm = async () => {
+  const loadForm = useCallback(async () => {
     setLoading(true);
     setFormLoadError(null);
 
@@ -100,11 +100,11 @@ export function AdminProductFormPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, isEditMode]);
 
   useEffect(() => {
-    loadForm();
-  }, [id, isEditMode]);
+    void loadForm();
+  }, [loadForm]);
 
   const onSubmit = async () => {
     if (

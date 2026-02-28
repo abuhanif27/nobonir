@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { getErrorMessage } from "@/lib/apiError";
@@ -72,7 +72,7 @@ export function WishlistPage() {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
 
-  const getLocalWishlistItems = (): WishlistItem[] => {
+  const getLocalWishlistItems = useCallback((): WishlistItem[] => {
     const raw = localStorage.getItem(DEMO_WISHLIST_KEY);
     if (!raw) {
       return [];
@@ -104,7 +104,7 @@ export function WishlistPage() {
     } catch {
       return [];
     }
-  };
+  }, []);
 
   const setLocalWishlistItems = (nextItems: WishlistItem[]) => {
     const localOnly = nextItems.filter((item) => item.isLocal);
@@ -139,48 +139,51 @@ export function WishlistPage() {
     localStorage.setItem(DEMO_CART_KEY, JSON.stringify(safeParsed));
   };
 
-  const loadWishlist = async (silent = false) => {
-    if (silent) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError("");
-    setFallbackWarning("");
-
-    try {
-      const response = await api.get("/cart/wishlist/");
-      const data = Array.isArray(response.data) ? response.data : [];
-      const localItems = getLocalWishlistItems();
-      const apiProductIds = new Set(
-        data
-          .map((item: WishlistItem) => item?.product?.id)
-          .filter((productId: number | undefined) => Boolean(productId)),
-      );
-      const merged = [
-        ...data,
-        ...localItems.filter((item) => !apiProductIds.has(item.product.id)),
-      ];
-      setItems(merged);
-    } catch (err: unknown) {
-      const localItems = getLocalWishlistItems();
-      setItems(localItems);
-      if (localItems.length === 0) {
-        setError(getErrorMessage(err, "Failed to load wishlist"));
+  const loadWishlist = useCallback(
+    async (silent = false) => {
+      if (silent) {
+        setRefreshing(true);
       } else {
-        setFallbackWarning(
-          "Couldn’t load your server wishlist. Showing locally saved items.",
-        );
+        setLoading(true);
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+      setError("");
+      setFallbackWarning("");
+
+      try {
+        const response = await api.get("/cart/wishlist/");
+        const data = Array.isArray(response.data) ? response.data : [];
+        const localItems = getLocalWishlistItems();
+        const apiProductIds = new Set(
+          data
+            .map((item: WishlistItem) => item?.product?.id)
+            .filter((productId: number | undefined) => Boolean(productId)),
+        );
+        const merged = [
+          ...data,
+          ...localItems.filter((item) => !apiProductIds.has(item.product.id)),
+        ];
+        setItems(merged);
+      } catch (err: unknown) {
+        const localItems = getLocalWishlistItems();
+        setItems(localItems);
+        if (localItems.length === 0) {
+          setError(getErrorMessage(err, "Failed to load wishlist"));
+        } else {
+          setFallbackWarning(
+            "Couldn’t load your server wishlist. Showing locally saved items.",
+          );
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [getLocalWishlistItems],
+  );
 
   useEffect(() => {
-    loadWishlist();
-  }, []);
+    void loadWishlist();
+  }, [loadWishlist]);
 
   const categories = useMemo(() => {
     const names = new Set<string>();

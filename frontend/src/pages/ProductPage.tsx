@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
@@ -125,7 +125,7 @@ export function ProductPage() {
   >(null);
   const trackedProductViewRef = useRef<number | null>(null);
 
-  const fetchProductDetail = async (productId: string) => {
+  const fetchProductDetail = useCallback(async (productId: string) => {
     const endpoints = [
       `/products/${productId}/`,
       `/products/products/${productId}/`,
@@ -145,9 +145,9 @@ export function ProductPage() {
     }
 
     throw lastError;
-  };
+  }, []);
 
-  const getLocalCartCount = () => {
+  const getLocalCartCount = useCallback(() => {
     const raw = localStorage.getItem("nobonir_demo_cart");
     if (!raw) {
       return 0;
@@ -166,9 +166,9 @@ export function ProductPage() {
     } catch {
       return 0;
     }
-  };
+  }, []);
 
-  const refreshCartCount = async () => {
+  const refreshCartCount = useCallback(async () => {
     try {
       const response = await api.get("/cart/");
       const apiItems = Array.isArray(response.data)
@@ -184,29 +184,32 @@ export function ProductPage() {
     } catch {
       setCartCount(getLocalCartCount());
     }
-  };
+  }, [getLocalCartCount]);
 
-  const loadProductById = async (productId: string) => {
-    setLoading(true);
-    setProduct(null);
-    setProductLoadError(null);
-
-    try {
-      const productData = await fetchProductDetail(productId);
-      setProduct(productData);
-    } catch (error: unknown) {
-      console.error("Failed to load product details:", error);
+  const loadProductById = useCallback(
+    async (productId: string) => {
+      setLoading(true);
       setProduct(null);
+      setProductLoadError(null);
 
-      if (getErrorStatus(error) === 404) {
-        setProductLoadError("not-found");
-      } else {
-        setProductLoadError("unavailable");
+      try {
+        const productData = await fetchProductDetail(productId);
+        setProduct(productData);
+      } catch (error: unknown) {
+        console.error("Failed to load product details:", error);
+        setProduct(null);
+
+        if (getErrorStatus(error) === 404) {
+          setProductLoadError("not-found");
+        } else {
+          setProductLoadError("unavailable");
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [fetchProductDetail],
+  );
 
   const loadPublicReviews = async (productId: string) => {
     setReviewsLoading(true);
@@ -226,7 +229,7 @@ export function ProductPage() {
     }
   };
 
-  const loadMyReviews = async () => {
+  const loadMyReviews = useCallback(async () => {
     if (!isAuthenticated) {
       setMyReviews([]);
       setMyReviewsError(null);
@@ -247,10 +250,10 @@ export function ProductPage() {
     } finally {
       setMyReviewsLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    refreshCartCount();
+    void refreshCartCount();
 
     if (!id) {
       setProductLoadError("not-found");
@@ -258,8 +261,8 @@ export function ProductPage() {
       return;
     }
 
-    loadProductById(String(id));
-  }, [id]);
+    void loadProductById(String(id));
+  }, [id, loadProductById, refreshCartCount]);
 
   useEffect(() => {
     if (!id) {
@@ -270,8 +273,8 @@ export function ProductPage() {
   }, [id]);
 
   useEffect(() => {
-    loadMyReviews();
-  }, [isAuthenticated]);
+    void loadMyReviews();
+  }, [loadMyReviews]);
 
   useEffect(() => {
     const checkReviewEligibility = async () => {

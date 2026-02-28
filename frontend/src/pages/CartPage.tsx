@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
@@ -76,7 +76,7 @@ export function CartPage() {
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
 
-  const getLocalCartItems = (): CartItem[] => {
+  const getLocalCartItems = useCallback((): CartItem[] => {
     const raw = localStorage.getItem("nobonir_demo_cart");
     if (!raw) {
       return [];
@@ -90,13 +90,13 @@ export function CartPage() {
     } catch {
       return [];
     }
-  };
+  }, []);
 
   const setLocalCartItems = (items: CartItem[]) => {
     localStorage.setItem("nobonir_demo_cart", JSON.stringify(items));
   };
 
-  const loadCart = async () => {
+  const loadCart = useCallback(async () => {
     setCartLoadError(null);
     try {
       const response = await api.get("/cart/");
@@ -118,11 +118,11 @@ export function CartPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getLocalCartItems]);
 
   useEffect(() => {
-    loadCart();
-  }, []);
+    void loadCart();
+  }, [loadCart]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);

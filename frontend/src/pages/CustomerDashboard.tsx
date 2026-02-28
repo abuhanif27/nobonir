@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api, { MEDIA_BASE_URL } from "@/lib/api";
@@ -312,7 +312,7 @@ export function CustomerDashboard() {
       : `${MEDIA_BASE_URL}${user.profile_picture}?v=${avatarVersion}`
     : null;
 
-  const normalizeProducts = (items: unknown[]): Product[] => {
+  const normalizeProducts = useCallback((items: unknown[]): Product[] => {
     if (!Array.isArray(items)) {
       return [];
     }
@@ -340,7 +340,7 @@ export function CustomerDashboard() {
         };
       })
       .filter((item): item is Product => item !== null);
-  };
+  }, []);
 
   const suggestionCategories = useMemo(() => {
     const unique = new Set(
@@ -416,22 +416,8 @@ export function CustomerDashboard() {
   ]);
 
   useEffect(() => {
-    loadProducts();
-    refreshCartCount();
-    setIsInitialLoad(false);
-  }, []);
-
-  useEffect(() => {
     detectGeoDetails();
   }, []);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
-
-    loadPreferenceData();
-  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || !isPreferenceHydrated || isDetectingGeo) {
@@ -480,6 +466,7 @@ export function CustomerDashboard() {
     isAuthenticated,
     isPreferenceHydrated,
     isDetectingGeo,
+    normalizeProducts,
     calculatedAge,
     preferenceForm.age,
     preferenceForm.location,
@@ -531,26 +518,7 @@ export function CustomerDashboard() {
     return () => document.removeEventListener("keydown", handleEscapeKey);
   }, []);
 
-  useEffect(() => {
-    if (isInitialLoad) return;
-
-    const query = search.trim();
-
-    const debounceTimer = setTimeout(() => {
-      if (query) {
-        handleSearch();
-        return;
-      }
-
-      if (!isTopSellingView) {
-        loadProducts();
-      }
-    }, 500);
-
-    return () => clearTimeout(debounceTimer);
-  }, [search, isTopSellingView]);
-
-  const getLocalCartCount = () => {
+  const getLocalCartCount = useCallback(() => {
     const raw = localStorage.getItem("nobonir_demo_cart");
     if (!raw) {
       return 0;
@@ -569,9 +537,9 @@ export function CustomerDashboard() {
     } catch {
       return 0;
     }
-  };
+  }, []);
 
-  const refreshCartCount = async () => {
+  const refreshCartCount = useCallback(async () => {
     try {
       const response = await api.get("/cart/");
       const apiItems = Array.isArray(response.data)
@@ -588,9 +556,9 @@ export function CustomerDashboard() {
     } catch {
       setCartCount(getLocalCartCount());
     }
-  };
+  }, [getLocalCartCount]);
 
-  const loadPreferenceData = async () => {
+  const loadPreferenceData = useCallback(async () => {
     try {
       const [preferenceResult, recommendationsResult] =
         await Promise.allSettled([
@@ -622,7 +590,7 @@ export function CustomerDashboard() {
     } finally {
       setIsPreferenceHydrated(true);
     }
-  };
+  }, [normalizeProducts]);
 
   const detectGeoDetails = async () => {
     setIsDetectingGeo(true);
@@ -777,7 +745,7 @@ export function CustomerDashboard() {
     }
   };
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     setLoading(true);
     setIsTopSellingView(false);
     setProductsError(null);
@@ -796,7 +764,7 @@ export function CustomerDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [normalizeProducts]);
 
   const loadTopSellingProducts = async () => {
     setLoading(true);
@@ -819,12 +787,12 @@ export function CustomerDashboard() {
     }
   };
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     const query = search.trim();
 
     if (!query) {
       setIsTopSellingView(false);
-      loadProducts();
+      await loadProducts();
       return;
     }
 
@@ -856,7 +824,40 @@ export function CustomerDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadProducts, normalizeProducts, search]);
+
+  useEffect(() => {
+    void loadProducts();
+    void refreshCartCount();
+    setIsInitialLoad(false);
+  }, [loadProducts, refreshCartCount]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    void loadPreferenceData();
+  }, [isAuthenticated, loadPreferenceData]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+
+    const query = search.trim();
+
+    const debounceTimer = setTimeout(() => {
+      if (query) {
+        void handleSearch();
+        return;
+      }
+
+      if (!isTopSellingView) {
+        void loadProducts();
+      }
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [handleSearch, isInitialLoad, isTopSellingView, loadProducts, search]);
 
   const addToCart = async (product: Product, sourceElement?: HTMLElement) => {
     const addToLocalDemoCart = () => {

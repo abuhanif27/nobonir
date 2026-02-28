@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import api from "@/lib/api";
 
 type CurrencyContextValue = {
@@ -363,29 +370,32 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     persistCurrencyState({ countryCode, currencyCode, rates });
   }, [countryCode, currencyCode, rates]);
 
-  const formatPrice = (amount: string | number) => {
-    if (!currencyCode) {
-      return "…";
-    }
+  const formatPrice = useCallback(
+    (amount: string | number) => {
+      if (!currencyCode) {
+        return "…";
+      }
 
-    const numeric = toNumber(amount);
-    const rate = rates[currencyCode] || 1;
-    const converted = numeric * rate;
+      const numeric = toNumber(amount);
+      const rate = rates[currencyCode] || 1;
+      const converted = numeric * rate;
 
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currencyCode,
-        maximumFractionDigits: converted >= 1000 ? 0 : 2,
-      }).format(converted);
-    } catch {
-      return `${currencyCode} ${converted.toFixed(2)}`;
-    }
-  };
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: currencyCode,
+          maximumFractionDigits: converted >= 1000 ? 0 : 2,
+        }).format(converted);
+      } catch {
+        return `${currencyCode} ${converted.toFixed(2)}`;
+      }
+    },
+    [currencyCode, rates],
+  );
 
   const value = useMemo(
     () => ({ countryCode, currencyCode, formatPrice, isCurrencyLoading }),
-    [countryCode, currencyCode, isCurrencyLoading, rates],
+    [countryCode, currencyCode, formatPrice, isCurrencyLoading],
   );
 
   return (
