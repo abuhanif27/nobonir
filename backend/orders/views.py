@@ -3,11 +3,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.throttling import ScopedRateThrottle
 from decimal import Decimal, ROUND_HALF_UP
+import json
+import time
 from ipaddress import ip_address
 from pathlib import Path
 from django.db.models import Q
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from reportlab.lib.pagesizes import A4
@@ -20,6 +22,7 @@ from svglib.svglib import svg2rlg
 
 from common.permissions import IsAdminRole, IsCustomerRole
 from analytics.services import track_analytics_event
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Coupon, Order
 from .serializers import AdminCouponSerializer, AdminOrderSerializer, CheckoutSerializer, CouponValidateSerializer, OrderSerializer
 from .services import create_order_from_cart, get_coupon_preview
@@ -571,6 +574,76 @@ class MyOrderListAPIView(APIView):
 			.order_by("-created_at")
 		)
 		return Response(OrderSerializer(queryset, many=True).data)
+
+
+class MyOrderStatusStreamAPIView(APIView):
+	permission_classes = [permissions.AllowAny]
+
+	def _authenticate_from_token(self, request):
+		token = (request.query_params.get("token") or "").strip()
+		if not token:
+			return None
+
+		jwt_auth = JWTAuthentication()
+		try:
+			validated = jwt_auth.get_validated_token(token)
+			return jwt_auth.get_user(validated)
+		except Exception:
+			return None
+
+	def get(self, request):
+		user = self._authenticate_from_token(request)
+		if not user or not getattr(user, "is_authenticated", False):
+			return Response({"detail": "Unauthorized."}, status=status.HTTP_401_UNAUTHORIZED)
+
+		if getattr(user, "role", "") != "CUSTOMER":
+			return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+		def event_stream():
+			last_signature = ""
+			start = time.time()
+
+			yield "retry: 3000\n\n"
+
+			while time.time() - start < 120:
+				rows = list(
+					Order.objects.filter(user=user)
+					.order_by("-updated_at")
+					.values("id", "status", "updated_at")[:30]
+				)
+
+				normalized_rows = [
+					{
+						"id": int(row["id"]),
+						"status": str(row["status"]),
+						"updated_at": row["updated_at"].isoformat()
+						if row.get("updated_at")
+						else "",
+					}
+					for row in rows
+				]
+
+				signature = "|".join(
+					f"{row['id']}:{row['status']}:{row['updated_at']}" for row in normalized_rows
+				)
+
+				if signature != last_signature:
+					payload = json.dumps({"orders": normalized_rows})
+					yield f"event: order_status\\n"
+					yield f"data: {payload}\\n\\n"
+					last_signature = signature
+				else:
+					yield ": keepalive\\n\\n"
+
+				time.sleep(5)
+
+		response = StreamingHttpResponse(
+			event_stream(),
+			content_type="text/event-stream",
+		)
+		response["Cache-Control"] = "no-cache"
+		response["X-Accel-Buffering"] = "no"
+		return response
 
 
 class MyOrderInvoiceAPIView(APIView):

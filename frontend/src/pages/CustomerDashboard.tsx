@@ -166,7 +166,7 @@ const formatRelativeTime = (isoDate: string) => {
 };
 
 export function CustomerDashboard() {
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, accessToken, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
   const { showError, showSuccess } = useFeedback();
   const navigate = useNavigate();
@@ -559,6 +559,69 @@ export function CustomerDashboard() {
       setOrderNotificationSource([]);
     }
   }, [isAuthenticated]);
+
+  const applyOrderNotificationRows = useCallback((rows: unknown[]) => {
+    const normalized = rows
+      .map((row) => {
+        const item = row as {
+          id?: number;
+          status?: string;
+          updated_at?: string;
+          created_at?: string;
+        };
+
+        return {
+          id: Number(item?.id || 0),
+          status: String(item?.status || "").toUpperCase(),
+          updated_at: String(item?.updated_at || item?.created_at || ""),
+        };
+      })
+      .filter((row) => row.id > 0 && row.status);
+
+    setOrderNotificationSource(normalized);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken) {
+      return;
+    }
+
+    const baseUrl = String(api.defaults.baseURL || "").replace(/\/$/, "");
+    if (!baseUrl) {
+      return;
+    }
+
+    let fallbackTimer: number | null = null;
+    const streamUrl = `${baseUrl}/orders/my/updates/stream/?token=${encodeURIComponent(accessToken)}`;
+    const stream = new EventSource(streamUrl);
+
+    stream.addEventListener("order_status", (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data || "{}");
+        const rows = Array.isArray(data?.orders) ? data.orders : [];
+        applyOrderNotificationRows(rows);
+      } catch {
+        // Ignore malformed stream payload
+      }
+    });
+
+    stream.onerror = () => {
+      if (fallbackTimer !== null) {
+        return;
+      }
+
+      fallbackTimer = window.setInterval(() => {
+        void loadOrderNotificationSource();
+      }, 15000);
+    };
+
+    return () => {
+      stream.close();
+      if (fallbackTimer !== null) {
+        window.clearInterval(fallbackTimer);
+      }
+    };
+  }, [accessToken, applyOrderNotificationRows, isAuthenticated, loadOrderNotificationSource]);
 
   useEffect(() => {
     if (!isAuthenticated) {
