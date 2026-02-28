@@ -160,6 +160,25 @@ export function AdminProductFormPage() {
     [mediaItems],
   );
 
+  const sortedMediaItems = useMemo(
+    () =>
+      [...mediaItems].sort((left, right) => {
+        const primaryDelta = Number(Boolean(right.is_primary)) - Number(Boolean(left.is_primary));
+        if (primaryDelta !== 0) {
+          return primaryDelta;
+        }
+
+        const leftOrder = Number(left.sort_order ?? 0);
+        const rightOrder = Number(right.sort_order ?? 0);
+        if (leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
+        }
+
+        return left.id - right.id;
+      }),
+    [mediaItems],
+  );
+
   const loadForm = useCallback(async () => {
     setLoading(true);
     setFormLoadError(null);
@@ -522,6 +541,25 @@ export function AdminProductFormPage() {
       showSuccess("Media updated.");
     } catch (error: unknown) {
       showError(getErrorMessage(error, "Failed to update media."));
+    } finally {
+      setSavingMediaId(null);
+    }
+  };
+
+  const setPrimaryMedia = async (mediaId: number) => {
+    if (!id) {
+      return;
+    }
+
+    setSavingMediaId(mediaId);
+    try {
+      await api.patch(`/products/${id}/media/${mediaId}/`, {
+        is_primary: true,
+      });
+      await refreshProductAssets();
+      showSuccess("Primary image updated.");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to set primary image."));
     } finally {
       setSavingMediaId(null);
     }
@@ -1029,6 +1067,11 @@ export function AdminProductFormPage() {
                         <div className="text-xs text-muted-foreground md:col-span-2">
                           Main image is uploaded as primary automatically. Gallery images are uploaded as non-primary.
                         </div>
+                        {isEditMode && id && (
+                          <div className="text-xs text-muted-foreground md:col-span-2">
+                            Primary image status: {hasPrimaryMedia ? "Configured" : "Missing"}
+                          </div>
+                        )}
                       </div>
 
                       {isEditMode && id ? (
@@ -1058,7 +1101,7 @@ export function AdminProductFormPage() {
                           </p>
                         ) : (
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {mediaItems.map((media) => {
+                            {sortedMediaItems.map((media) => {
                               const draft = mediaDrafts[media.id] || {
                                 alt_text: media.alt_text || "",
                                 sort_order: String(media.sort_order ?? 0),
@@ -1160,6 +1203,18 @@ export function AdminProductFormPage() {
                                   </label>
 
                                   <div className="flex justify-end gap-2">
+                                    {!media.is_primary && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setPrimaryMedia(media.id)}
+                                        disabled={savingMediaId === media.id}
+                                      >
+                                        {savingMediaId === media.id
+                                          ? "Setting..."
+                                          : "Set Primary"}
+                                      </Button>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="outline"
