@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from urllib.parse import quote
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
 import re
+import sys
 from uuid import uuid4
+from django.conf import settings
 from django.db.models import Q, Sum
 
 from cart.models import CartItem, WishlistItem
@@ -22,6 +27,76 @@ class AssistantResult:
     intent: str
     reply: str
     products: list[Product]
+
+
+def _is_test_process() -> bool:
+    return "test" in sys.argv
+
+
+def _free_llm_enabled() -> bool:
+    return bool(getattr(settings, "AI_FREE_LLM_ENABLED", True)) and not _is_test_process()
+
+
+def _pollinations_reply(prompt: str) -> str | None:
+    base_url = str(getattr(settings, "AI_FREE_LLM_POLLINATIONS_URL", "https://text.pollinations.ai")).rstrip("/")
+    timeout = float(getattr(settings, "AI_FREE_LLM_TIMEOUT_SECONDS", 8))
+    endpoint = f"{base_url}/{quote(prompt)}"
+
+    try:
+        with urlopen(endpoint, timeout=timeout) as response:
+            if response.status != 200:
+                return None
+            text = response.read().decode("utf-8", errors="ignore").strip()
+            return text or None
+    except (URLError, HTTPError, TimeoutError, ValueError):
+        return None
+
+
+def _build_llm_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool) -> str:
+    product_lines = []
+    for product in products[:4]:
+        stock = get_available_stock(product)
+        product_lines.append(
+            f"- {product.name} | category={product.category.name} | price=৳{product.price} | stock={stock}"
+        )
+
+    context = "\n".join(product_lines) if product_lines else "- No product match available"
+    auth_line = "authenticated" if is_authenticated else "guest"
+
+    return (
+        "You are an e-commerce AI shopping assistant. "
+        "Reply in plain, concise, helpful English in 2-5 short lines. "
+        "Use ONLY the provided product context for facts like price/stock. "
+        "If data is missing, clearly say that.\n"
+        f"User type: {auth_line}\n"
+        f"Intent: {intent}\n"
+        f"User message: {message}\n"
+        f"Product context:\n{context}\n"
+        f"Fallback draft reply: {fallback_reply}\n"
+        "Now provide the best final reply."
+    )
+
+
+def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Product], fallback_reply: str, user) -> str:
+    if not _free_llm_enabled():
+        return fallback_reply
+
+    provider = str(getattr(settings, "AI_FREE_LLM_PROVIDER", "pollinations")).strip().lower()
+    prompt = _build_llm_prompt(
+        intent=intent,
+        message=message,
+        products=products,
+        fallback_reply=fallback_reply,
+        is_authenticated=_is_authenticated_user(user),
+    )
+
+    llm_reply: str | None = None
+    if provider == "pollinations":
+        llm_reply = _pollinations_reply(prompt)
+
+    if llm_reply and len(llm_reply) >= 20:
+        return llm_reply
+    return fallback_reply
 
 
 def _safe_session_key(candidate: str | None) -> str:
@@ -243,13 +318,18 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         reply = "These are currently top-selling products based on recent paid orders."
         if budget_cap is not None:
             reply += f" Filtered to budget under ৳{budget_cap}."
-        return AssistantResult(intent=intent, reply=reply, products=products)
+        return AssistantResult(
+            intent=intent,
+            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
+            products=products,
+        )
 
     if intent == "ORDER_HELP":
         if not _is_authenticated_user(user):
+            guest_reply = "Order tracking needs sign-in so I can securely access your account orders."
             return AssistantResult(
                 intent=intent,
-                reply="Order tracking needs sign-in so I can securely access your account orders.",
+                reply=_enhance_reply_with_free_llm(intent, normalized_message, _fallback_products(limit=4), guest_reply, user),
                 products=_fallback_products(limit=4),
             )
 
@@ -269,7 +349,11 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
             reply = "I could not find an order yet. I added some recommendations to help you get started."
 
         products = get_personalized_recommendations_for_user(user, limit=4)
-        return AssistantResult(intent=intent, reply=reply, products=products)
+        return AssistantResult(
+            intent=intent,
+            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
+            products=products,
+        )
 
     if intent == "PRICE_STOCK_LOOKUP":
         products = _apply_budget_filter(semantic_product_search(normalized_message, limit=6), budget_cap, limit=4)
@@ -280,13 +364,18 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
                 if _is_authenticated_user(user)
                 else _fallback_products(limit=4)
             )
-        return AssistantResult(intent=intent, reply=reply, products=products)
+        return AssistantResult(
+            intent=intent,
+            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
+            products=products,
+        )
 
     if intent == "FIT_HELP":
         products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=4)
+        reply = "For better fit, compare size guides on product pages and check recent reviews before checkout."
         return AssistantResult(
             intent=intent,
-            reply="For better fit, compare size guides on product pages and check recent reviews before checkout.",
+            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
             products=products,
         )
 
@@ -298,7 +387,11 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
                 reply += f" I applied your budget limit under ৳{budget_cap}."
         else:
             reply = "I could not find strong matches right now. Try a more specific query like category, color, or budget."
-        return AssistantResult(intent=intent, reply=reply, products=products)
+        return AssistantResult(
+            intent=intent,
+            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
+            products=products,
+        )
 
     products = (
         get_personalized_recommendations_for_user(user, limit=4)
@@ -306,9 +399,10 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         else _fallback_products(limit=4)
     )
     guest_hint = " Sign in to unlock personalized recommendations and order help." if not _is_authenticated_user(user) else ""
+    reply = f"I can help with recommendations, order tracking, and fit guidance. Tell me what you need.{guest_hint}"
     return AssistantResult(
         intent="GENERAL",
-        reply=f"I can help with recommendations, order tracking, and fit guidance. Tell me what you need.{guest_hint}",
+        reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
         products=products,
     )
 

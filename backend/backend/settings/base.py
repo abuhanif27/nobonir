@@ -174,6 +174,19 @@ DEFAULT_INVOICE_USD_TO_RATES = {
 
 INVOICE_USD_TO_RATES = DEFAULT_INVOICE_USD_TO_RATES.copy()
 
+
+def _as_bool(value: str, default: bool = False) -> bool:
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return default
+    return normalized in {"1", "true", "yes", "on"}
+
+
+AI_FREE_LLM_ENABLED = _as_bool(os.getenv("AI_FREE_LLM_ENABLED", "1"), default=True)
+AI_FREE_LLM_PROVIDER = os.getenv("AI_FREE_LLM_PROVIDER", "pollinations").strip().lower() or "pollinations"
+AI_FREE_LLM_TIMEOUT_SECONDS = float(os.getenv("AI_FREE_LLM_TIMEOUT_SECONDS", "8"))
+AI_FREE_LLM_POLLINATIONS_URL = os.getenv("AI_FREE_LLM_POLLINATIONS_URL", "https://text.pollinations.ai").strip()
+
 invoice_rates_json = os.getenv("INVOICE_USD_TO_RATES_JSON", "").strip()
 if invoice_rates_json:
     try:

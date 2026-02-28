@@ -62,6 +62,10 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 FRONTEND_BASE_URL=http://localhost:5173
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
+AI_FREE_LLM_ENABLED=1
+AI_FREE_LLM_PROVIDER=pollinations
+AI_FREE_LLM_TIMEOUT_SECONDS=8
+AI_FREE_LLM_POLLINATIONS_URL=https://text.pollinations.ai
 EOF
     echo -e "${GREEN}✓ Created backend/.env${NC}"
 fi

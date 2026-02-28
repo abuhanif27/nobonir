@@ -134,6 +134,19 @@ Troubleshooting:
    - If no geo header is available, local/private IP defaults to `BDT` and otherwise falls back to configured defaults.
    - Rates are static values from env and should be updated periodically for accuracy.
 
+   Optional free AI assistant LLM settings (no paid API required):
+
+   ```env
+   AI_FREE_LLM_ENABLED=1
+   AI_FREE_LLM_PROVIDER=pollinations
+   AI_FREE_LLM_TIMEOUT_SECONDS=8
+   AI_FREE_LLM_POLLINATIONS_URL=https://text.pollinations.ai
+   ```
+
+   Notes:
+   - This uses a free internet LLM provider and falls back automatically to local logic if unavailable.
+   - For tests, external free-LLM calls are skipped automatically to keep CI stable.
+
 4. Run migrations:
 
    ```bash
