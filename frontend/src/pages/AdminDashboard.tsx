@@ -38,6 +38,19 @@ interface InventoryInsight {
   stock_age_days: number;
 }
 
+interface ProductPerformanceInsight {
+  product_id: number;
+  name: string;
+  stock: number;
+  is_active: boolean;
+  total_sold_30d: number;
+  total_revenue_30d: string;
+  product_views_30d: number;
+  add_to_cart_30d: number;
+  view_to_add_to_cart_pct: number | null;
+  view_to_purchase_pct: number | null;
+}
+
 interface AdminOrderItem {
   id: number;
   product_name: string;
@@ -189,6 +202,14 @@ export function AdminDashboard() {
   const [inventoryInsightsError, setInventoryInsightsError] = useState<
     string | null
   >(null);
+  const [performanceInsights, setPerformanceInsights] = useState<
+    ProductPerformanceInsight[]
+  >([]);
+  const [loadingPerformanceInsights, setLoadingPerformanceInsights] =
+    useState(true);
+  const [performanceInsightsError, setPerformanceInsightsError] = useState<
+    string | null
+  >(null);
 
   const pushOrderNotice = (type: "success" | "error", message: string) => {
     if (type === "success") {
@@ -227,6 +248,22 @@ export function AdminDashboard() {
       );
     } finally {
       setLoadingInventoryInsights(false);
+    }
+  }, []);
+
+  const loadPerformanceInsights = useCallback(async () => {
+    setLoadingPerformanceInsights(true);
+    setPerformanceInsightsError(null);
+    try {
+      const response = await api.get("/products/admin/performance-insights/");
+      setPerformanceInsights(response.data?.items || []);
+    } catch (error: unknown) {
+      setPerformanceInsights([]);
+      setPerformanceInsightsError(
+        getErrorMessage(error, "Failed to load product performance insights."),
+      );
+    } finally {
+      setLoadingPerformanceInsights(false);
     }
   }, []);
 
@@ -346,6 +383,7 @@ export function AdminDashboard() {
     };
     void loadProducts();
     void loadInventoryInsights();
+    void loadPerformanceInsights();
     void loadOrders(initialFilters);
     void loadCoupons();
     void loadUsers();
@@ -353,6 +391,7 @@ export function AdminDashboard() {
   }, [
     loadCoupons,
     loadInventoryInsights,
+    loadPerformanceInsights,
     loadOrders,
     loadProducts,
     loadReviews,
@@ -1451,6 +1490,60 @@ export function AdminDashboard() {
                   </Table>
                 </div>
               )}
+
+              {performanceInsightsError && (
+                <FlowStateBanner
+                  className="mb-4"
+                  tone="warning"
+                  message={performanceInsightsError}
+                  actionLabel="Retry"
+                  onAction={loadPerformanceInsights}
+                />
+              )}
+
+              {!loadingPerformanceInsights &&
+                performanceInsights.length > 0 && (
+                  <div className="mb-6 overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product Performance (30d)</TableHead>
+                          <TableHead>Views</TableHead>
+                          <TableHead>Add to cart</TableHead>
+                          <TableHead>Sold</TableHead>
+                          <TableHead>Revenue</TableHead>
+                          <TableHead>View → Cart</TableHead>
+                          <TableHead>View → Purchase</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {performanceInsights.slice(0, 8).map((item) => (
+                          <TableRow key={item.product_id}>
+                            <TableCell className="font-medium">
+                              {item.name}
+                            </TableCell>
+                            <TableCell>{item.product_views_30d}</TableCell>
+                            <TableCell>{item.add_to_cart_30d}</TableCell>
+                            <TableCell>{item.total_sold_30d}</TableCell>
+                            <TableCell>
+                              {formatPrice(item.total_revenue_30d)}
+                            </TableCell>
+                            <TableCell>
+                              {item.view_to_add_to_cart_pct === null
+                                ? "—"
+                                : `${item.view_to_add_to_cart_pct.toFixed(2)}%`}
+                            </TableCell>
+                            <TableCell>
+                              {item.view_to_purchase_pct === null
+                                ? "—"
+                                : `${item.view_to_purchase_pct.toFixed(2)}%`}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
 
               <FlowStateSection
                 loading={loadingProducts}

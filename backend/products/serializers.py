@@ -26,6 +26,7 @@ class ProductSerializer(serializers.ModelSerializer):
     availability_status = serializers.SerializerMethodField()
     merchandising_tags = serializers.SerializerMethodField()
     total_sold_30d = serializers.SerializerMethodField()
+    primary_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -40,6 +41,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "stock",
             "is_active",
             "image_url",
+            "primary_image",
             "media",
             "variants",
             "available_stock",
@@ -92,6 +94,12 @@ class ProductSerializer(serializers.ModelSerializer):
             )
         payload.sort(key=lambda item: (not bool(item.get("is_primary")), item.get("sort_order", 0), item.get("id", 0)))
         return payload
+
+    def get_primary_image(self, obj: Product):
+        media_payload = self.get_media(obj)
+        if media_payload:
+            return media_payload[0].get("url")
+        return obj.image_url or ""
 
     def get_variants(self, obj: Product):
         request = self.context.get("request")
@@ -190,13 +198,15 @@ class ProductMediaUploadSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         image_file = attrs.get("image_file")
-        image_url = attrs.get("image_url")
-        if self.instance:
-            image_file = image_file or self.instance.image_file
-            image_url = image_url or self.instance.image_url
+        incoming_image_url = (attrs.get("image_url") or "").strip()
 
-        if not image_file and not image_url:
-            raise serializers.ValidationError("Provide either image_file or image_url.")
+        if incoming_image_url:
+            raise serializers.ValidationError(
+                {"image_url": "Image URL uploads are deprecated. Upload image_file instead."}
+            )
+
+        if not self.instance and not image_file:
+            raise serializers.ValidationError({"image_file": "Image file is required."})
         return attrs
 
 

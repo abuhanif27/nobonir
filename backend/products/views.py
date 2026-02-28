@@ -1,5 +1,52 @@
-from django.db.models import F, IntegerField, Q, Sum, Value
-from django.db.models.expressions import ExpressionWrapper
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -7,6 +54,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from analytics.models import AnalyticsEvent
 from common.permissions import IsAdminRole
 from .models import Category, InventoryMovement, Product, ProductMedia, ProductVariant
 from .serializers import (
@@ -189,6 +237,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 				status=status.HTTP_400_BAD_REQUEST,
 			)
 		media = serializer.save(product=product)
+		self._enforce_primary_media(media)
 		return Response(ProductMediaUploadSerializer(media).data)
 
 	@action(detail=True, methods=["post"], url_path="variants", permission_classes=[permissions.IsAuthenticated, IsAdminRole])
@@ -241,7 +290,15 @@ class ProductViewSet(viewsets.ModelViewSet):
 				status=status.HTTP_400_BAD_REQUEST,
 			)
 		updated_media = serializer.save()
+		self._enforce_primary_media(updated_media)
 		return Response(ProductMediaUploadSerializer(updated_media).data)
+
+	def _enforce_primary_media(self, media: ProductMedia):
+		if not media.is_primary:
+			return
+
+		scope = ProductMedia.objects.filter(product=media.product, variant=media.variant)
+		scope.exclude(id=media.id).update(is_primary=False)
 
 	@action(detail=False, methods=["get"], url_path="admin/inventory-insights", permission_classes=[permissions.IsAuthenticated, IsAdminRole])
 	def inventory_insights(self, request):
@@ -291,6 +348,101 @@ class ProductViewSet(viewsets.ModelViewSet):
 					"stock_age_days": stock_age_days,
 				}
 			)
+
+		return Response({"items": items, "generated_at": now.isoformat()})
+
+	@action(detail=False, methods=["get"], url_path="admin/performance-insights", permission_classes=[permissions.IsAuthenticated, IsAdminRole])
+	def performance_insights(self, request):
+		now = timezone.now()
+		cutoff = now - timezone.timedelta(days=30)
+
+		sales_queryset = (
+			super()
+			.get_queryset()
+			.annotate(
+				total_sold_30d=Coalesce(
+					Sum(
+						"order_items__quantity",
+						filter=Q(
+							order_items__order__status__in=[
+								"PAID",
+								"PROCESSING",
+								"SHIPPED",
+								"DELIVERED",
+							],
+							order_items__order__created_at__gte=cutoff,
+						),
+					),
+					0,
+				),
+				total_revenue_30d=Coalesce(
+					Sum(
+						ExpressionWrapper(
+							F("order_items__quantity") * F("order_items__unit_price"),
+							output_field=DecimalField(max_digits=14, decimal_places=2),
+						),
+						filter=Q(
+							order_items__order__status__in=[
+								"PAID",
+								"PROCESSING",
+								"SHIPPED",
+								"DELIVERED",
+							],
+							order_items__order__created_at__gte=cutoff,
+						),
+					),
+					0,
+				),
+			)
+		)
+
+		view_events = (
+			AnalyticsEvent.objects.filter(created_at__gte=cutoff, event_name="view_product")
+			.values("metadata__product_id")
+			.annotate(count=Count("id"))
+		)
+		add_to_cart_events = (
+			AnalyticsEvent.objects.filter(created_at__gte=cutoff, event_name="add_to_cart")
+			.values("metadata__product_id")
+			.annotate(count=Count("id"))
+		)
+
+		view_map = {
+			int(row["metadata__product_id"]): int(row["count"])
+			for row in view_events
+			if row.get("metadata__product_id") not in (None, "")
+		}
+		add_to_cart_map = {
+			int(row["metadata__product_id"]): int(row["count"])
+			for row in add_to_cart_events
+			if row.get("metadata__product_id") not in (None, "")
+		}
+
+		items = []
+		for product in sales_queryset:
+			product_id = int(product.id)
+			view_count = view_map.get(product_id, 0)
+			add_count = add_to_cart_map.get(product_id, 0)
+			sold_count = int(product.total_sold_30d or 0)
+			conversion_pct = round((sold_count / view_count) * 100, 2) if view_count > 0 else None
+			add_to_cart_pct = round((add_count / view_count) * 100, 2) if view_count > 0 else None
+
+			items.append(
+				{
+					"product_id": product_id,
+					"name": product.name,
+					"stock": int(product.stock or 0),
+					"is_active": bool(product.is_active),
+					"total_sold_30d": sold_count,
+					"total_revenue_30d": str(product.total_revenue_30d or 0),
+					"product_views_30d": view_count,
+					"add_to_cart_30d": add_count,
+					"view_to_add_to_cart_pct": add_to_cart_pct,
+					"view_to_purchase_pct": conversion_pct,
+				}
+			)
+
+		items.sort(key=lambda item: (item["total_sold_30d"], item["product_views_30d"]), reverse=True)
 
 		return Response({"items": items, "generated_at": now.isoformat()})
 

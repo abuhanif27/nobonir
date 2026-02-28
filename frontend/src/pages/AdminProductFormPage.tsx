@@ -54,7 +54,6 @@ interface VariantDraft {
 }
 
 interface MediaDraft {
-  image_url: string;
   alt_text: string;
   sort_order: string;
   is_primary: boolean;
@@ -69,7 +68,6 @@ interface VariantFormPayload {
 }
 
 interface MediaFormPayload {
-  image_url: string;
   alt_text: string;
   sort_order: string;
   is_primary: boolean;
@@ -129,13 +127,12 @@ export function AdminProductFormPage() {
     stock_override: "",
   });
   const [mediaForm, setMediaForm] = useState<MediaFormPayload>({
-    image_url: "",
     alt_text: "",
     sort_order: "0",
     is_primary: false,
     variant_id: "",
   });
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [savingVariant, setSavingVariant] = useState(false);
   const [savingMedia, setSavingMedia] = useState(false);
   const [savingVariantId, setSavingVariantId] = useState<number | null>(null);
@@ -240,7 +237,6 @@ export function AdminProductFormPage() {
         mediaItems.map((media) => [
           media.id,
           {
-            image_url: media.url || "",
             alt_text: media.alt_text || "",
             sort_order: String(media.sort_order ?? 0),
             is_primary: Boolean(media.is_primary),
@@ -348,43 +344,47 @@ export function AdminProductFormPage() {
       return;
     }
 
-    if (!mediaForm.image_url.trim() && !mediaFile) {
-      showError("Provide image URL or choose a file.");
+    if (mediaFiles.length === 0) {
+      showError("Choose at least one image file.");
       return;
     }
 
     setSavingMedia(true);
     try {
-      const payload = new FormData();
-      if (mediaForm.image_url.trim()) {
-        payload.append("image_url", mediaForm.image_url.trim());
-      }
-      if (mediaFile) {
-        payload.append("image_file", mediaFile);
-      }
-      payload.append("alt_text", mediaForm.alt_text.trim());
-      payload.append("sort_order", String(Number(mediaForm.sort_order || 0)));
-      payload.append("is_primary", String(mediaForm.is_primary));
-      if (mediaForm.variant_id) {
-        payload.append("variant_id", mediaForm.variant_id);
-      }
+      const baseOrder = Number(mediaForm.sort_order || 0);
+      const cleanAltText = mediaForm.alt_text.trim();
+      for (const [index, file] of mediaFiles.entries()) {
+        const payload = new FormData();
+        payload.append("image_file", file);
+        payload.append(
+          "alt_text",
+          cleanAltText ? `${cleanAltText} ${index + 1}` : file.name,
+        );
+        payload.append("sort_order", String(baseOrder + index));
+        payload.append(
+          "is_primary",
+          String(index === 0 && mediaForm.is_primary),
+        );
+        if (mediaForm.variant_id) {
+          payload.append("variant_id", mediaForm.variant_id);
+        }
 
-      await api.post(`/products/${id}/media/`, payload, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+        await api.post(`/products/${id}/media/`, payload, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      }
       await refreshProductAssets();
 
       setMediaForm({
-        image_url: "",
         alt_text: "",
         sort_order: "0",
         is_primary: false,
         variant_id: "",
       });
-      setMediaFile(null);
-      showSuccess("Media uploaded.");
+      setMediaFiles([]);
+      showSuccess("Gallery images uploaded.");
     } catch (error: unknown) {
       showError(getErrorMessage(error, "Failed to upload media."));
     } finally {
@@ -465,7 +465,6 @@ export function AdminProductFormPage() {
     setSavingMediaId(mediaId);
     try {
       await api.patch(`/products/${id}/media/${mediaId}/`, {
-        image_url: draft.image_url.trim(),
         alt_text: draft.alt_text.trim(),
         sort_order: Number(draft.sort_order || 0),
         is_primary: draft.is_primary,
@@ -883,30 +882,25 @@ export function AdminProductFormPage() {
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2 md:col-span-2">
                           <label className="text-sm font-medium">
-                            Image URL
-                          </label>
-                          <Input
-                            value={mediaForm.image_url}
-                            onChange={(event) =>
-                              setMediaForm((current) => ({
-                                ...current,
-                                image_url: event.target.value,
-                              }))
-                            }
-                            placeholder="https://..."
-                          />
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                          <label className="text-sm font-medium">
-                            Or Upload File
+                            Upload Product Gallery (multiple)
                           </label>
                           <Input
                             type="file"
                             accept="image/*"
+                            multiple
                             onChange={(event) =>
-                              setMediaFile(event.target.files?.[0] || null)
+                              setMediaFiles(
+                                event.target.files
+                                  ? Array.from(event.target.files)
+                                  : [],
+                              )
                             }
                           />
+                          <p className="text-xs text-muted-foreground">
+                            {mediaFiles.length > 0
+                              ? `${mediaFiles.length} file(s) selected`
+                              : "Select one or more product images."}
+                          </p>
                         </div>
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Variant</label>
@@ -992,7 +986,6 @@ export function AdminProductFormPage() {
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             {mediaItems.map((media) => {
                               const draft = mediaDrafts[media.id] || {
-                                image_url: media.url,
                                 alt_text: media.alt_text || "",
                                 sort_order: String(media.sort_order ?? 0),
                                 is_primary: Boolean(media.is_primary),
@@ -1012,19 +1005,6 @@ export function AdminProductFormPage() {
                                     className="h-28 w-full rounded object-cover"
                                   />
 
-                                  <Input
-                                    value={draft.image_url}
-                                    onChange={(event) =>
-                                      setMediaDrafts((current) => ({
-                                        ...current,
-                                        [media.id]: {
-                                          ...draft,
-                                          image_url: event.target.value,
-                                        },
-                                      }))
-                                    }
-                                    placeholder="Image URL"
-                                  />
                                   <Input
                                     value={draft.alt_text}
                                     onChange={(event) =>
