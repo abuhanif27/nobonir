@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import api from "./api";
+import api, { registerApiAuthBridge } from "./api";
 import { getErrorStatus } from "./apiError";
 
 interface User {
@@ -184,3 +184,10 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+registerApiAuthBridge({
+  isAuthenticated: () => useAuthStore.getState().isAuthenticated,
+  refreshAccessToken: () => useAuthStore.getState().refreshAccessToken(),
+  getAccessToken: () => useAuthStore.getState().accessToken,
+  logout: () => useAuthStore.getState().logout(),
+});
