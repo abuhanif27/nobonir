@@ -104,6 +104,7 @@ type LocalWishlistItem = {
 
 const SUGGESTION_CAROUSEL_AUTOPLAY_MS = 3000;
 const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
+const PRODUCTS_PAGE_SIZE = 12;
 
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -255,6 +256,23 @@ export function CustomerDashboard() {
 
     return ["All", ...Array.from(unique)];
   }, [personalizedProducts]);
+
+  const totalProductPages = useMemo(() => {
+    if (productTotalCount <= 0) {
+      return 1;
+    }
+    return Math.max(1, Math.ceil(productTotalCount / PRODUCTS_PAGE_SIZE));
+  }, [productTotalCount]);
+
+  const visibleProductPages = useMemo(() => {
+    const pages: number[] = [];
+    const start = Math.max(1, productPage - 2);
+    const end = Math.min(totalProductPages, productPage + 2);
+    for (let page = start; page <= end; page += 1) {
+      pages.push(page);
+    }
+    return pages;
+  }, [productPage, totalProductPages]);
 
   const visibleSuggestions = useMemo(() => {
     if (activeSuggestionCategory === "All") {
@@ -673,8 +691,12 @@ export function CustomerDashboard() {
         const response = await api.get("/products/", {
           params:
             availabilityFilter !== "ALL"
-              ? { availability_status: availabilityFilter, page }
-              : { page },
+              ? {
+                  availability_status: availabilityFilter,
+                  page,
+                  page_size: PRODUCTS_PAGE_SIZE,
+                }
+              : { page, page_size: PRODUCTS_PAGE_SIZE },
         });
         const isPaginated = Array.isArray(response.data?.results);
         const rows = isPaginated ? response.data.results : response.data;
@@ -711,7 +733,7 @@ export function CustomerDashboard() {
 
     try {
       const response = await api.get("/products/top-selling/", {
-        params: { page },
+        params: { page, page_size: PRODUCTS_PAGE_SIZE },
       });
       const isPaginated = Array.isArray(response.data?.results);
       const rows = isPaginated ? response.data.results : response.data;
@@ -744,7 +766,7 @@ export function CustomerDashboard() {
       setProductsError(null);
       try {
         const response = await api.get("/products/", {
-          params: { search: query, page },
+          params: { search: query, page, page_size: PRODUCTS_PAGE_SIZE },
         });
         const isPaginated = Array.isArray(response.data?.results);
         const rows = isPaginated ? response.data.results : response.data;
@@ -1973,6 +1995,29 @@ export function CustomerDashboard() {
               <span className="text-sm text-muted-foreground">
                 Page {productPage}
               </span>
+              {visibleProductPages.map((page) => (
+                <Button
+                  key={page}
+                  variant={page === productPage ? "default" : "outline"}
+                  size="sm"
+                  disabled={loading}
+                  onClick={() => {
+                    if (isTopSellingView) {
+                      void loadTopSellingProducts(page);
+                      return;
+                    }
+
+                    const query = search.trim();
+                    if (query) {
+                      void loadSearchedProducts(query, page);
+                      return;
+                    }
+                    void loadProducts(page);
+                  }}
+                >
+                  {page}
+                </Button>
+              ))}
               <Button
                 variant="outline"
                 size="sm"
