@@ -22,6 +22,8 @@ def track_analytics_event(
 
     session_key = ""
     if request is not None and hasattr(request, "session"):
+        if not request.session.session_key:
+            request.session.save()
         session_key = request.session.session_key or ""
 
     resolved_path = path or (request.path if request is not None else "")

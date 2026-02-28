@@ -92,6 +92,28 @@ class ProductViewSet(viewsets.ModelViewSet):
 	filterset_fields = ["category", "is_active"]
 	ordering_fields = ["price", "created_at", "name"]
 
+	def get_permissions(self):
+		admin_actions = {
+			"upload_media",
+			"create_variant",
+			"variant_detail",
+			"media_detail",
+			"inventory_insights",
+			"performance_insights",
+			"session_insights",
+			"variant_inventory_insights",
+		}
+
+		if self.action in admin_actions:
+			return [permissions.IsAuthenticated(), IsAdminRole()]
+
+		if self.action == "notify_stock":
+			return [permissions.AllowAny()]
+
+		if self.request.method in permissions.SAFE_METHODS:
+			return [permissions.AllowAny()]
+		return [permissions.IsAuthenticated(), IsAdminRole()]
+
 	def _with_available_stock(self, queryset):
 		now = timezone.now()
 		return queryset.annotate(
@@ -446,7 +468,147 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 		return Response({"items": items, "generated_at": now.isoformat()})
 
-	def get_permissions(self):
-		if self.request.method in permissions.SAFE_METHODS:
-			return [permissions.AllowAny()]
-		return [permissions.IsAuthenticated(), IsAdminRole()]
+	@action(detail=False, methods=["get"], url_path="admin/session-insights", permission_classes=[permissions.IsAuthenticated, IsAdminRole])
+	def session_insights(self, request):
+		try:
+			days = int(request.query_params.get("days", 30))
+		except (TypeError, ValueError):
+			return Response({"detail": "days must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+		if days <= 0 or days > 90:
+			return Response({"detail": "days must be between 1 and 90."}, status=status.HTTP_400_BAD_REQUEST)
+
+		now = timezone.now()
+		cutoff = now - timezone.timedelta(days=days)
+
+		view_rows = (
+			AnalyticsEvent.objects.filter(
+				created_at__gte=cutoff,
+				event_name="view_product",
+			)
+			.exclude(session_key="")
+			.values("metadata__product_id")
+			.annotate(
+				view_events=Count("id"),
+				view_sessions=Count("session_key", distinct=True),
+			)
+		)
+
+		cart_rows = (
+			AnalyticsEvent.objects.filter(
+				created_at__gte=cutoff,
+				event_name="add_to_cart",
+			)
+			.exclude(session_key="")
+			.values("metadata__product_id")
+			.annotate(
+				add_to_cart_events=Count("id"),
+				add_to_cart_sessions=Count("session_key", distinct=True),
+			)
+		)
+
+		view_map = {
+			int(row["metadata__product_id"]): {
+				"view_events": int(row.get("view_events") or 0),
+				"view_sessions": int(row.get("view_sessions") or 0),
+			}
+			for row in view_rows
+			if row.get("metadata__product_id") not in (None, "")
+		}
+		cart_map = {
+			int(row["metadata__product_id"]): {
+				"add_to_cart_events": int(row.get("add_to_cart_events") or 0),
+				"add_to_cart_sessions": int(row.get("add_to_cart_sessions") or 0),
+			}
+			for row in cart_rows
+			if row.get("metadata__product_id") not in (None, "")
+		}
+
+		products = Product.objects.filter(id__in=set(view_map.keys()) | set(cart_map.keys())).only("id", "name")
+		name_map = {int(product.id): product.name for product in products}
+
+		items = []
+		for product_id in set(view_map.keys()) | set(cart_map.keys()):
+			view_info = view_map.get(product_id, {"view_events": 0, "view_sessions": 0})
+			cart_info = cart_map.get(
+				product_id,
+				{"add_to_cart_events": 0, "add_to_cart_sessions": 0},
+			)
+
+			view_sessions = int(view_info["view_sessions"])
+			add_sessions = int(cart_info["add_to_cart_sessions"])
+			items.append(
+				{
+					"product_id": product_id,
+					"name": name_map.get(product_id, f"Product #{product_id}"),
+					"view_events": int(view_info["view_events"]),
+					"add_to_cart_events": int(cart_info["add_to_cart_events"]),
+					"view_sessions": view_sessions,
+					"add_to_cart_sessions": add_sessions,
+					"session_to_cart_pct": round((add_sessions / view_sessions) * 100, 2)
+					if view_sessions > 0
+					else None,
+				}
+			)
+
+		items.sort(key=lambda item: (item["view_sessions"], item["add_to_cart_sessions"]), reverse=True)
+		return Response(
+			{
+				"window_days": days,
+				"items": items,
+				"generated_at": now.isoformat(),
+			}
+		)
+
+	@action(detail=False, methods=["get"], url_path="admin/variant-inventory-insights", permission_classes=[permissions.IsAuthenticated, IsAdminRole])
+	def variant_inventory_insights(self, request):
+		now = timezone.now()
+		queryset = Product.objects.prefetch_related("variants").order_by("name")
+
+		items = []
+		for product in queryset:
+			active_variants = [variant for variant in product.variants.all() if variant.is_active]
+			variant_count = len(active_variants)
+			defined_stock = [
+				int(variant.stock_override)
+				for variant in active_variants
+				if variant.stock_override is not None
+			]
+			defined_count = len(defined_stock)
+			undefined_count = max(variant_count - defined_count, 0)
+			total_variant_stock = sum(defined_stock)
+
+			if variant_count == 0:
+				status_label = "NO_VARIANTS"
+			elif undefined_count > 0:
+				status_label = "INCOMPLETE"
+			elif total_variant_stock != int(product.stock or 0):
+				status_label = "MISMATCH"
+			else:
+				status_label = "OK"
+
+			items.append(
+				{
+					"product_id": int(product.id),
+					"name": product.name,
+					"product_stock": int(product.stock or 0),
+					"active_variant_count": variant_count,
+					"defined_variant_stock_count": defined_count,
+					"undefined_variant_stock_count": undefined_count,
+					"total_variant_stock": total_variant_stock,
+					"variant_stock_coverage_pct": round((defined_count / variant_count) * 100, 2)
+					if variant_count > 0
+					else None,
+					"status": status_label,
+				}
+			)
+
+		items.sort(
+			key=lambda item: (
+				item["status"] != "MISMATCH",
+				item["status"] != "INCOMPLETE",
+				-item["undefined_variant_stock_count"],
+			),
+		)
+
+		return Response({"items": items, "generated_at": now.isoformat()})

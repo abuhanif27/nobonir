@@ -51,6 +51,28 @@ interface ProductPerformanceInsight {
   view_to_purchase_pct: number | null;
 }
 
+interface ProductSessionInsight {
+  product_id: number;
+  name: string;
+  view_events: number;
+  add_to_cart_events: number;
+  view_sessions: number;
+  add_to_cart_sessions: number;
+  session_to_cart_pct: number | null;
+}
+
+interface VariantInventoryInsight {
+  product_id: number;
+  name: string;
+  product_stock: number;
+  active_variant_count: number;
+  defined_variant_stock_count: number;
+  undefined_variant_stock_count: number;
+  total_variant_stock: number;
+  variant_stock_coverage_pct: number | null;
+  status: "OK" | "MISMATCH" | "INCOMPLETE" | "NO_VARIANTS";
+}
+
 interface AdminOrderItem {
   id: number;
   product_name: string;
@@ -210,6 +232,20 @@ export function AdminDashboard() {
   const [performanceInsightsError, setPerformanceInsightsError] = useState<
     string | null
   >(null);
+  const [sessionInsights, setSessionInsights] = useState<ProductSessionInsight[]>(
+    [],
+  );
+  const [loadingSessionInsights, setLoadingSessionInsights] = useState(true);
+  const [sessionInsightsError, setSessionInsightsError] = useState<
+    string | null
+  >(null);
+  const [variantInsights, setVariantInsights] = useState<
+    VariantInventoryInsight[]
+  >([]);
+  const [loadingVariantInsights, setLoadingVariantInsights] = useState(true);
+  const [variantInsightsError, setVariantInsightsError] = useState<
+    string | null
+  >(null);
 
   const pushOrderNotice = (type: "success" | "error", message: string) => {
     if (type === "success") {
@@ -264,6 +300,40 @@ export function AdminDashboard() {
       );
     } finally {
       setLoadingPerformanceInsights(false);
+    }
+  }, []);
+
+  const loadSessionInsights = useCallback(async () => {
+    setLoadingSessionInsights(true);
+    setSessionInsightsError(null);
+    try {
+      const response = await api.get("/products/admin/session-insights/");
+      setSessionInsights(response.data?.items || []);
+    } catch (error: unknown) {
+      setSessionInsights([]);
+      setSessionInsightsError(
+        getErrorMessage(error, "Failed to load product session insights."),
+      );
+    } finally {
+      setLoadingSessionInsights(false);
+    }
+  }, []);
+
+  const loadVariantInsights = useCallback(async () => {
+    setLoadingVariantInsights(true);
+    setVariantInsightsError(null);
+    try {
+      const response = await api.get(
+        "/products/admin/variant-inventory-insights/",
+      );
+      setVariantInsights(response.data?.items || []);
+    } catch (error: unknown) {
+      setVariantInsights([]);
+      setVariantInsightsError(
+        getErrorMessage(error, "Failed to load variant inventory insights."),
+      );
+    } finally {
+      setLoadingVariantInsights(false);
     }
   }, []);
 
@@ -384,6 +454,8 @@ export function AdminDashboard() {
     void loadProducts();
     void loadInventoryInsights();
     void loadPerformanceInsights();
+    void loadSessionInsights();
+    void loadVariantInsights();
     void loadOrders(initialFilters);
     void loadCoupons();
     void loadUsers();
@@ -392,6 +464,8 @@ export function AdminDashboard() {
     loadCoupons,
     loadInventoryInsights,
     loadPerformanceInsights,
+    loadSessionInsights,
+    loadVariantInsights,
     loadOrders,
     loadProducts,
     loadReviews,
@@ -1544,6 +1618,98 @@ export function AdminDashboard() {
                     </Table>
                   </div>
                 )}
+
+              {sessionInsightsError && (
+                <FlowStateBanner
+                  className="mb-4"
+                  tone="warning"
+                  message={sessionInsightsError}
+                  actionLabel="Retry"
+                  onAction={loadSessionInsights}
+                />
+              )}
+
+              {!loadingSessionInsights && sessionInsights.length > 0 && (
+                <div className="mb-6 overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product Sessions (30d)</TableHead>
+                        <TableHead>View sessions</TableHead>
+                        <TableHead>Cart sessions</TableHead>
+                        <TableHead>View events</TableHead>
+                        <TableHead>Cart events</TableHead>
+                        <TableHead>Session → Cart</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sessionInsights.slice(0, 8).map((item) => (
+                        <TableRow key={item.product_id}>
+                          <TableCell className="font-medium">
+                            {item.name}
+                          </TableCell>
+                          <TableCell>{item.view_sessions}</TableCell>
+                          <TableCell>{item.add_to_cart_sessions}</TableCell>
+                          <TableCell>{item.view_events}</TableCell>
+                          <TableCell>{item.add_to_cart_events}</TableCell>
+                          <TableCell>
+                            {item.session_to_cart_pct === null
+                              ? "—"
+                              : `${item.session_to_cart_pct.toFixed(2)}%`}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {variantInsightsError && (
+                <FlowStateBanner
+                  className="mb-4"
+                  tone="warning"
+                  message={variantInsightsError}
+                  actionLabel="Retry"
+                  onAction={loadVariantInsights}
+                />
+              )}
+
+              {!loadingVariantInsights && variantInsights.length > 0 && (
+                <div className="mb-6 overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Variant Inventory Governance</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Product stock</TableHead>
+                        <TableHead>Variant stock total</TableHead>
+                        <TableHead>Coverage</TableHead>
+                        <TableHead>Undefined variants</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {variantInsights.slice(0, 8).map((item) => (
+                        <TableRow key={item.product_id}>
+                          <TableCell className="font-medium">
+                            {item.name}
+                          </TableCell>
+                          <TableCell>{item.status}</TableCell>
+                          <TableCell>{item.product_stock}</TableCell>
+                          <TableCell>{item.total_variant_stock}</TableCell>
+                          <TableCell>
+                            {item.variant_stock_coverage_pct === null
+                              ? "—"
+                              : `${item.variant_stock_coverage_pct.toFixed(2)}%`}
+                          </TableCell>
+                          <TableCell>
+                            {item.undefined_variant_stock_count}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
 
               <FlowStateSection
                 loading={loadingProducts}
