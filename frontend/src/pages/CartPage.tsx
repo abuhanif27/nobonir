@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import {
+  getErrorData,
+  getErrorFieldMessages,
+  getErrorMessage,
+} from "@/lib/apiError";
 import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
@@ -136,10 +141,11 @@ export function CartPage() {
             order_id: Number(orderId),
           });
           showError("Payment was canceled and the pending order was canceled");
-        } catch (error: any) {
-          const message =
-            error.response?.data?.detail ||
-            "Payment was canceled. Failed to auto-cancel the order.";
+        } catch (error: unknown) {
+          const message = getErrorMessage(
+            error,
+            "Payment was canceled. Failed to auto-cancel the order.",
+          );
           showError(message);
         }
       };
@@ -355,10 +361,8 @@ export function CartPage() {
       setCouponPreview(null);
 
       window.location.href = checkoutUrl;
-    } catch (error: any) {
-      showError(
-        error.response?.data?.detail || "Checkout failed. Please try again.",
-      );
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Checkout failed. Please try again."));
     } finally {
       setCheckoutLoading(false);
     }
@@ -387,13 +391,15 @@ export function CartPage() {
       setCouponPreview(response.data);
       setCouponCode(response.data.code);
       showSuccess(`Coupon ${response.data.code} applied successfully`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setCouponPreview(null);
-      const responseData = error.response?.data;
+      const responseData = getErrorData(error);
+      const couponCodeError = getErrorFieldMessages(error, "coupon_code")[0];
+      const nonFieldError = getErrorFieldMessages(error, "non_field_errors")[0];
       const parsedMessage =
-        responseData?.detail ||
-        responseData?.coupon_code?.[0] ||
-        responseData?.non_field_errors?.[0] ||
+        (typeof responseData?.detail === "string" ? responseData.detail : "") ||
+        couponCodeError ||
+        nonFieldError ||
         (typeof responseData === "string" ? responseData : "") ||
         "Failed to apply coupon.";
       showError(parsedMessage);

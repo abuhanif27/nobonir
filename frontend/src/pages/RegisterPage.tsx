@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
+import { getErrorFieldMessages, getErrorMessage } from "@/lib/apiError";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,12 +34,9 @@ export function RegisterPage() {
       await register(email, password, firstName, lastName);
       showSuccess("Account created successfully");
       navigate("/");
-    } catch (err: any) {
-      showError(
-        err.response?.data?.email?.[0] ||
-          err.response?.data?.detail ||
-          "Registration failed",
-      );
+    } catch (err: unknown) {
+      const emailError = getErrorFieldMessages(err, "email")[0];
+      showError(emailError || getErrorMessage(err, "Registration failed"));
     } finally {
       setLoading(false);
     }

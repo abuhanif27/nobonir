@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import { getErrorMessage } from "@/lib/apiError";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,13 @@ interface WishlistItem {
   created_at: string;
   isLocal?: boolean;
 }
+
+type LocalCartItem = {
+  product?: {
+    id?: number;
+  };
+  quantity?: number;
+};
 
 const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 const DEMO_CART_KEY = "nobonir_demo_cart";
@@ -108,7 +116,7 @@ export function WishlistPage() {
     const parsed = raw ? JSON.parse(raw) : [];
     const safeParsed = Array.isArray(parsed) ? parsed : [];
     const existingIndex = safeParsed.findIndex(
-      (cartItem: any) => cartItem?.product?.id === item.product.id,
+      (cartItem: LocalCartItem) => cartItem?.product?.id === item.product.id,
     );
 
     if (existingIndex >= 0) {
@@ -154,11 +162,11 @@ export function WishlistPage() {
         ...localItems.filter((item) => !apiProductIds.has(item.product.id)),
       ];
       setItems(merged);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const localItems = getLocalWishlistItems();
       setItems(localItems);
       if (localItems.length === 0) {
-        setError(err.response?.data?.detail || "Failed to load wishlist");
+        setError(getErrorMessage(err, "Failed to load wishlist"));
       } else {
         setFallbackWarning(
           "Couldn’t load your server wishlist. Showing locally saved items.",
@@ -239,8 +247,8 @@ export function WishlistPage() {
       await api.delete(`/cart/wishlist/${itemId}/`);
       setItems((current) => current.filter((item) => item.id !== itemId));
       showSuccess("Wishlist item removed successfully");
-    } catch (err: any) {
-      showError(err.response?.data?.detail || "Failed to remove wishlist item");
+    } catch (err: unknown) {
+      showError(getErrorMessage(err, "Failed to remove wishlist item"));
     } finally {
       setWorkingItemId(null);
     }
@@ -268,10 +276,8 @@ export function WishlistPage() {
       await api.delete(`/cart/wishlist/${item.id}/`);
       setItems((current) => current.filter((row) => row.id !== item.id));
       showSuccess("Wishlist item moved to cart successfully");
-    } catch (err: any) {
-      showError(
-        err.response?.data?.detail || "Failed to move wishlist item to cart",
-      );
+    } catch (err: unknown) {
+      showError(getErrorMessage(err, "Failed to move wishlist item to cart"));
     } finally {
       setWorkingItemId(null);
     }
@@ -307,9 +313,9 @@ export function WishlistPage() {
         return next;
       });
       showSuccess("Available wishlist items moved to cart successfully");
-    } catch (err: any) {
+    } catch (err: unknown) {
       showError(
-        err.response?.data?.detail || "Failed to move available wishlist items",
+        getErrorMessage(err, "Failed to move available wishlist items"),
       );
       await loadWishlist(true);
     } finally {

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/api";
+import {
+  getErrorData,
+  getErrorMessage,
+  getErrorFieldMessages,
+} from "@/lib/apiError";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,9 +93,8 @@ export function AdminProductFormPage() {
       }
 
       setForm(EMPTY_FORM);
-    } catch (error: any) {
-      const message =
-        error.response?.data?.detail || "Failed to load product form";
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, "Failed to load product form");
       setFormLoadError(message);
       setCategories([]);
     } finally {
@@ -135,12 +139,14 @@ export function AdminProductFormPage() {
         showSuccess("Product created successfully");
       }
       navigate("/admin");
-    } catch (error: any) {
-      const data = error.response?.data;
+    } catch (error: unknown) {
+      const data = getErrorData(error);
+      const slugError = getErrorFieldMessages(error, "slug")[0];
+      const nameError = getErrorFieldMessages(error, "name")[0];
       showError(
-        data?.detail ||
-          data?.slug?.[0] ||
-          data?.name?.[0] ||
+        (typeof data?.detail === "string" && data.detail) ||
+          slugError ||
+          nameError ||
           "Failed to save product",
       );
     } finally {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import api from "./api";
+import { getErrorStatus } from "./apiError";
 
 interface User {
   id: number;
@@ -127,8 +128,8 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isAdmin: user.role === "ADMIN",
           });
-        } catch (error: any) {
-          const status = error?.response?.status;
+        } catch (error: unknown) {
+          const status = getErrorStatus(error);
           if (status === 401 || status === 403) {
             get().logout();
           }
@@ -154,8 +155,8 @@ export const useAuthStore = create<AuthState>()(
             `Bearer ${state.accessToken}`;
           state
             .fetchMe()
-            .catch((error: any) => {
-              const status = error?.response?.status;
+            .catch((error: unknown) => {
+              const status = getErrorStatus(error);
 
               // Token expired, try to refresh
               if (status === 401 || status === 403) {

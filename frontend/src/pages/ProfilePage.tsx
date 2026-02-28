@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api, { MEDIA_BASE_URL } from "@/lib/api";
+import {
+  getErrorData,
+  getErrorFieldMessages,
+  getErrorMessage,
+} from "@/lib/apiError";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +38,8 @@ interface AccountStats {
   wishlistCount: number;
   cartCount: number;
 }
+
+type QuantityPayload = { quantity?: number | string };
 
 export function ProfilePage() {
   const { user, fetchMe } = useAuthStore();
@@ -117,13 +124,17 @@ export function ProfilePage() {
     setStatsLoading(true);
     setStatsError(null);
     try {
-      const getItems = (payload: any) => {
+      const getItems = (payload: unknown): QuantityPayload[] => {
         if (Array.isArray(payload)) {
-          return payload;
+          return payload as QuantityPayload[];
         }
 
-        if (Array.isArray(payload?.results)) {
-          return payload.results;
+        if (
+          payload &&
+          typeof payload === "object" &&
+          Array.isArray((payload as { results?: unknown }).results)
+        ) {
+          return (payload as { results: QuantityPayload[] }).results;
         }
 
         return [];
@@ -139,7 +150,8 @@ export function ProfilePage() {
       const wishlistItems = getItems(wishlistRes.data);
       const cartItems = getItems(cartRes.data);
       const cartQuantity = cartItems.reduce(
-        (total: number, item: any) => total + Number(item?.quantity ?? 0),
+        (total: number, item: QuantityPayload) =>
+          total + Number(item?.quantity ?? 0),
         0,
       );
 
@@ -208,8 +220,8 @@ export function ProfilePage() {
       setImagePreview(null);
       setAvatarVersion(Date.now());
       showSuccess("Profile updated successfully");
-    } catch (error: any) {
-      showError(error.response?.data?.detail || "Failed to update profile");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to update profile"));
     }
   };
 
@@ -251,10 +263,12 @@ export function ProfilePage() {
       });
       setIsChangingPassword(false);
       showSuccess("Password changed successfully");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const data = getErrorData(error);
+      const oldPasswordError = getErrorFieldMessages(error, "old_password")[0];
       showError(
-        error.response?.data?.old_password?.[0] ||
-          error.response?.data?.detail ||
+        oldPasswordError ||
+          (typeof data?.detail === "string" ? data.detail : "") ||
           "Failed to change password",
       );
     }

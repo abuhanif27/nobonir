@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api, { MEDIA_BASE_URL } from "@/lib/api";
+import { getErrorData, getErrorStatus } from "@/lib/apiError";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { animateFlyToCart } from "@/lib/flyToCart";
@@ -53,6 +54,36 @@ interface PreferenceForm {
   continent: string;
   preferred_categories: number[];
 }
+
+type ProductPayload = {
+  id?: number;
+  name?: string;
+  description?: string;
+  price?: string | number;
+  image?: string;
+  image_url?: string;
+  stock?: number;
+  category?: {
+    id?: number;
+    name?: string;
+  };
+};
+
+type QuantityPayload = { quantity?: number };
+
+type GeoPayload = {
+  country?: string;
+  country_name?: string;
+  country_code?: string;
+  continent?: string;
+  continent_code?: string;
+};
+
+type LocalWishlistItem = {
+  product?: {
+    id?: number;
+  };
+};
 
 // Demo products with beautiful images
 const DEMO_PRODUCTS: Product[] = [
@@ -281,25 +312,34 @@ export function CustomerDashboard() {
       : `${MEDIA_BASE_URL}${user.profile_picture}?v=${avatarVersion}`
     : null;
 
-  const normalizeProducts = (items: any[]): Product[] => {
+  const normalizeProducts = (items: unknown[]): Product[] => {
     if (!Array.isArray(items)) {
       return [];
     }
 
     return items
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description || "",
-        price: String(item.price ?? ""),
-        image: item.image || item.image_url || "",
-        stock: Number(item.stock ?? 0),
-        category: {
-          id: item.category?.id ?? 0,
-          name: item.category?.name ?? "Uncategorized",
-        },
-      }))
-      .filter((item) => Boolean(item.id) && Boolean(item.name));
+      .map((rawItem) => {
+        const item = rawItem as ProductPayload;
+        const normalizedId = Number(item.id ?? 0);
+        const normalizedName = String(item.name || "").trim();
+        if (!normalizedId || !normalizedName) {
+          return null;
+        }
+
+        return {
+          id: normalizedId,
+          name: normalizedName,
+          description: item.description || "",
+          price: String(item.price ?? ""),
+          image: item.image || item.image_url || "",
+          stock: Number(item.stock ?? 0),
+          category: {
+            id: item.category?.id ?? 0,
+            name: item.category?.name ?? "Uncategorized",
+          },
+        };
+      })
+      .filter((item): item is Product => item !== null);
   };
 
   const suggestionCategories = useMemo(() => {
@@ -523,7 +563,7 @@ export function CustomerDashboard() {
       }
 
       return parsed.reduce(
-        (sum: number, item: any) => sum + (item.quantity || 0),
+        (sum: number, item: QuantityPayload) => sum + (item.quantity || 0),
         0,
       );
     } catch {
@@ -540,7 +580,7 @@ export function CustomerDashboard() {
           ? response.data.results
           : [];
       const apiCount = apiItems.reduce(
-        (sum: number, item: any) => sum + (item.quantity || 0),
+        (sum: number, item: QuantityPayload) => sum + (item.quantity || 0),
         0,
       );
 
@@ -591,7 +631,7 @@ export function CustomerDashboard() {
     setDetectedCountryName("");
     setDetectedContinent("");
 
-    const applyGeoData = (data: any) => {
+    const applyGeoData = (data: unknown) => {
       const continentMap: Record<string, string> = {
         AF: "Africa",
         AN: "Antarctica",
@@ -602,11 +642,14 @@ export function CustomerDashboard() {
         SA: "South America",
       };
 
-      const country = data?.country || data?.country_name || "";
-      const countryCode = data?.country_code || "";
+      const payload =
+        data && typeof data === "object" ? (data as GeoPayload) : {};
+
+      const country = payload.country || payload.country_name || "";
+      const countryCode = payload.country_code || "";
       const continent =
-        data?.continent ||
-        continentMap[String(data?.continent_code || "").toUpperCase()] ||
+        payload.continent ||
+        continentMap[String(payload.continent_code || "").toUpperCase()] ||
         "";
 
       if (countryCode) {
@@ -635,7 +678,7 @@ export function CustomerDashboard() {
     };
 
     try {
-      let browserGeo: any = null;
+      let browserGeo: unknown = null;
 
       try {
         const browserResponse = await fetch("https://ipwho.is/", {
@@ -821,7 +864,8 @@ export function CustomerDashboard() {
       const existingRaw = localStorage.getItem(key);
       const existing = existingRaw ? JSON.parse(existingRaw) : [];
       const existingIndex = existing.findIndex(
-        (item: any) => item.product.id === product.id,
+        (item: QuantityPayload & { product?: { id?: number } }) =>
+          item.product?.id === product.id,
       );
 
       if (existingIndex >= 0) {
@@ -856,7 +900,7 @@ export function CustomerDashboard() {
       });
       await refreshCartCount();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       addToLocalDemoCart();
       await refreshCartCount();
       return false;
@@ -890,7 +934,7 @@ export function CustomerDashboard() {
       });
 
       showSuccess("Product added to wishlist");
-    } catch (error: any) {
+    } catch (error: unknown) {
       const addToLocalDemoWishlist = () => {
         const selectedProduct = products.find((item) => item.id === productId);
         if (!selectedProduct) {
@@ -905,7 +949,8 @@ export function CustomerDashboard() {
         const existing = existingRaw ? JSON.parse(existingRaw) : [];
         const alreadyExists = Array.isArray(existing)
           ? existing.some(
-              (item: any) => item?.product?.id === selectedProduct.id,
+              (item: LocalWishlistItem) =>
+                item?.product?.id === selectedProduct.id,
             )
           : false;
 
@@ -933,10 +978,12 @@ export function CustomerDashboard() {
         return { ok: true, reason: "added" as const };
       };
 
-      const apiMessage = String(error?.response?.data?.detail || "");
+      const errorData = getErrorData(error);
+      const apiMessage =
+        typeof errorData?.detail === "string" ? errorData.detail : "";
       const isMissingProductError =
         apiMessage.toLowerCase().includes("no product matches") ||
-        error?.response?.status === 404;
+        getErrorStatus(error) === 404;
 
       if (isMissingProductError) {
         const localResult = addToLocalDemoWishlist();

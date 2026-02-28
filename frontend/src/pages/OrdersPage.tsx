@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import {
+  getErrorData,
+  getErrorFieldMessages,
+  getErrorMessage,
+} from "@/lib/apiError";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
@@ -174,8 +179,8 @@ export function OrdersPage() {
       const response = await api.get("/orders/my/");
       const data = Array.isArray(response.data) ? response.data : [];
       setOrders(data);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to load your orders");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to load your orders"));
     } finally {
       setLoading(false);
     }
@@ -298,10 +303,12 @@ export function OrdersPage() {
       });
       showSuccess("Review submitted successfully");
       await loadMyReviews();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const data = getErrorData(error);
+      const productError = getErrorFieldMessages(error, "product")[0];
       showError(
-        error.response?.data?.detail ||
-          error.response?.data?.product?.[0] ||
+        (typeof data?.detail === "string" && data.detail) ||
+          productError ||
           "Failed to submit review",
       );
     } finally {

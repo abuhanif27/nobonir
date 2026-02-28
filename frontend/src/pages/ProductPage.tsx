@@ -2,6 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import {
+  getErrorData,
+  getErrorFieldMessages,
+  getErrorMessage,
+  getErrorStatus,
+} from "@/lib/apiError";
 import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
@@ -45,6 +51,14 @@ interface ProductReview {
   comment: string;
   created_at: string;
 }
+
+type CartQuantityItem = { quantity?: number };
+type LocalCartItem = {
+  product?: {
+    id?: number;
+  };
+  quantity?: number;
+};
 
 const FALLBACK_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=700&fit=crop";
@@ -117,14 +131,14 @@ export function ProductPage() {
       `/products/products/${productId}/`,
     ];
 
-    let lastError: any = null;
+    let lastError: unknown = null;
     for (const endpoint of endpoints) {
       try {
         const response = await api.get(endpoint);
         return response.data;
-      } catch (error: any) {
+      } catch (error: unknown) {
         lastError = error;
-        if (error?.response?.status !== 404) {
+        if (getErrorStatus(error) !== 404) {
           throw error;
         }
       }
@@ -146,7 +160,7 @@ export function ProductPage() {
       }
 
       return parsed.reduce(
-        (sum: number, item: any) => sum + (item.quantity || 0),
+        (sum: number, item: CartQuantityItem) => sum + (item.quantity || 0),
         0,
       );
     } catch {
@@ -163,7 +177,7 @@ export function ProductPage() {
           ? response.data.results
           : [];
       const apiCount = apiItems.reduce(
-        (sum: number, item: any) => sum + (item.quantity || 0),
+        (sum: number, item: CartQuantityItem) => sum + (item.quantity || 0),
         0,
       );
       setCartCount(apiCount > 0 ? apiCount : getLocalCartCount());
@@ -180,11 +194,11 @@ export function ProductPage() {
     try {
       const productData = await fetchProductDetail(productId);
       setProduct(productData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load product details:", error);
       setProduct(null);
 
-      if (error?.response?.status === 404) {
+      if (getErrorStatus(error) === 404) {
         setProductLoadError("not-found");
       } else {
         setProductLoadError("unavailable");
@@ -386,7 +400,7 @@ export function ProductPage() {
       const existingRaw = localStorage.getItem(key);
       const existing = existingRaw ? JSON.parse(existingRaw) : [];
       const existingIndex = existing.findIndex(
-        (item: any) => item.product.id === product.id,
+        (item: LocalCartItem) => item.product?.id === product.id,
       );
 
       if (existingIndex >= 0) {
@@ -473,10 +487,12 @@ export function ProductPage() {
         loadPublicReviews(String(product.id)),
         isAuthenticated ? loadMyReviews() : Promise.resolve(),
       ]);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const data = getErrorData(error);
+      const productError = getErrorFieldMessages(error, "product")[0];
       showError(
-        error.response?.data?.detail ||
-          error.response?.data?.product?.[0] ||
+        (typeof data?.detail === "string" && data.detail) ||
+          productError ||
           "Failed to submit review",
       );
     } finally {
@@ -503,8 +519,8 @@ export function ProductPage() {
         loadPublicReviews(String(product.id)),
         isAuthenticated ? loadMyReviews() : Promise.resolve(),
       ]);
-    } catch (error: any) {
-      showError(error.response?.data?.detail || "Failed to delete review");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to delete review"));
     } finally {
       setSavingReview(false);
     }

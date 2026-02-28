@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import { getErrorMessage } from "@/lib/apiError";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
@@ -198,12 +199,10 @@ export function AdminDashboard() {
     try {
       const response = await api.get("/products/products/");
       setProducts(response.data.results || response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load products:", error);
       setProducts([]);
-      setProductsError(
-        error.response?.data?.detail || "Failed to load products.",
-      );
+      setProductsError(getErrorMessage(error, "Failed to load products."));
     } finally {
       setLoadingProducts(false);
     }
@@ -242,10 +241,10 @@ export function AdminDashboard() {
           fetchedOrders.map((order: AdminOrder) => [order.id, order.status]),
         ),
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load orders:", error);
       setOrders([]);
-      setOrdersError(error.response?.data?.detail || "Failed to load orders.");
+      setOrdersError(getErrorMessage(error, "Failed to load orders."));
     } finally {
       setLoadingOrders(false);
     }
@@ -257,12 +256,10 @@ export function AdminDashboard() {
     try {
       const response = await api.get("/orders/admin/coupons/");
       setCoupons(response.data.results || response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load coupons:", error);
       setCoupons([]);
-      setCouponsError(
-        error.response?.data?.detail || "Failed to load coupons.",
-      );
+      setCouponsError(getErrorMessage(error, "Failed to load coupons."));
     } finally {
       setLoadingCoupons(false);
     }
@@ -274,10 +271,10 @@ export function AdminDashboard() {
     try {
       const response = await api.get("/accounts/users/");
       setUsers(response.data.results || response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load users:", error);
       setUsers([]);
-      setUsersError(error.response?.data?.detail || "Failed to load users.");
+      setUsersError(getErrorMessage(error, "Failed to load users."));
     } finally {
       setLoadingUsers(false);
     }
@@ -289,12 +286,10 @@ export function AdminDashboard() {
     try {
       const response = await api.get("/reviews/admin/");
       setReviews(response.data.results || response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load reviews:", error);
       setReviews([]);
-      setReviewsError(
-        error.response?.data?.detail || "Failed to load reviews.",
-      );
+      setReviewsError(getErrorMessage(error, "Failed to load reviews."));
     } finally {
       setLoadingReviews(false);
     }
@@ -308,11 +303,11 @@ export function AdminDashboard() {
         params: { days },
       });
       setAnalyticsSummary(response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load analytics summary:", error);
       setAnalyticsSummary(null);
       setAnalyticsError(
-        error.response?.data?.detail || "Failed to load analytics summary.",
+        getErrorMessage(error, "Failed to load analytics summary."),
       );
     } finally {
       setLoadingAnalytics(false);
@@ -362,10 +357,10 @@ export function AdminDashboard() {
         "success",
         `Order #${orderId} status saved successfully.`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       pushOrderNotice(
         "error",
-        error.response?.data?.detail || "Failed to save order status.",
+        getErrorMessage(error, "Failed to save order status."),
       );
     } finally {
       setSavingOrderId(null);
@@ -400,10 +395,10 @@ export function AdminDashboard() {
       document.body.removeChild(anchor);
       window.URL.revokeObjectURL(url);
       pushOrderNotice("success", `Invoice downloaded for order #${orderId}.`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       pushOrderNotice(
         "error",
-        error.response?.data?.detail || "Failed to download invoice.",
+        getErrorMessage(error, "Failed to download invoice."),
       );
     } finally {
       setDownloadingInvoiceOrderId(null);
@@ -429,10 +424,10 @@ export function AdminDashboard() {
       });
       pushOrderNotice("success", "Coupon created successfully.");
       loadCoupons();
-    } catch (error: any) {
+    } catch (error: unknown) {
       pushOrderNotice(
         "error",
-        error.response?.data?.detail || "Failed to create coupon.",
+        getErrorMessage(error, "Failed to create coupon."),
       );
     }
   };
@@ -453,10 +448,10 @@ export function AdminDashboard() {
         ),
       );
       pushOrderNotice("success", `Coupon ${response.data.code} updated.`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       pushOrderNotice(
         "error",
-        error.response?.data?.detail || "Failed to update coupon.",
+        getErrorMessage(error, "Failed to update coupon."),
       );
     } finally {
       setSavingCouponId(null);
@@ -474,10 +469,10 @@ export function AdminDashboard() {
         "success",
         `Permissions updated for ${response.data.email}.`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       pushOrderNotice(
         "error",
-        error.response?.data?.detail || "Failed to update user permissions.",
+        getErrorMessage(error, "Failed to update user permissions."),
       );
     } finally {
       setSavingUserId(null);
@@ -497,10 +492,10 @@ export function AdminDashboard() {
         "success",
         `Review #${review.id} ${response.data.is_approved ? "approved" : "hidden"}.`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       pushOrderNotice(
         "error",
-        error.response?.data?.detail || "Failed to update review status.",
+        getErrorMessage(error, "Failed to update review status."),
       );
     } finally {
       setSavingReviewId(null);
@@ -519,10 +514,10 @@ export function AdminDashboard() {
         current.filter((review) => review.id !== reviewId),
       );
       pushOrderNotice("success", `Review #${reviewId} deleted.`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       pushOrderNotice(
         "error",
-        error.response?.data?.detail || "Failed to delete review.",
+        getErrorMessage(error, "Failed to delete review."),
       );
     } finally {
       setSavingReviewId(null);

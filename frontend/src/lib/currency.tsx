@@ -153,17 +153,38 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       return "";
     };
 
-    const normalizeCountryCode = (data: any) =>
-      String(data?.country_code || data?.countryCode || "").toUpperCase();
+    const normalizeCountryCode = (data: unknown) => {
+      if (!data || typeof data !== "object") {
+        return "";
+      }
+      const payload = data as { country_code?: unknown; countryCode?: unknown };
+      return String(
+        payload.country_code || payload.countryCode || "",
+      ).toUpperCase();
+    };
 
-    const normalizeCurrencyCode = (data: any) =>
-      String(
-        data?.currency_code ||
-          data?.currencyCode ||
-          data?.currency?.code ||
-          data?.currency ||
+    const normalizeCurrencyCode = (data: unknown) => {
+      if (!data || typeof data !== "object") {
+        return "";
+      }
+      const payload = data as {
+        currency_code?: unknown;
+        currencyCode?: unknown;
+        currency?: unknown;
+      };
+      const currencyObj =
+        payload.currency && typeof payload.currency === "object"
+          ? (payload.currency as { code?: unknown })
+          : undefined;
+
+      return String(
+        payload.currency_code ||
+          payload.currencyCode ||
+          currencyObj?.code ||
+          payload.currency ||
           "",
       ).toUpperCase();
+    };
 
     const resolveGeoContext = async (): Promise<GeoResolution> => {
       try {

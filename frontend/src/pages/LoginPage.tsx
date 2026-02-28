@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/apiError";
 import { useFeedback } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,8 +32,8 @@ export function LoginPage() {
       await login(email, password);
       showSuccess("Logged in successfully");
       navigate("/");
-    } catch (err: any) {
-      showError(err.response?.data?.detail || "Invalid email or password");
+    } catch (err: unknown) {
+      showError(getErrorMessage(err, "Invalid email or password"));
     } finally {
       setLoading(false);
     }
