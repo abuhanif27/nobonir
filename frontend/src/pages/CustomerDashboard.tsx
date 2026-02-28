@@ -740,16 +740,17 @@ export function CustomerDashboard() {
   };
 
   const loadProducts = useCallback(
-    async (page: number = 1) => {
+    async (page: number = 1, availabilityOverride?: string) => {
       setLoading(true);
       setIsTopSellingView(false);
       setProductsError(null);
       try {
+        const activeAvailability = availabilityOverride ?? availabilityFilter;
         const response = await api.get("/products/", {
           params:
-            availabilityFilter !== "ALL"
+            activeAvailability !== "ALL"
               ? {
-                  availability_status: availabilityFilter,
+                  availability_status: activeAvailability,
                   page,
                   page_size: PRODUCTS_PAGE_SIZE,
                 }
@@ -862,6 +863,33 @@ export function CustomerDashboard() {
 
     await loadSearchedProducts(query, 1);
   }, [loadProducts, loadSearchedProducts, search]);
+
+  const handleMerchandisingSectionClick = useCallback(
+    async (sectionKey: string) => {
+      setSearch("");
+
+      if (sectionKey === "trending_now") {
+        setAvailabilityFilter("ALL");
+        await loadTopSellingProducts(1);
+        return;
+      }
+
+      const availabilityBySection: Record<string, string> = {
+        almost_gone: "ALMOST_GONE",
+        just_restocked: "JUST_RESTOCKED",
+        back_in_stock: "BACK_IN_STOCK",
+      };
+
+      const targetAvailability = availabilityBySection[sectionKey];
+      if (!targetAvailability) {
+        return;
+      }
+
+      setAvailabilityFilter(targetAvailability);
+      await loadProducts(1, targetAvailability);
+    },
+    [loadProducts],
+  );
 
   const navigateToPage = useCallback(
     (page: number) => {
@@ -1891,7 +1919,9 @@ export function CustomerDashboard() {
                         <button
                           type="button"
                           className="mt-2.5 flex w-full items-center gap-2.5 text-left sm:mt-3 sm:gap-3"
-                          onClick={() => viewProduct(section.items[0])}
+                          onClick={() => {
+                            void handleMerchandisingSectionClick(section.key);
+                          }}
                         >
                           <img
                             src={resolveProductImage(section.items[0].image)}
@@ -1909,14 +1939,26 @@ export function CustomerDashboard() {
                             <p className="text-xs text-muted-foreground">
                               {formatPrice(section.items[0].price)}
                             </p>
+                            <p className="text-[11px] text-teal-700 dark:text-teal-300">
+                              View all in {section.title}
+                            </p>
                           </div>
                         </button>
                       ) : (
-                        <div className="mt-3 rounded-md border border-dashed border-border bg-muted/30 px-3 py-4">
+                        <button
+                          type="button"
+                          className="mt-3 w-full rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-left transition-colors hover:bg-muted/50"
+                          onClick={() => {
+                            void handleMerchandisingSectionClick(section.key);
+                          }}
+                        >
                           <p className="text-xs text-muted-foreground">
                             No items yet.
                           </p>
-                        </div>
+                          <p className="mt-1 text-[11px] text-teal-700 dark:text-teal-300">
+                            Open {section.title}
+                          </p>
+                        </button>
                       )}
                     </CardContent>
                   </Card>
