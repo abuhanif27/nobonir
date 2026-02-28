@@ -95,7 +95,7 @@ class AIAssistantEndpointTests(TestCase):
 		response = self.client.post(
 			"/api/ai/assistant/chat/",
 			{"message": "recommend a shirt"},
-			content_type="application/json",
+			format="json",
 		)
 
 		self.assertEqual(response.status_code, 200)
@@ -117,7 +117,7 @@ class AIAssistantEndpointTests(TestCase):
 		response = self.client.post(
 			"/api/ai/assistant/chat/",
 			{"message": "what is price and stock of cotton shirt"},
-			content_type="application/json",
+			format="json",
 		)
 
 		self.assertEqual(response.status_code, 200)
@@ -132,7 +132,7 @@ class AIAssistantEndpointTests(TestCase):
 		response = self.client.post(
 			"/api/ai/assistant/chat/",
 			{"message": "show me top selling best product"},
-			content_type="application/json",
+			format="json",
 		)
 
 		self.assertEqual(response.status_code, 200)
@@ -146,7 +146,7 @@ class AIAssistantEndpointTests(TestCase):
 		response = guest_client.post(
 			"/api/ai/assistant/chat/",
 			{"message": "suggest budget shirt"},
-			content_type="application/json",
+			format="json",
 		)
 
 		self.assertEqual(response.status_code, 200)
@@ -159,7 +159,7 @@ class AIAssistantEndpointTests(TestCase):
 		chat_response = self.client.post(
 			"/api/ai/assistant/chat/",
 			{"message": "need shirt options"},
-			content_type="application/json",
+			format="json",
 		)
 		session_key = chat_response.json().get("session_key")
 
@@ -179,7 +179,7 @@ class AIAssistantEndpointTests(TestCase):
 		chat_response = guest_client.post(
 			"/api/ai/assistant/chat/",
 			{"message": "budget t shirt"},
-			content_type="application/json",
+			format="json",
 		)
 		session_key = chat_response.json().get("session_key")
 
@@ -197,7 +197,7 @@ class AIAssistantEndpointTests(TestCase):
 		chat_response = self.client.post(
 			"/api/ai/assistant/chat/",
 			{"message": "remember this conversation"},
-			content_type="application/json",
+			format="json",
 		)
 		session_key = chat_response.json().get("session_key")
 

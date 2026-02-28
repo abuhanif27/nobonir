@@ -171,30 +171,31 @@ export function FloatingAssistantWidget() {
     <>
       {open ? (
         <div className="fixed bottom-20 right-4 z-50 w-[calc(100vw-2rem)] max-w-sm sm:right-6 sm:w-[22rem]">
-          <Card className="border border-border/80 shadow-lg">
+          <Card className="border border-border/80 shadow-2xl rounded-2xl bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Bot className="h-4 w-4 text-teal-600" />
-                  AI Assistant
+                <CardTitle className="flex items-center gap-2 text-base font-bold">
+                  <Bot className="h-5 w-5 text-teal-600 drop-shadow" />
+                  <span className="tracking-wide">AI Assistant</span>
                 </CardTitle>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <Button
                     size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
+                    variant="outline"
+                    className="h-9 w-9 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/30 transition"
                     onClick={clearConversation}
                     aria-label="Clear conversation"
                   >
-                    <RotateCcw className="h-4 w-4" />
+                    <RotateCcw className="h-5 w-5 text-teal-600" />
                   </Button>
                   <Button
                     size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
+                    variant="outline"
+                    className="h-9 w-9 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30 transition"
                     onClick={() => setOpen(false)}
+                    aria-label="Close assistant"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-5 w-5 text-rose-600" />
                   </Button>
                 </div>
               </div>
@@ -211,24 +212,22 @@ export function FloatingAssistantWidget() {
                   {runtimeProviderLabel}
                 </p>
               ) : null}
-              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`rounded-md border p-2 ${
+                    className={`relative flex flex-col gap-1 rounded-xl px-3 py-2 shadow-sm ${
                       message.role === "user"
-                        ? "border-teal-400/50 bg-teal-50/40 dark:bg-teal-900/10"
-                        : "border-border/70 bg-card"
+                        ? "self-end bg-teal-100/80 dark:bg-teal-900/40 border border-teal-300/60"
+                        : "self-start bg-white dark:bg-slate-950 border border-border/60"
                     }`}
                   >
-                    <p className="text-xs font-semibold uppercase text-muted-foreground">
-                      {message.role === "user" ? "You" : "Assistant"}
-                    </p>
-                    <p className="whitespace-pre-line text-sm text-foreground">
+                    <span className={`absolute -top-2 left-2 text-[10px] font-semibold uppercase ${message.role === "user" ? "text-teal-700" : "text-slate-500"}`}>{message.role === "user" ? "You" : "Assistant"}</span>
+                    <span className="whitespace-pre-line text-[15px] text-slate-900 dark:text-slate-100">
                       {message.text}
-                    </p>
+                    </span>
                     {message.role === "assistant" && message.llmProvider ? (
-                      <p className="mt-1 text-[11px] text-muted-foreground">
+                      <span className="mt-1 text-[11px] text-muted-foreground">
                         Provider: {message.llmProvider}
                         {message.llmEnhanced
                           ? " (enhanced)"
@@ -236,7 +235,7 @@ export function FloatingAssistantWidget() {
                         {message.llmAttempts && message.llmAttempts.length > 0
                           ? ` · tried: ${message.llmAttempts.join(" → ")}`
                           : ""}
-                      </p>
+                      </span>
                     ) : null}
                     {message.products && message.products.length > 0 ? (
                       <div className="mt-2 space-y-1">
@@ -244,7 +243,7 @@ export function FloatingAssistantWidget() {
                           <Link
                             key={`${message.id}_${product.id}`}
                             to={`/product/${product.id}`}
-                            className="block rounded-md border border-border/70 px-2 py-1 text-xs text-muted-foreground hover:bg-muted/40"
+                            className="block rounded-lg border border-teal-200 px-2 py-1 text-xs text-teal-700 bg-teal-50 hover:bg-teal-100 dark:text-teal-100 dark:bg-teal-900/30 dark:hover:bg-teal-900/60 transition"
                           >
                             <span className="font-medium text-foreground">
                               {product.name}
@@ -268,15 +267,16 @@ export function FloatingAssistantWidget() {
                     }
                   }}
                   rows={2}
+                  className="rounded-xl border-2 border-teal-200 focus:border-teal-400 bg-white dark:bg-slate-950 text-[15px] px-3 py-2"
                   placeholder="Ask about product price, stock, or best options"
                 />
                 <Button
                   type="submit"
-                  size="sm"
-                  className="w-full"
+                  size="lg"
+                  className="w-full rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-base font-semibold py-2 shadow-md transition disabled:bg-teal-300"
                   disabled={isLoading || !query.trim()}
                 >
-                  <Send className="mr-1.5 h-4 w-4" />
+                  <Send className="mr-2 h-5 w-5" />
                   {isLoading ? "Thinking..." : "Send"}
                 </Button>
               </form>
@@ -288,11 +288,11 @@ export function FloatingAssistantWidget() {
       <Button
         type="button"
         size="icon"
-        className="fixed bottom-4 right-4 z-50 h-14 w-14 rounded-full shadow-lg sm:bottom-6 sm:right-6"
+        className="fixed bottom-4 right-4 z-50 h-16 w-16 rounded-full shadow-2xl bg-gradient-to-br from-teal-500 via-teal-600 to-teal-700 hover:scale-105 transition sm:bottom-6 sm:right-6"
         onClick={() => setOpen(true)}
         aria-label="Open AI assistant"
       >
-        <Bot className="h-6 w-6" />
+        <Bot className="h-7 w-7 text-white drop-shadow" />
       </Button>
     </>
   );
