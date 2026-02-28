@@ -18,6 +18,9 @@ export type AssistantMessage = {
   intent?: string;
   products?: AssistantProduct[];
   createdAt?: string;
+  llmProvider?: string;
+  llmEnhanced?: boolean;
+  llmAttempts?: string[];
 };
 
 const SESSION_STORAGE_PREFIX = "nobonir_assistant_session";
@@ -57,6 +60,11 @@ export const askAssistant = async (message: string, sessionKey?: string) => {
     reply: String(body.reply || "I could not generate a response right now."),
     intent: String(body.intent || "GENERAL"),
     session_key: String(body.session_key || ""),
+    llm_provider: String(body.llm_provider || "local"),
+    llm_enhanced: Boolean(body.llm_enhanced),
+    llm_attempts: Array.isArray(body.llm_attempts)
+      ? body.llm_attempts.map((item: unknown) => String(item))
+      : ["local"],
     suggested_products: Array.isArray(body.suggested_products)
       ? body.suggested_products
       : [],
@@ -94,5 +102,19 @@ export const clearAssistantHistory = async (sessionKey?: string) => {
   const body = response.data || {};
   return {
     session_key: String(body.session_key || ""),
+  };
+};
+
+export const getAssistantRuntimeStatus = async () => {
+  const response = await api.get("/ai/assistant/status/");
+  const body = response.data || {};
+  return {
+    enabled: Boolean(body.enabled),
+    providers: Array.isArray(body.providers)
+      ? body.providers.map((item: unknown) => String(item))
+      : [],
+    timeout_seconds: Number(body.timeout_seconds || 0),
+    huggingface_token_configured: Boolean(body.huggingface_token_configured),
+    test_mode: Boolean(body.test_mode),
   };
 };

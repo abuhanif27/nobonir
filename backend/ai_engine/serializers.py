@@ -40,6 +40,9 @@ class AssistantChatResponseSerializer(serializers.Serializer):
     reply = serializers.CharField()
     intent = serializers.CharField()
     session_key = serializers.CharField()
+    llm_provider = serializers.CharField()
+    llm_enhanced = serializers.BooleanField()
+    llm_attempts = serializers.ListField(child=serializers.CharField())
     suggested_products = AssistantChatProductSerializer(many=True)
 
 
@@ -61,6 +64,14 @@ class AssistantHistoryResponseSerializer(serializers.Serializer):
 
 class AssistantHistoryClearResponseSerializer(serializers.Serializer):
     session_key = serializers.CharField()
+
+
+class AssistantRuntimeStatusSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField()
+    providers = serializers.ListField(child=serializers.CharField())
+    timeout_seconds = serializers.FloatField()
+    huggingface_token_configured = serializers.BooleanField()
+    test_mode = serializers.BooleanField()
 
 
 class AssistantNotificationInsightSerializer(serializers.Serializer):

@@ -17,11 +17,13 @@ from .serializers import (
 	AssistantHistoryQuerySerializer,
 	AssistantHistoryResponseSerializer,
 	AssistantNotificationInsightSerializer,
+	AssistantRuntimeStatusSerializer,
 )
 from .services.chat_assistant_service import (
 	build_assistant_response_payload,
 	build_notification_insights,
 	clear_chat_history,
+	get_llm_runtime_status,
 	list_chat_history,
 )
 from .services.recommendation_service import (
@@ -259,3 +261,13 @@ class AssistantHistoryAPIView(APIView):
 		)
 		response_serializer.is_valid(raise_exception=True)
 		return Response(response_serializer.validated_data)
+
+
+class AssistantRuntimeStatusAPIView(APIView):
+	permission_classes = [permissions.AllowAny]
+
+	def get(self, request):
+		status_payload = get_llm_runtime_status()
+		serializer = AssistantRuntimeStatusSerializer(data=status_payload)
+		serializer.is_valid(raise_exception=True)
+		return Response(serializer.validated_data)

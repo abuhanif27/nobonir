@@ -10,6 +10,7 @@ import sys
 from uuid import uuid4
 from django.conf import settings
 from django.db.models import Q, Sum
+import requests
 
 from cart.models import CartItem, WishlistItem
 from ai_engine.models import AssistantChatMessage, AssistantChatSession
@@ -27,6 +28,9 @@ class AssistantResult:
     intent: str
     reply: str
     products: list[Product]
+    llm_provider: str
+    llm_enhanced: bool
+    llm_attempts: list[str]
 
 
 def _is_test_process() -> bool:
@@ -50,6 +54,69 @@ def _pollinations_reply(prompt: str) -> str | None:
             return text or None
     except (URLError, HTTPError, TimeoutError, ValueError):
         return None
+
+
+def _huggingface_reply(prompt: str) -> str | None:
+    url = str(getattr(settings, "AI_FREE_LLM_HUGGINGFACE_URL", "")).strip()
+    if not url:
+        return None
+
+    timeout = float(getattr(settings, "AI_FREE_LLM_TIMEOUT_SECONDS", 8))
+    token = str(getattr(settings, "AI_FREE_LLM_HUGGINGFACE_TOKEN", "")).strip()
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 220,
+            "return_full_text": False,
+            "temperature": 0.3,
+        },
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+        if response.status_code != 200:
+            return None
+
+        data = response.json()
+        if isinstance(data, list) and data:
+            item = data[0]
+            if isinstance(item, dict):
+                text = str(item.get("generated_text") or "").strip()
+                return text or None
+
+        if isinstance(data, dict):
+            text = str(data.get("generated_text") or data.get("text") or "").strip()
+            return text or None
+
+        return None
+    except (requests.RequestException, ValueError, TypeError):
+        return None
+
+
+def _configured_provider_chain() -> list[str]:
+    configured = list(getattr(settings, "AI_FREE_LLM_PROVIDERS", []))
+    normalized = [str(item).strip().lower() for item in configured if str(item).strip()]
+    if normalized:
+        return normalized
+
+    single = str(getattr(settings, "AI_FREE_LLM_PROVIDER", "pollinations")).strip().lower()
+    return [single] if single else ["pollinations"]
+
+
+def get_llm_runtime_status() -> dict:
+    return {
+        "enabled": _free_llm_enabled(),
+        "providers": _configured_provider_chain(),
+        "timeout_seconds": float(getattr(settings, "AI_FREE_LLM_TIMEOUT_SECONDS", 8)),
+        "huggingface_token_configured": bool(
+            str(getattr(settings, "AI_FREE_LLM_HUGGINGFACE_TOKEN", "")).strip()
+        ),
+        "test_mode": _is_test_process(),
+    }
 
 
 def _build_llm_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool) -> str:
@@ -79,9 +146,8 @@ def _build_llm_prompt(intent: str, message: str, products: list[Product], fallba
 
 def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Product], fallback_reply: str, user) -> str:
     if not _free_llm_enabled():
-        return fallback_reply
+        return fallback_reply, "local", False, ["local"]
 
-    provider = str(getattr(settings, "AI_FREE_LLM_PROVIDER", "pollinations")).strip().lower()
     prompt = _build_llm_prompt(
         intent=intent,
         message=message,
@@ -90,13 +156,40 @@ def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Produ
         is_authenticated=_is_authenticated_user(user),
     )
 
-    llm_reply: str | None = None
-    if provider == "pollinations":
-        llm_reply = _pollinations_reply(prompt)
+    attempts: list[str] = []
+    for provider in _configured_provider_chain():
+        llm_reply: str | None = None
+        if provider == "pollinations":
+            llm_reply = _pollinations_reply(prompt)
+        elif provider == "huggingface":
+            llm_reply = _huggingface_reply(prompt)
+        else:
+            continue
 
-    if llm_reply and len(llm_reply) >= 20:
-        return llm_reply
-    return fallback_reply
+        attempts.append(provider)
+        if llm_reply and len(llm_reply) >= 20:
+            return llm_reply, provider, True, attempts
+
+    attempts.append("local")
+    return fallback_reply, "local", False, attempts
+
+
+def _result_with_enhancement(intent: str, message: str, products: list[Product], fallback_reply: str, user) -> AssistantResult:
+    final_reply, llm_provider, llm_enhanced, llm_attempts = _enhance_reply_with_free_llm(
+        intent=intent,
+        message=message,
+        products=products,
+        fallback_reply=fallback_reply,
+        user=user,
+    )
+    return AssistantResult(
+        intent=intent,
+        reply=final_reply,
+        products=products,
+        llm_provider=llm_provider,
+        llm_enhanced=llm_enhanced,
+        llm_attempts=llm_attempts,
+    )
 
 
 def _safe_session_key(candidate: str | None) -> str:
@@ -304,11 +397,8 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
             else _fallback_products(limit=4)
         )
         guest_hint = " Sign in for personalized picks and order support." if not _is_authenticated_user(user) else ""
-        return AssistantResult(
-            intent="GENERAL",
-            reply=f"Share what you are shopping for, and I will suggest products that match your needs.{guest_hint}",
-            products=products,
-        )
+        reply = f"Share what you are shopping for, and I will suggest products that match your needs.{guest_hint}"
+        return _result_with_enhancement("GENERAL", normalized_message, products, reply, user)
 
     intent = _detect_intent(normalized_message)
     budget_cap = _extract_budget_cap(normalized_message)
@@ -318,20 +408,13 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         reply = "These are currently top-selling products based on recent paid orders."
         if budget_cap is not None:
             reply += f" Filtered to budget under ৳{budget_cap}."
-        return AssistantResult(
-            intent=intent,
-            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
-            products=products,
-        )
+        return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
     if intent == "ORDER_HELP":
         if not _is_authenticated_user(user):
             guest_reply = "Order tracking needs sign-in so I can securely access your account orders."
-            return AssistantResult(
-                intent=intent,
-                reply=_enhance_reply_with_free_llm(intent, normalized_message, _fallback_products(limit=4), guest_reply, user),
-                products=_fallback_products(limit=4),
-            )
+            products = _fallback_products(limit=4)
+            return _result_with_enhancement(intent, normalized_message, products, guest_reply, user)
 
         latest_order = (
             Order.objects.filter(user=user)
@@ -349,11 +432,7 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
             reply = "I could not find an order yet. I added some recommendations to help you get started."
 
         products = get_personalized_recommendations_for_user(user, limit=4)
-        return AssistantResult(
-            intent=intent,
-            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
-            products=products,
-        )
+        return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
     if intent == "PRICE_STOCK_LOOKUP":
         products = _apply_budget_filter(semantic_product_search(normalized_message, limit=6), budget_cap, limit=4)
@@ -364,20 +443,12 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
                 if _is_authenticated_user(user)
                 else _fallback_products(limit=4)
             )
-        return AssistantResult(
-            intent=intent,
-            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
-            products=products,
-        )
+        return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
     if intent == "FIT_HELP":
         products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=4)
         reply = "For better fit, compare size guides on product pages and check recent reviews before checkout."
-        return AssistantResult(
-            intent=intent,
-            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
-            products=products,
-        )
+        return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
     if intent in {"BUDGET_SEARCH", "RECOMMENDATION"}:
         products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=4)
@@ -387,11 +458,7 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
                 reply += f" I applied your budget limit under ৳{budget_cap}."
         else:
             reply = "I could not find strong matches right now. Try a more specific query like category, color, or budget."
-        return AssistantResult(
-            intent=intent,
-            reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
-            products=products,
-        )
+        return _result_with_enhancement(intent, normalized_message, products, reply, user)
 
     products = (
         get_personalized_recommendations_for_user(user, limit=4)
@@ -400,11 +467,7 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
     )
     guest_hint = " Sign in to unlock personalized recommendations and order help." if not _is_authenticated_user(user) else ""
     reply = f"I can help with recommendations, order tracking, and fit guidance. Tell me what you need.{guest_hint}"
-    return AssistantResult(
-        intent="GENERAL",
-        reply=_enhance_reply_with_free_llm(intent, normalized_message, products, reply, user),
-        products=products,
-    )
+    return _result_with_enhancement("GENERAL", normalized_message, products, reply, user)
 
 
 def build_notification_insights(user) -> list[dict]:
@@ -467,5 +530,8 @@ def build_assistant_response_payload(user, message: str, request) -> dict:
         "reply": assistant_result.reply,
         "intent": assistant_result.intent,
         "session_key": session.session_key,
+        "llm_provider": assistant_result.llm_provider,
+        "llm_enhanced": assistant_result.llm_enhanced,
+        "llm_attempts": assistant_result.llm_attempts,
         "suggested_products": _serialize_products(assistant_result.products, request=request),
     }

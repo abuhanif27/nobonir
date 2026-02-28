@@ -139,13 +139,28 @@ Troubleshooting:
    ```env
    AI_FREE_LLM_ENABLED=1
    AI_FREE_LLM_PROVIDER=pollinations
+   AI_FREE_LLM_PROVIDERS=pollinations,huggingface
    AI_FREE_LLM_TIMEOUT_SECONDS=8
    AI_FREE_LLM_POLLINATIONS_URL=https://text.pollinations.ai
+   AI_FREE_LLM_HUGGINGFACE_URL=https://api-inference.huggingface.co/models/google/flan-t5-large
+   AI_FREE_LLM_HUGGINGFACE_TOKEN=
    ```
 
    Notes:
    - This uses a free internet LLM provider and falls back automatically to local logic if unavailable.
+   - Provider chain is tried in order from `AI_FREE_LLM_PROVIDERS`.
+   - If HuggingFace rate-limits anonymous requests, add a free token in `AI_FREE_LLM_HUGGINGFACE_TOKEN`.
    - For tests, external free-LLM calls are skipped automatically to keep CI stable.
+
+### Verify active AI provider at runtime
+
+- Assistant runtime status: `GET /api/ai/assistant/status/`
+- Each chat reply now includes:
+  - `llm_provider`
+  - `llm_enhanced`
+  - `llm_attempts`
+
+This makes it clear whether reply text came from Pollinations, HuggingFace, or local fallback.
 
 4. Run migrations:
 

@@ -103,6 +103,9 @@ class AIAssistantEndpointTests(TestCase):
 		self.assertIn("reply", body)
 		self.assertIn("intent", body)
 		self.assertIn("session_key", body)
+		self.assertIn("llm_provider", body)
+		self.assertIn("llm_enhanced", body)
+		self.assertIn("llm_attempts", body)
 		self.assertIn("suggested_products", body)
 
 	def test_notification_insights_endpoint_returns_array(self):
@@ -212,3 +215,12 @@ class AIAssistantEndpointTests(TestCase):
 		)
 		self.assertEqual(history_response.status_code, 200)
 		self.assertEqual(len(history_response.json().get("messages", [])), 0)
+
+	def test_runtime_status_endpoint_returns_provider_chain(self):
+		response = self.client.get("/api/ai/assistant/status/")
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertIn("enabled", body)
+		self.assertIn("providers", body)
+		self.assertIn("timeout_seconds", body)
+		self.assertIn("test_mode", body)

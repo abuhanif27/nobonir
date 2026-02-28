@@ -43,8 +43,11 @@ source .venv/bin/activate
 # Free LLM (no paid API) defaults
 export AI_FREE_LLM_ENABLED="${AI_FREE_LLM_ENABLED:-1}"
 export AI_FREE_LLM_PROVIDER="${AI_FREE_LLM_PROVIDER:-pollinations}"
+export AI_FREE_LLM_PROVIDERS="${AI_FREE_LLM_PROVIDERS:-pollinations,huggingface}"
 export AI_FREE_LLM_TIMEOUT_SECONDS="${AI_FREE_LLM_TIMEOUT_SECONDS:-8}"
 export AI_FREE_LLM_POLLINATIONS_URL="${AI_FREE_LLM_POLLINATIONS_URL:-https://text.pollinations.ai}"
+export AI_FREE_LLM_HUGGINGFACE_URL="${AI_FREE_LLM_HUGGINGFACE_URL:-https://api-inference.huggingface.co/models/google/flan-t5-large}"
+export AI_FREE_LLM_HUGGINGFACE_TOKEN="${AI_FREE_LLM_HUGGINGFACE_TOKEN:-}"
 
 # Start backend
 echo -e "\n${BLUE}Starting Django backend...${NC}"

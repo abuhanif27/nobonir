@@ -8,6 +8,7 @@ import {
   clearAssistantHistory,
   clearAssistantSessionKey,
   getAssistantHistory,
+  getAssistantRuntimeStatus,
   getAssistantSessionKey,
   setAssistantSessionKey,
 } from "@/lib/assistant";
@@ -27,6 +28,7 @@ export function FloatingAssistantWidget() {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionKey, setSessionKey] = useState("");
+  const [runtimeProviderLabel, setRuntimeProviderLabel] = useState("");
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "assistant_welcome_widget",
@@ -79,6 +81,18 @@ export function FloatingAssistantWidget() {
 
     void loadHistory();
 
+    void getAssistantRuntimeStatus()
+      .then((status) => {
+        setRuntimeProviderLabel(
+          status.enabled
+            ? `Live LLM chain: ${status.providers.join(" → ")} → local`
+            : "Live LLM disabled, using local assistant",
+        );
+      })
+      .catch(() => {
+        setRuntimeProviderLabel("Runtime status unavailable");
+      });
+
     return () => {
       cancelled = true;
     };
@@ -130,6 +144,9 @@ export function FloatingAssistantWidget() {
           role: "assistant",
           text: body.reply,
           intent: body.intent,
+          llmProvider: body.llm_provider,
+          llmEnhanced: body.llm_enhanced,
+          llmAttempts: body.llm_attempts,
           products: body.suggested_products,
         },
       ]);
@@ -186,6 +203,11 @@ export function FloatingAssistantWidget() {
                   and order tracking.
                 </p>
               ) : null}
+              {runtimeProviderLabel ? (
+                <p className="text-xs text-muted-foreground">
+                  {runtimeProviderLabel}
+                </p>
+              ) : null}
               <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {messages.map((message) => (
                   <div
@@ -202,6 +224,17 @@ export function FloatingAssistantWidget() {
                     <p className="whitespace-pre-line text-sm text-foreground">
                       {message.text}
                     </p>
+                    {message.role === "assistant" && message.llmProvider ? (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Provider: {message.llmProvider}
+                        {message.llmEnhanced
+                          ? " (enhanced)"
+                          : " (local fallback)"}
+                        {message.llmAttempts && message.llmAttempts.length > 0
+                          ? ` · tried: ${message.llmAttempts.join(" → ")}`
+                          : ""}
+                      </p>
+                    ) : null}
                     {message.products && message.products.length > 0 ? (
                       <div className="mt-2 space-y-1">
                         {message.products.slice(0, 3).map((product) => (

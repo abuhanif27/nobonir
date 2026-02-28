@@ -64,8 +64,11 @@ STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 AI_FREE_LLM_ENABLED=1
 AI_FREE_LLM_PROVIDER=pollinations
+AI_FREE_LLM_PROVIDERS=pollinations,huggingface
 AI_FREE_LLM_TIMEOUT_SECONDS=8
 AI_FREE_LLM_POLLINATIONS_URL=https://text.pollinations.ai
+AI_FREE_LLM_HUGGINGFACE_URL=https://api-inference.huggingface.co/models/google/flan-t5-large
+AI_FREE_LLM_HUGGINGFACE_TOKEN=
 EOF
     echo -e "${GREEN}✓ Created backend/.env${NC}"
 fi
