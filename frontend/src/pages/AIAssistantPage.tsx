@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Bot, Send } from "lucide-react";
+import { Bot, RotateCcw, Send } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import {
   askAssistant,
   AssistantMessage,
+  clearAssistantHistory,
+  clearAssistantSessionKey,
   getAssistantHistory,
   getAssistantSessionKey,
   setAssistantSessionKey,
@@ -31,6 +33,17 @@ export function AIAssistantPage() {
       text: "I can help with product recommendations, order support, and fit guidance. Ask me anything about your shopping.",
     },
   ]);
+
+  const defaultWelcomeMessages = useMemo<AssistantMessage[]>(
+    () => [
+      {
+        id: "assistant_welcome",
+        role: "assistant",
+        text: "I can help with product recommendations, order support, and fit guidance. Ask me anything about your shopping.",
+      },
+    ],
+    [],
+  );
 
   const sessionScope = useMemo(
     () => (isAuthenticated && user?.id ? `user_${user.id}` : "guest"),
@@ -59,13 +72,7 @@ export function AIAssistantPage() {
           return;
         }
 
-        setMessages([
-          {
-            id: "assistant_welcome",
-            role: "assistant",
-            text: "I can help with product recommendations, order support, and fit guidance. Ask me anything about your shopping.",
-          },
-        ]);
+        setMessages(defaultWelcomeMessages);
       } catch {
         if (cancelled) {
           return;
@@ -79,7 +86,21 @@ export function AIAssistantPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionScope]);
+  }, [defaultWelcomeMessages, sessionScope]);
+
+  const clearConversation = async () => {
+    try {
+      const response = await clearAssistantHistory(sessionKey);
+      setSessionKey(response.session_key);
+      setAssistantSessionKey(sessionScope, response.session_key);
+    } catch {
+      clearAssistantSessionKey(sessionScope);
+      setSessionKey("");
+    } finally {
+      setMessages(defaultWelcomeMessages);
+      setQuery("");
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -140,11 +161,17 @@ export function AIAssistantPage() {
                 <Bot className="h-5 w-5 text-teal-600" />
                 AI Shopping Assistant
               </CardTitle>
-              <Link to="/">
-                <Button variant="outline" size="sm">
-                  Back to Home
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={clearConversation}>
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                  Clear conversation
                 </Button>
-              </Link>
+                <Link to="/">
+                  <Button variant="outline" size="sm">
+                    Back to Home
+                  </Button>
+                </Link>
+              </div>
             </div>
             {focusContext ? (
               <p className="text-sm text-muted-foreground">
@@ -166,7 +193,9 @@ export function AIAssistantPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {message.role === "user" ? "You" : "Assistant"}
                   </p>
-                  <p className="mt-1 text-sm text-foreground">{message.text}</p>
+                  <p className="mt-1 whitespace-pre-line text-sm text-foreground">
+                    {message.text}
+                  </p>
                   {message.products && message.products.length > 0 ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {message.products.map((product) => (

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+import re
 from uuid import uuid4
+from django.db.models import Q, Sum
 
 from cart.models import CartItem, WishlistItem
 from ai_engine.models import AssistantChatMessage, AssistantChatSession
@@ -67,6 +69,19 @@ def _normalize_message(message: str) -> str:
 
 
 def _detect_intent(normalized_message: str) -> str:
+    if any(
+        keyword in normalized_message
+        for keyword in [
+            "top selling",
+            "best selling",
+            "most sold",
+            "popular",
+            "trending",
+            "best product",
+        ]
+    ):
+        return "TOP_SELLING"
+
     if any(keyword in normalized_message for keyword in ["order", "delivery", "shipping", "status", "track"]):
         return "ORDER_HELP"
 
@@ -113,6 +128,54 @@ def _recommend_products_for_message(user, normalized_message: str) -> list[Produ
     return _fallback_products(limit=4)
 
 
+def _top_selling_products(limit: int = 4) -> list[Product]:
+    paid_like_statuses = [
+        Order.Status.PAID,
+        Order.Status.PROCESSING,
+        Order.Status.SHIPPED,
+        Order.Status.DELIVERED,
+    ]
+
+    queryset = (
+        Product.objects.filter(is_active=True)
+        .select_related("category")
+        .annotate(
+            total_sold=Sum(
+                "order_items__quantity",
+                filter=Q(order_items__order__status__in=paid_like_statuses),
+            )
+        )
+        .order_by("-total_sold", "-updated_at")
+    )
+
+    products = [item for item in queryset[: max(1, min(limit, 12))] if int(get_available_stock(item)) > 0]
+    if products:
+        return products[:limit]
+    return _fallback_products(limit=limit)
+
+
+def _extract_budget_cap(normalized_message: str) -> Decimal | None:
+    pattern = re.compile(r"(?:under|below|less than|max|within)\s*(\d+(?:\.\d+)?)")
+    match = pattern.search(normalized_message)
+    if not match:
+        return None
+
+    try:
+        return Decimal(match.group(1))
+    except Exception:
+        return None
+
+
+def _apply_budget_filter(products: list[Product], budget_cap: Decimal | None, limit: int = 4) -> list[Product]:
+    if budget_cap is None:
+        return products[:limit]
+
+    filtered = [product for product in products if Decimal(product.price) <= budget_cap]
+    if filtered:
+        return filtered[:limit]
+    return products[:limit]
+
+
 def _build_price_stock_reply(products: list[Product]) -> str:
     if not products:
         return (
@@ -137,6 +200,26 @@ def list_chat_history(user, session_key: str | None = None, limit: int = 60) -> 
     return session.session_key, messages
 
 
+def clear_chat_history(user, session_key: str | None = None) -> str:
+    key = (session_key or "").strip()
+    if not key:
+        return get_or_create_chat_session(user=user, session_key=None).session_key
+
+    session = AssistantChatSession.objects.filter(session_key=key).first()
+    if session is None:
+        return get_or_create_chat_session(user=user, session_key=None).session_key
+
+    if _is_authenticated_user(user):
+        if session.user_id and session.user_id != user.id:
+            return get_or_create_chat_session(user=user, session_key=None).session_key
+    else:
+        if session.user_id is not None:
+            return get_or_create_chat_session(user=user, session_key=None).session_key
+
+    session.delete()
+    return get_or_create_chat_session(user=user, session_key=None).session_key
+
+
 def generate_assistant_response(user, message: str) -> AssistantResult:
     normalized_message = _normalize_message(message)
     if not normalized_message:
@@ -153,6 +236,14 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         )
 
     intent = _detect_intent(normalized_message)
+    budget_cap = _extract_budget_cap(normalized_message)
+
+    if intent == "TOP_SELLING":
+        products = _apply_budget_filter(_top_selling_products(limit=6), budget_cap, limit=4)
+        reply = "These are currently top-selling products based on recent paid orders."
+        if budget_cap is not None:
+            reply += f" Filtered to budget under ৳{budget_cap}."
+        return AssistantResult(intent=intent, reply=reply, products=products)
 
     if intent == "ORDER_HELP":
         if not _is_authenticated_user(user):
@@ -181,7 +272,7 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         return AssistantResult(intent=intent, reply=reply, products=products)
 
     if intent == "PRICE_STOCK_LOOKUP":
-        products = semantic_product_search(normalized_message, limit=4)
+        products = _apply_budget_filter(semantic_product_search(normalized_message, limit=6), budget_cap, limit=4)
         reply = _build_price_stock_reply(products)
         if not products:
             products = (
@@ -192,7 +283,7 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         return AssistantResult(intent=intent, reply=reply, products=products)
 
     if intent == "FIT_HELP":
-        products = _recommend_products_for_message(user, normalized_message)
+        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=4)
         return AssistantResult(
             intent=intent,
             reply="For better fit, compare size guides on product pages and check recent reviews before checkout.",
@@ -200,9 +291,11 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         )
 
     if intent in {"BUDGET_SEARCH", "RECOMMENDATION"}:
-        products = _recommend_products_for_message(user, normalized_message)
+        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=4)
         if products:
-            reply = "Here are matching products based on your message."
+            reply = "Here are matching products based on your message and shopping intent."
+            if budget_cap is not None:
+                reply += f" I applied your budget limit under ৳{budget_cap}."
         else:
             reply = "I could not find strong matches right now. Try a more specific query like category, color, or budget."
         return AssistantResult(intent=intent, reply=reply, products=products)

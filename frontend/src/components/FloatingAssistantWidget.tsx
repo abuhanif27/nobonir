@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bot, Send, X } from "lucide-react";
+import { Bot, RotateCcw, Send, X } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import {
   askAssistant,
   AssistantMessage,
+  clearAssistantHistory,
+  clearAssistantSessionKey,
   getAssistantHistory,
   getAssistantSessionKey,
   setAssistantSessionKey,
@@ -33,6 +35,17 @@ export function FloatingAssistantWidget() {
     },
   ]);
 
+  const defaultWelcomeMessages = useMemo<AssistantMessage[]>(
+    () => [
+      {
+        id: "assistant_welcome_widget",
+        role: "assistant",
+        text: "Hi! I can answer product price, stock, and recommendation questions.",
+      },
+    ],
+    [],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -55,13 +68,7 @@ export function FloatingAssistantWidget() {
           return;
         }
 
-        setMessages([
-          {
-            id: "assistant_welcome_widget",
-            role: "assistant",
-            text: "Hi! I can answer product price, stock, and recommendation questions.",
-          },
-        ]);
+        setMessages(defaultWelcomeMessages);
       } catch {
         if (cancelled) {
           return;
@@ -75,7 +82,21 @@ export function FloatingAssistantWidget() {
     return () => {
       cancelled = true;
     };
-  }, [sessionScope]);
+  }, [defaultWelcomeMessages, sessionScope]);
+
+  const clearConversation = async () => {
+    try {
+      const response = await clearAssistantHistory(sessionKey);
+      setSessionKey(response.session_key);
+      setAssistantSessionKey(sessionScope, response.session_key);
+    } catch {
+      clearAssistantSessionKey(sessionScope);
+      setSessionKey("");
+    } finally {
+      setMessages(defaultWelcomeMessages);
+      setQuery("");
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -137,14 +158,25 @@ export function FloatingAssistantWidget() {
                   <Bot className="h-4 w-4 text-teal-600" />
                   AI Assistant
                 </CardTitle>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={() => setOpen(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={clearConversation}
+                    aria-label="Clear conversation"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => setOpen(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -167,7 +199,9 @@ export function FloatingAssistantWidget() {
                     <p className="text-xs font-semibold uppercase text-muted-foreground">
                       {message.role === "user" ? "You" : "Assistant"}
                     </p>
-                    <p className="text-sm text-foreground">{message.text}</p>
+                    <p className="whitespace-pre-line text-sm text-foreground">
+                      {message.text}
+                    </p>
                     {message.products && message.products.length > 0 ? (
                       <div className="mt-2 space-y-1">
                         {message.products.slice(0, 3).map((product) => (

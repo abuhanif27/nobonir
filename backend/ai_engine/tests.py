@@ -125,6 +125,19 @@ class AIAssistantEndpointTests(TestCase):
 		if body["suggested_products"]:
 			self.assertIn("available_stock", body["suggested_products"][0])
 
+	def test_chat_endpoint_handles_top_selling_intent(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "show me top selling best product"},
+			content_type="application/json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "TOP_SELLING")
+		self.assertIn("top-selling", body["reply"].lower())
+		self.assertIsInstance(body["suggested_products"], list)
+
 	def test_chat_endpoint_supports_guest_mode(self):
 		guest_client = APIClient()
 		response = guest_client.post(
@@ -176,3 +189,26 @@ class AIAssistantEndpointTests(TestCase):
 		history_body = history_response.json()
 		self.assertEqual(history_body["session_key"], session_key)
 		self.assertGreaterEqual(len(history_body["messages"]), 2)
+
+	def test_history_endpoint_can_clear_conversation(self):
+		chat_response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "remember this conversation"},
+			content_type="application/json",
+		)
+		session_key = chat_response.json().get("session_key")
+
+		clear_response = self.client.delete(
+			"/api/ai/assistant/history/",
+			{"session_key": session_key},
+		)
+		self.assertEqual(clear_response.status_code, 200)
+		next_session_key = clear_response.json().get("session_key")
+		self.assertTrue(next_session_key)
+
+		history_response = self.client.get(
+			"/api/ai/assistant/history/",
+			{"session_key": next_session_key},
+		)
+		self.assertEqual(history_response.status_code, 200)
+		self.assertEqual(len(history_response.json().get("messages", [])), 0)

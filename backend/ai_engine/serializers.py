@@ -59,6 +59,10 @@ class AssistantHistoryResponseSerializer(serializers.Serializer):
     messages = AssistantHistoryMessageSerializer(many=True)
 
 
+class AssistantHistoryClearResponseSerializer(serializers.Serializer):
+    session_key = serializers.CharField()
+
+
 class AssistantNotificationInsightSerializer(serializers.Serializer):
     term = serializers.CharField()
     message = serializers.CharField()

@@ -39,6 +39,13 @@ export const setAssistantSessionKey = (scope: string, sessionKey: string) => {
   localStorage.setItem(storageKeyForScope(scope), sessionKey);
 };
 
+export const clearAssistantSessionKey = (scope: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  localStorage.removeItem(storageKeyForScope(scope));
+};
+
 export const askAssistant = async (message: string, sessionKey?: string) => {
   const response = await api.post("/ai/assistant/chat/", {
     message,
@@ -74,5 +81,18 @@ export const getAssistantHistory = async (sessionKey?: string) => {
       intent: String(item.intent || ""),
       createdAt: String(item.created_at || ""),
     })) as AssistantMessage[],
+  };
+};
+
+export const clearAssistantHistory = async (sessionKey?: string) => {
+  const response = await api.delete("/ai/assistant/history/", {
+    params: {
+      session_key: sessionKey || undefined,
+    },
+  });
+
+  const body = response.data || {};
+  return {
+    session_key: String(body.session_key || ""),
   };
 };

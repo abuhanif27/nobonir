@@ -13,6 +13,7 @@ from .serializers import QuerySerializer, SentimentSerializer, UserPreferenceSer
 from .serializers import (
 	AssistantChatRequestSerializer,
 	AssistantChatResponseSerializer,
+	AssistantHistoryClearResponseSerializer,
 	AssistantHistoryQuerySerializer,
 	AssistantHistoryResponseSerializer,
 	AssistantNotificationInsightSerializer,
@@ -20,6 +21,7 @@ from .serializers import (
 from .services.chat_assistant_service import (
 	build_assistant_response_payload,
 	build_notification_insights,
+	clear_chat_history,
 	list_chat_history,
 )
 from .services.recommendation_service import (
@@ -239,6 +241,21 @@ class AssistantHistoryAPIView(APIView):
 				"session_key": session_key,
 				"messages": messages,
 			}
+		)
+		response_serializer.is_valid(raise_exception=True)
+		return Response(response_serializer.validated_data)
+
+	def delete(self, request):
+		query_serializer = AssistantHistoryQuerySerializer(data=request.query_params)
+		query_serializer.is_valid(raise_exception=True)
+
+		next_session_key = clear_chat_history(
+			user=request.user,
+			session_key=query_serializer.validated_data.get("session_key"),
+		)
+
+		response_serializer = AssistantHistoryClearResponseSerializer(
+			data={"session_key": next_session_key}
 		)
 		response_serializer.is_valid(raise_exception=True)
 		return Response(response_serializer.validated_data)

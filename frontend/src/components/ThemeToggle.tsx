@@ -6,7 +6,7 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="fixed bottom-4 right-4 z-[70] rounded-full border bg-background/95 p-1 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div className="fixed bottom-4 left-4 z-[70] rounded-full border bg-background/95 p-1 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="flex items-center gap-1">
         <Button
           size="icon"
