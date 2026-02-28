@@ -116,6 +116,7 @@ export function CustomerDashboard() {
   const [productTotalCount, setProductTotalCount] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [hasPrevPage, setHasPrevPage] = useState(false);
+  const [jumpPageInput, setJumpPageInput] = useState("1");
   const [merchandising, setMerchandising] = useState<MerchandisingResponse>({});
   const [availabilityFilter, setAvailabilityFilter] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -194,6 +195,10 @@ export function CustomerDashboard() {
     }
   }, [user?.profile_picture]);
 
+  useEffect(() => {
+    setJumpPageInput(String(productPage));
+  }, [productPage]);
+
   const userImageSrc = user?.profile_picture
     ? user.profile_picture.startsWith("http")
       ? `${user.profile_picture}?v=${avatarVersion}`
@@ -265,14 +270,50 @@ export function CustomerDashboard() {
   }, [productTotalCount]);
 
   const visibleProductPages = useMemo(() => {
-    const pages: number[] = [];
-    const start = Math.max(1, productPage - 2);
-    const end = Math.min(totalProductPages, productPage + 2);
-    for (let page = start; page <= end; page += 1) {
+    if (totalProductPages <= 7) {
+      return Array.from({ length: totalProductPages }, (_, index) => index + 1);
+    }
+
+    const pages: Array<number | "ellipsis-left" | "ellipsis-right"> = [1];
+    const windowStart = Math.max(2, productPage - 1);
+    const windowEnd = Math.min(totalProductPages - 1, productPage + 1);
+
+    if (windowStart > 2) {
+      pages.push("ellipsis-left");
+    }
+
+    for (let page = windowStart; page <= windowEnd; page += 1) {
       pages.push(page);
     }
+
+    if (windowEnd < totalProductPages - 1) {
+      pages.push("ellipsis-right");
+    }
+
+    pages.push(totalProductPages);
     return pages;
   }, [productPage, totalProductPages]);
+
+  const paginationAnnouncement = useMemo(() => {
+    if (loading) {
+      return "Loading products";
+    }
+
+    const contextLabel = search.trim()
+      ? "search results"
+      : isTopSellingView
+        ? "top selling products"
+        : "all products";
+
+    return `Loaded page ${productPage} of ${totalProductPages}. Showing ${contextLabel}. Total ${productTotalCount} products.`;
+  }, [
+    loading,
+    search,
+    isTopSellingView,
+    productPage,
+    totalProductPages,
+    productTotalCount,
+  ]);
 
   const visibleSuggestions = useMemo(() => {
     if (activeSuggestionCategory === "All") {
@@ -805,6 +846,37 @@ export function CustomerDashboard() {
 
     await loadSearchedProducts(query, 1);
   }, [loadProducts, loadSearchedProducts, search]);
+
+  const navigateToPage = useCallback(
+    (page: number) => {
+      if (isTopSellingView) {
+        void loadTopSellingProducts(page);
+        return;
+      }
+
+      const query = search.trim();
+      if (query) {
+        void loadSearchedProducts(query, page);
+        return;
+      }
+
+      void loadProducts(page);
+    },
+    [isTopSellingView, loadProducts, loadSearchedProducts, search],
+  );
+
+  const jumpToPage = useCallback(() => {
+    const parsedPage = Number(jumpPageInput);
+    if (!Number.isFinite(parsedPage)) {
+      return;
+    }
+
+    const nextPage = Math.min(
+      Math.max(1, Math.floor(parsedPage)),
+      totalProductPages,
+    );
+    navigateToPage(nextPage);
+  }, [jumpPageInput, navigateToPage, totalProductPages]);
 
   useEffect(() => {
     void loadProducts();
@@ -1971,70 +2043,90 @@ export function CustomerDashboard() {
             </div>
 
             <div className="mt-8 flex items-center justify-center gap-3">
+              <p className="sr-only" aria-live="polite" aria-atomic="true">
+                {paginationAnnouncement}
+              </p>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={loading || !hasPrevPage}
+                aria-label="Go to previous page"
                 onClick={() => {
                   const nextPage = Math.max(productPage - 1, 1);
-                  if (isTopSellingView) {
-                    void loadTopSellingProducts(nextPage);
-                    return;
-                  }
-
-                  const query = search.trim();
-                  if (query) {
-                    void loadSearchedProducts(query, nextPage);
-                    return;
-                  }
-                  void loadProducts(nextPage);
+                  navigateToPage(nextPage);
                 }}
               >
                 Previous
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {productPage}
+                Page {productPage} of {totalProductPages}
               </span>
-              {visibleProductPages.map((page) => (
-                <Button
-                  key={page}
-                  variant={page === productPage ? "default" : "outline"}
-                  size="sm"
-                  disabled={loading}
-                  onClick={() => {
-                    if (isTopSellingView) {
-                      void loadTopSellingProducts(page);
-                      return;
-                    }
+              {visibleProductPages.map((page, index) => {
+                if (typeof page !== "number") {
+                  return (
+                    <span
+                      key={`${page}-${index}`}
+                      className="px-2 text-sm text-muted-foreground"
+                      aria-hidden="true"
+                    >
+                      …
+                    </span>
+                  );
+                }
 
-                    const query = search.trim();
-                    if (query) {
-                      void loadSearchedProducts(query, page);
-                      return;
-                    }
-                    void loadProducts(page);
+                return (
+                  <Button
+                    key={page}
+                    variant={page === productPage ? "default" : "outline"}
+                    size="sm"
+                    disabled={loading}
+                    aria-label={`Go to page ${page}`}
+                    aria-current={page === productPage ? "page" : undefined}
+                    onClick={() => {
+                      navigateToPage(page);
+                    }}
+                  >
+                    {page}
+                  </Button>
+                );
+              })}
+              <div className="flex items-center gap-2">
+                <Input
+                  value={jumpPageInput}
+                  onChange={(event) => {
+                    const digitsOnly = event.target.value.replace(/\D/g, "");
+                    setJumpPageInput(digitsOnly);
                   }}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      jumpToPage();
+                    }
+                  }}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  aria-label="Jump to page"
+                  className="h-9 w-20 text-center"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || totalProductPages <= 1}
+                  aria-label="Jump to selected page"
+                  onClick={jumpToPage}
                 >
-                  {page}
+                  Go
                 </Button>
-              ))}
+              </div>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={loading || !hasNextPage}
+                aria-label="Go to next page"
                 onClick={() => {
                   const nextPage = productPage + 1;
-                  if (isTopSellingView) {
-                    void loadTopSellingProducts(nextPage);
-                    return;
-                  }
-
-                  const query = search.trim();
-                  if (query) {
-                    void loadSearchedProducts(query, nextPage);
-                    return;
-                  }
-                  void loadProducts(nextPage);
+                  navigateToPage(nextPage);
                 }}
               >
                 Next
