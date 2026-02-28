@@ -1144,25 +1144,31 @@ export function CustomerDashboard() {
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-600 blur-lg opacity-70 animate-pulse"></div>
-                <div className="relative rounded-xl bg-gradient-to-br from-teal-500 via-cyan-600 to-blue-700 p-2 shadow-lg sm:p-2.5">
-                  <ShoppingBag className="h-6 w-6 text-white sm:h-7 sm:w-7" />
+              <a
+                href="/"
+                className="flex min-w-0 items-center gap-2 sm:gap-3"
+                aria-label="Go to home"
+              >
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-600 blur-lg opacity-70 animate-pulse"></div>
+                  <div className="relative rounded-xl bg-gradient-to-br from-teal-500 via-cyan-600 to-blue-700 p-2 shadow-lg sm:p-2.5">
+                    <ShoppingBag className="h-6 w-6 text-white sm:h-7 sm:w-7" />
+                  </div>
                 </div>
-              </div>
-              <div className="min-w-0">
-                <h1 className="truncate text-xl font-black leading-none tracking-tight sm:text-3xl">
-                  <span className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-700 bg-clip-text text-transparent drop-shadow-sm">
-                    No
-                  </span>
-                  <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent drop-shadow-sm">
-                    Bonir
-                  </span>
-                </h1>
-                <p className="mt-0.5 hidden truncate bg-gradient-to-r from-gray-600 via-teal-600 to-cyan-600 bg-clip-text text-[10px] font-semibold leading-tight tracking-wide text-transparent min-[375px]:block min-[375px]:text-xs">
-                  Soft Style Smart Shopping
-                </p>
-              </div>
+                <div className="min-w-0">
+                  <h1 className="truncate text-xl font-black leading-none tracking-tight sm:text-3xl">
+                    <span className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-700 bg-clip-text text-transparent drop-shadow-sm">
+                      No
+                    </span>
+                    <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent drop-shadow-sm">
+                      Bonir
+                    </span>
+                  </h1>
+                  <p className="mt-0.5 hidden truncate bg-gradient-to-r from-gray-600 via-teal-600 to-cyan-600 bg-clip-text text-[10px] font-semibold leading-tight tracking-wide text-transparent min-[375px]:block min-[375px]:text-xs">
+                    Soft Style Smart Shopping
+                  </p>
+                </div>
+              </a>
             </div>
 
             <div className="ml-2 flex shrink-0 items-center gap-1.5 lg:hidden">
@@ -1791,6 +1797,23 @@ export function CustomerDashboard() {
                 "It looks like there are no products available right now. Check back soon!"
               )}
             </p>
+            {!search && !isTopSellingView && (
+              <div className="mb-6 flex flex-wrap justify-center gap-2">
+                {Object.keys(availabilityLabelMap).map((key) => (
+                  <Button
+                    key={key}
+                    size="sm"
+                    variant={availabilityFilter === key ? "default" : "outline"}
+                    onClick={() => {
+                      setAvailabilityFilter(key);
+                      void loadProducts(1);
+                    }}
+                  >
+                    {availabilityLabelMap[key]}
+                  </Button>
+                ))}
+              </div>
+            )}
             {(search || isTopSellingView) && (
               <Button
                 onClick={() => {
@@ -1801,6 +1824,17 @@ export function CustomerDashboard() {
                 variant="outline"
               >
                 {search ? "Clear Search" : "Back to All Products"}
+              </Button>
+            )}
+            {!search && !isTopSellingView && availabilityFilter !== "ALL" && (
+              <Button
+                onClick={() => {
+                  setAvailabilityFilter("ALL");
+                  void loadProducts(1);
+                }}
+                variant="outline"
+              >
+                Show All Products
               </Button>
             )}
           </div>
