@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 
 from orders.models import Order
 from orders.models import Coupon, CouponUsage
-from products.models import Product
+from products.models import InventoryMovement
+from products.services import adjust_product_stock
 from analytics.services import track_analytics_event
 from .models import Payment
 
@@ -55,13 +56,19 @@ def process_payment(order: Order, method: str, success: bool, transaction_id: st
             CouponUsage.objects.get_or_create(user=order.user, coupon=coupon, order=order)
 
         for order_item in order.items.select_related("product").all():
-            product = Product.objects.select_for_update().get(pk=order_item.product_id)
-            if product.stock < order_item.quantity:
+            try:
+                adjust_product_stock(
+                    product_id=order_item.product_id,
+                    quantity_delta=-int(order_item.quantity),
+                    movement_type=InventoryMovement.MovementType.SALE,
+                    reference_type="ORDER",
+                    reference_id=str(order.id),
+                    note="Stock deducted after successful payment",
+                )
+            except ValueError as exc:
                 order.status = Order.Status.CANCELLED
                 order.save(update_fields=["status", "updated_at"])
-                raise ValueError(f"Insufficient stock for {product.name}")
-            product.stock -= order_item.quantity
-            product.save(update_fields=["stock", "updated_at"])
+                raise ValueError(str(exc)) from exc
 
         order.status = Order.Status.PAID
         order.save(update_fields=["status", "updated_at"])

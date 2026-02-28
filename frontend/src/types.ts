@@ -12,6 +12,26 @@ export type Product = {
   price: number;
   discounted_price: number;
   stock: number;
+  available_stock?: number;
+  availability_status?: string;
+  merchandising_tags?: string[];
+  total_sold_30d?: number;
+  media?: Array<{
+    id: number;
+    url: string;
+    variant_id?: number | null;
+    alt_text?: string;
+    sort_order?: number;
+    is_primary?: boolean;
+  }>;
+  variants?: Array<{
+    id: number;
+    color?: string;
+    size?: string;
+    sku?: string;
+    stock?: number | null;
+    media?: string[];
+  }>;
   image_url: string;
   offer_percent: number;
   is_active: boolean;

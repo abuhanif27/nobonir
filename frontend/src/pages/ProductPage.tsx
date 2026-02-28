@@ -37,6 +37,14 @@ interface Product {
   image?: string;
   image_url?: string;
   stock: number;
+  available_stock?: number;
+  media?: Array<{ id: number; url: string; variant_id?: number | null }>;
+  variants?: Array<{
+    id: number;
+    color?: string;
+    size?: string;
+    media?: string[];
+  }>;
   category: {
     id: number;
     name: string;
@@ -105,6 +113,13 @@ export function ProductPage() {
   const [cartCount, setCartCount] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
+  const [notifyChannel, setNotifyChannel] = useState<"EMAIL" | "WHATSAPP">(
+    "EMAIL",
+  );
+  const [notifyContact, setNotifyContact] = useState("");
+  const [notifyLoading, setNotifyLoading] = useState(false);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
@@ -319,18 +334,66 @@ export function ProductPage() {
       return [FALLBACK_PRODUCT_IMAGE];
     }
 
+    const selectedVariant = (product.variants || []).find(
+      (variant) =>
+        (selectedColor ? variant.color === selectedColor : true) &&
+        (selectedSize ? variant.size === selectedSize : true),
+    );
+
+    const selectedVariantMedia = selectedVariant?.media;
+    const variantMedia: string[] = Array.isArray(selectedVariantMedia)
+      ? [...selectedVariantMedia]
+      : [];
+    const genericMedia = (product.media || [])
+      .filter((item) => !item.variant_id)
+      .map((item) => item.url)
+      .filter(Boolean);
+
     const merged = [
+      ...variantMedia,
+      ...genericMedia,
       ...extractImageCandidates(product.image_url),
       ...extractImageCandidates(product.image),
       FALLBACK_PRODUCT_IMAGE,
     ];
 
     return Array.from(new Set(merged));
+  }, [product, selectedColor, selectedSize]);
+
+  const colorOptions = useMemo(() => {
+    const colors = (product?.variants || [])
+      .map((variant) => variant.color || "")
+      .filter(Boolean);
+    return Array.from(new Set(colors));
   }, [product]);
+
+  const sizeOptions = useMemo(() => {
+    const sizes = (product?.variants || [])
+      .filter((variant) =>
+        selectedColor ? variant.color === selectedColor : true,
+      )
+      .map((variant) => variant.size || "")
+      .filter(Boolean);
+    return Array.from(new Set(sizes));
+  }, [product, selectedColor]);
 
   useEffect(() => {
     setSelectedImage(galleryImages[0] || FALLBACK_PRODUCT_IMAGE);
   }, [galleryImages]);
+
+  useEffect(() => {
+    if (!product) {
+      return;
+    }
+
+    if (!selectedColor && colorOptions[0]) {
+      setSelectedColor(colorOptions[0]);
+    }
+
+    if (!selectedSize && sizeOptions[0]) {
+      setSelectedSize(sizeOptions[0]);
+    }
+  }, [product, colorOptions, selectedColor, selectedSize, sizeOptions]);
 
   useEffect(() => {
     if (!product || isEditingReview) {
@@ -446,6 +509,31 @@ export function ProductPage() {
       cart_mode: cartMode,
       is_authenticated: isAuthenticated,
     });
+  };
+
+  const submitStockNotification = async () => {
+    if (!product) {
+      return;
+    }
+
+    if (!notifyContact.trim()) {
+      showError("Please enter your email or WhatsApp number.");
+      return;
+    }
+
+    setNotifyLoading(true);
+    try {
+      await api.post(`/products/${product.id}/notify-stock/`, {
+        channel: notifyChannel,
+        contact_value: notifyContact.trim(),
+      });
+      showSuccess("We will notify you when this product is back in stock.");
+      setNotifyContact("");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to save stock notification."));
+    } finally {
+      setNotifyLoading(false);
+    }
   };
 
   const submitReview = async () => {
@@ -730,8 +818,48 @@ export function ProductPage() {
               </p>
 
               <p className="text-sm text-muted-foreground mb-6">
-                Stock: {product.stock}
+                Stock: {product.available_stock ?? product.stock}
               </p>
+
+              {colorOptions.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground mb-2">Color</p>
+                  <div className="flex flex-wrap gap-2">
+                    {colorOptions.map((color) => (
+                      <Button
+                        key={color}
+                        type="button"
+                        size="sm"
+                        variant={
+                          selectedColor === color ? "default" : "outline"
+                        }
+                        onClick={() => setSelectedColor(color)}
+                      >
+                        {color}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {sizeOptions.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-sm text-muted-foreground mb-2">Size</p>
+                  <div className="flex flex-wrap gap-2">
+                    {sizeOptions.map((size) => (
+                      <Button
+                        key={size}
+                        type="button"
+                        size="sm"
+                        variant={selectedSize === size ? "default" : "outline"}
+                        onClick={() => setSelectedSize(size)}
+                      >
+                        {size}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="mb-6">
                 <p className="text-sm text-muted-foreground mb-2">Quantity</p>
@@ -761,10 +889,16 @@ export function ProductPage() {
                     className="rounded-l-none"
                     onClick={() =>
                       setQuantity((prev) =>
-                        Math.min(product.stock || 1, prev + 1),
+                        Math.min(
+                          product.available_stock ?? product.stock ?? 1,
+                          prev + 1,
+                        ),
                       )
                     }
-                    disabled={quantity >= product.stock || product.stock === 0}
+                    disabled={
+                      quantity >= (product.available_stock ?? product.stock) ||
+                      (product.available_stock ?? product.stock) === 0
+                    }
                     aria-label="Increase quantity"
                   >
                     <Plus className="h-4 w-4" />
@@ -775,17 +909,67 @@ export function ProductPage() {
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
                 <Button
                   onClick={(e) => addToCart(e.currentTarget)}
-                  disabled={product.stock === 0}
+                  disabled={(product.available_stock ?? product.stock) === 0}
                   className="bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
                 >
                   <ShoppingCart className="mr-2 h-4 w-4" />
-                  {product.stock === 0 ? "Unavailable" : "Add to Cart"}
+                  {(product.available_stock ?? product.stock) === 0
+                    ? "Unavailable"
+                    : "Add to Cart"}
                 </Button>
                 <Button variant="outline" onClick={() => navigate("/wishlist")}>
                   <Heart className="mr-2 h-4 w-4" />
                   Wishlist
                 </Button>
               </div>
+
+              {(product.available_stock ?? product.stock) === 0 && (
+                <div className="mt-5 space-y-2 rounded-lg border border-border/60 p-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Notify me when back in stock
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={
+                        notifyChannel === "EMAIL" ? "default" : "outline"
+                      }
+                      onClick={() => setNotifyChannel("EMAIL")}
+                    >
+                      Email
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={
+                        notifyChannel === "WHATSAPP" ? "default" : "outline"
+                      }
+                      onClick={() => setNotifyChannel("WHATSAPP")}
+                    >
+                      WhatsApp
+                    </Button>
+                  </div>
+                  <Textarea
+                    rows={1}
+                    placeholder={
+                      notifyChannel === "EMAIL"
+                        ? "you@example.com"
+                        : "+8801XXXXXXXXX"
+                    }
+                    value={notifyContact}
+                    onChange={(event) => setNotifyContact(event.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    onClick={submitStockNotification}
+                    disabled={notifyLoading}
+                    className="w-full"
+                  >
+                    {notifyLoading ? "Saving..." : "Notify Me"}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -1159,11 +1343,13 @@ export function ProductPage() {
           </div>
           <Button
             onClick={(e) => addToCart(e.currentTarget)}
-            disabled={product.stock === 0}
+            disabled={(product.available_stock ?? product.stock) === 0}
             className="min-w-36 bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700"
           >
             <ShoppingCart className="mr-2 h-4 w-4" />
-            {product.stock === 0 ? "Unavailable" : "Add to Cart"}
+            {(product.available_stock ?? product.stock) === 0
+              ? "Unavailable"
+              : "Add to Cart"}
           </Button>
         </div>
       </div>

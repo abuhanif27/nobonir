@@ -6,4 +6,7 @@ router = DefaultRouter()
 router.register("categories", CategoryViewSet, basename="category")
 router.register("", ProductViewSet, basename="product")
 
-urlpatterns = router.urls
+legacy_router = DefaultRouter()
+legacy_router.register("products", ProductViewSet, basename="product-legacy")
+
+urlpatterns = router.urls + legacy_router.urls

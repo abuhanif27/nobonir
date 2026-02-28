@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from common.permissions import IsCustomerRole
 from products.models import Product
+from products.services import reserve_stock
 from .models import Cart, CartItem, WishlistItem
 from .serializers import CartItemQuantitySerializer, CartItemSerializer, WishlistItemSerializer
 from .utils import get_or_create_cart_for_request
@@ -35,14 +36,29 @@ class CartItemAPIView(APIView):
 		serializer = CartItemSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 		product = get_object_or_404(Product, pk=serializer.validated_data["product_id"], is_active=True)
+		quantity_to_add = serializer.validated_data["quantity"]
 		item, created = CartItem.objects.get_or_create(
 			cart=cart,
 			product=product,
-			defaults={"quantity": serializer.validated_data["quantity"]},
+			defaults={"quantity": quantity_to_add},
 		)
 		if not created:
-			item.quantity += serializer.validated_data["quantity"]
+			item.quantity += quantity_to_add
 			item.save(update_fields=["quantity", "updated_at"])
+
+		try:
+			reserve_stock(cart=cart, product=product, quantity=item.quantity)
+		except ValueError as exc:
+			if created:
+				item.delete()
+			else:
+				item.quantity -= quantity_to_add
+				if item.quantity <= 0:
+					item.delete()
+				else:
+					item.save(update_fields=["quantity", "updated_at"])
+			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
 		return Response(CartItemSerializer(item).data, status=status.HTTP_201_CREATED)
 
 	def patch(self, request, item_id):
@@ -52,8 +68,15 @@ class CartItemAPIView(APIView):
 		serializer.is_valid(raise_exception=True)
 		quantity = serializer.validated_data["quantity"]
 		if quantity <= 0:
+			reserve_stock(cart=cart, product=item.product, quantity=0)
 			item.delete()
 			return Response(status=status.HTTP_204_NO_CONTENT)
+
+		try:
+			reserve_stock(cart=cart, product=item.product, quantity=quantity)
+		except ValueError as exc:
+			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
 		item.quantity = quantity
 		item.save(update_fields=["quantity", "updated_at"])
 		return Response(CartItemSerializer(item).data)
@@ -61,6 +84,7 @@ class CartItemAPIView(APIView):
 	def delete(self, request, item_id):
 		cart, _ = get_or_create_cart_for_request(request)
 		item = get_object_or_404(CartItem, cart=cart, pk=item_id)
+		reserve_stock(cart=cart, product=item.product, quantity=0)
 		item.delete()
 		return Response(status=status.HTTP_204_NO_CONTENT)
 

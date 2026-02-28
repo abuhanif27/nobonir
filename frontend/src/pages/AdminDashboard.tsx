@@ -28,6 +28,16 @@ interface Product {
   };
 }
 
+interface InventoryInsight {
+  product_id: number;
+  name: string;
+  stock: number;
+  total_sold_30d: number;
+  sell_through_rate: number;
+  days_inventory_left: number | null;
+  stock_age_days: number;
+}
+
 interface AdminOrderItem {
   id: number;
   product_name: string;
@@ -171,6 +181,14 @@ export function AdminDashboard() {
     is_active: true,
   });
   const [activeSection, setActiveSection] = useState<AdminSection>("orders");
+  const [inventoryInsights, setInventoryInsights] = useState<
+    InventoryInsight[]
+  >([]);
+  const [loadingInventoryInsights, setLoadingInventoryInsights] =
+    useState(true);
+  const [inventoryInsightsError, setInventoryInsightsError] = useState<
+    string | null
+  >(null);
 
   const pushOrderNotice = (type: "success" | "error", message: string) => {
     if (type === "success") {
@@ -185,7 +203,7 @@ export function AdminDashboard() {
     setLoadingProducts(true);
     setProductsError(null);
     try {
-      const response = await api.get("/products/products/");
+      const response = await api.get("/products/");
       setProducts(response.data.results || response.data);
     } catch (error: unknown) {
       console.error("Failed to load products:", error);
@@ -193,6 +211,22 @@ export function AdminDashboard() {
       setProductsError(getErrorMessage(error, "Failed to load products."));
     } finally {
       setLoadingProducts(false);
+    }
+  }, []);
+
+  const loadInventoryInsights = useCallback(async () => {
+    setLoadingInventoryInsights(true);
+    setInventoryInsightsError(null);
+    try {
+      const response = await api.get("/products/admin/inventory-insights/");
+      setInventoryInsights(response.data?.items || []);
+    } catch (error: unknown) {
+      setInventoryInsights([]);
+      setInventoryInsightsError(
+        getErrorMessage(error, "Failed to load inventory insights."),
+      );
+    } finally {
+      setLoadingInventoryInsights(false);
     }
   }, []);
 
@@ -311,11 +345,19 @@ export function AdminDashboard() {
       search: "",
     };
     void loadProducts();
+    void loadInventoryInsights();
     void loadOrders(initialFilters);
     void loadCoupons();
     void loadUsers();
     void loadReviews();
-  }, [loadCoupons, loadOrders, loadProducts, loadReviews, loadUsers]);
+  }, [
+    loadCoupons,
+    loadInventoryInsights,
+    loadOrders,
+    loadProducts,
+    loadReviews,
+    loadUsers,
+  ]);
 
   useEffect(() => {
     void loadAnalyticsSummary(analyticsDays);
@@ -327,7 +369,7 @@ export function AdminDashboard() {
     }
 
     try {
-      await api.delete(`/products/products/${id}/`);
+      await api.delete(`/products/${id}/`);
       setProducts(products.filter((p) => p.id !== id));
       showSuccess("Product deleted successfully");
     } catch (error) {
@@ -1365,6 +1407,51 @@ export function AdminDashboard() {
               <CardTitle>Products</CardTitle>
             </CardHeader>
             <CardContent>
+              {inventoryInsightsError && (
+                <FlowStateBanner
+                  className="mb-4"
+                  tone="warning"
+                  message={inventoryInsightsError}
+                  actionLabel="Retry"
+                  onAction={loadInventoryInsights}
+                />
+              )}
+
+              {!loadingInventoryInsights && inventoryInsights.length > 0 && (
+                <div className="mb-6 overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Inventory Insights</TableHead>
+                        <TableHead>Sold (30d)</TableHead>
+                        <TableHead>Sell-through</TableHead>
+                        <TableHead>Days left</TableHead>
+                        <TableHead>Stock age</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {inventoryInsights.slice(0, 8).map((item) => (
+                        <TableRow key={item.product_id}>
+                          <TableCell className="font-medium">
+                            {item.name}
+                          </TableCell>
+                          <TableCell>{item.total_sold_30d}</TableCell>
+                          <TableCell>
+                            {item.sell_through_rate.toFixed(2)}%
+                          </TableCell>
+                          <TableCell>
+                            {item.days_inventory_left === null
+                              ? "—"
+                              : item.days_inventory_left.toFixed(2)}
+                          </TableCell>
+                          <TableCell>{item.stock_age_days}d</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
               <FlowStateSection
                 loading={loadingProducts}
                 error={productsError}

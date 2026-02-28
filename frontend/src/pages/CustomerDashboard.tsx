@@ -42,11 +42,23 @@ interface Product {
   price: string;
   image: string;
   stock: number;
+  available_stock?: number;
+  availability_status?: string;
+  merchandising_tags?: string[];
+  total_sold_30d?: number;
+  media?: Array<{ url?: string }>;
   category: {
     id: number;
     name: string;
   };
 }
+
+type MerchandisingResponse = {
+  trending_now?: Product[];
+  almost_gone?: Product[];
+  just_restocked?: Product[];
+  back_in_stock?: Product[];
+};
 
 interface PreferenceForm {
   age: string;
@@ -63,6 +75,11 @@ type ProductPayload = {
   image?: string;
   image_url?: string;
   stock?: number;
+  available_stock?: number;
+  availability_status?: string;
+  merchandising_tags?: string[];
+  total_sold_30d?: number;
+  media?: Array<{ url?: string }>;
   category?: {
     id?: number;
     name?: string;
@@ -85,142 +102,6 @@ type LocalWishlistItem = {
   };
 };
 
-// Demo products with beautiful images
-const DEMO_PRODUCTS: Product[] = [
-  {
-    id: 1,
-    name: "Premium Wireless Headphones",
-    description:
-      "Experience crystal-clear audio with active noise cancellation and 30-hour battery life. Perfect for music lovers and professionals.",
-    price: "299.99",
-    image:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop",
-    stock: 15,
-    category: { id: 1, name: "Electronics" },
-  },
-  {
-    id: 2,
-    name: "Smart Fitness Watch",
-    description:
-      "Track your health and fitness goals with GPS, heart rate monitoring, and sleep tracking. Water-resistant up to 50m.",
-    price: "249.99",
-    image:
-      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop",
-    stock: 8,
-    category: { id: 1, name: "Electronics" },
-  },
-  {
-    id: 3,
-    name: "Minimalist Leather Backpack",
-    description:
-      "Handcrafted genuine leather backpack with laptop compartment and multiple pockets. Perfect for daily commute.",
-    price: "189.99",
-    image:
-      "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=400&fit=crop",
-    stock: 12,
-    category: { id: 2, name: "Fashion" },
-  },
-  {
-    id: 4,
-    name: "Organic Cotton T-Shirt",
-    description:
-      "Sustainably made from 100% organic cotton. Soft, breathable, and perfect for everyday wear.",
-    price: "29.99",
-    image:
-      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=400&fit=crop",
-    stock: 50,
-    category: { id: 2, name: "Fashion" },
-  },
-  {
-    id: 5,
-    name: "Ceramic Coffee Mug Set",
-    description:
-      "Set of 4 handmade ceramic mugs. Microwave and dishwasher safe. Each mug holds 12oz.",
-    price: "45.99",
-    image:
-      "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=600&h=400&fit=crop",
-    stock: 25,
-    category: { id: 3, name: "Home & Kitchen" },
-  },
-  {
-    id: 6,
-    name: "Yoga Mat Premium",
-    description:
-      "Non-slip, eco-friendly yoga mat with extra cushioning. Includes carrying strap. Perfect for all yoga styles.",
-    price: "59.99",
-    image:
-      "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=600&h=400&fit=crop",
-    stock: 20,
-    category: { id: 4, name: "Sports" },
-  },
-  {
-    id: 7,
-    name: "Desk Plant Collection",
-    description:
-      "Set of 3 low-maintenance succulents in modern ceramic pots. Perfect for office or home decoration.",
-    price: "34.99",
-    image:
-      "https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=600&h=400&fit=crop",
-    stock: 18,
-    category: { id: 3, name: "Home & Kitchen" },
-  },
-  {
-    id: 8,
-    name: "Professional Camera Kit",
-    description:
-      "24MP DSLR camera with 18-55mm lens, tripod, and camera bag. Ideal for beginners and enthusiasts.",
-    price: "899.99",
-    image:
-      "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&h=400&fit=crop",
-    stock: 5,
-    category: { id: 1, name: "Electronics" },
-  },
-  {
-    id: 9,
-    name: "Running Sneakers",
-    description:
-      "Lightweight running shoes with responsive cushioning and breathable mesh upper. Available in multiple colors.",
-    price: "119.99",
-    image:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=400&fit=crop",
-    stock: 30,
-    category: { id: 2, name: "Fashion" },
-  },
-  {
-    id: 10,
-    name: "Portable Bluetooth Speaker",
-    description:
-      "Waterproof speaker with 360° sound and 12-hour battery life. Perfect for outdoor adventures.",
-    price: "79.99",
-    image:
-      "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&h=400&fit=crop",
-    stock: 22,
-    category: { id: 1, name: "Electronics" },
-  },
-  {
-    id: 11,
-    name: "Scented Candle Set",
-    description:
-      "Set of 6 aromatherapy candles with natural soy wax. Includes lavender, vanilla, and eucalyptus scents.",
-    price: "39.99",
-    image:
-      "https://images.unsplash.com/photo-1602874801006-c2c0ff734d7e?w=600&h=400&fit=crop",
-    stock: 40,
-    category: { id: 3, name: "Home & Kitchen" },
-  },
-  {
-    id: 12,
-    name: "Stainless Steel Water Bottle",
-    description:
-      "Insulated bottle keeps drinks cold for 24 hours or hot for 12 hours. BPA-free and leak-proof.",
-    price: "24.99",
-    image:
-      "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&h=400&fit=crop",
-    stock: 0,
-    category: { id: 4, name: "Sports" },
-  },
-];
-
 const SUGGESTION_CAROUSEL_AUTOPLAY_MS = 3000;
 const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 
@@ -229,7 +110,9 @@ export function CustomerDashboard() {
   const { formatPrice } = useCurrency();
   const { showError, showSuccess } = useFeedback();
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>(DEMO_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [merchandising, setMerchandising] = useState<MerchandisingResponse>({});
+  const [availabilityFilter, setAvailabilityFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -317,29 +200,37 @@ export function CustomerDashboard() {
       return [];
     }
 
-    return items
-      .map((rawItem) => {
-        const item = rawItem as ProductPayload;
-        const normalizedId = Number(item.id ?? 0);
-        const normalizedName = String(item.name || "").trim();
-        if (!normalizedId || !normalizedName) {
-          return null;
-        }
+    const normalized: Product[] = [];
+    items.forEach((rawItem) => {
+      const item = rawItem as ProductPayload;
+      const normalizedId = Number(item.id ?? 0);
+      const normalizedName = String(item.name || "").trim();
+      if (!normalizedId || !normalizedName) {
+        return;
+      }
 
-        return {
-          id: normalizedId,
-          name: normalizedName,
-          description: item.description || "",
-          price: String(item.price ?? ""),
-          image: item.image || item.image_url || "",
-          stock: Number(item.stock ?? 0),
-          category: {
-            id: item.category?.id ?? 0,
-            name: item.category?.name ?? "Uncategorized",
-          },
-        };
-      })
-      .filter((item): item is Product => item !== null);
+      normalized.push({
+        id: normalizedId,
+        name: normalizedName,
+        description: item.description || "",
+        price: String(item.price ?? ""),
+        image: item.image || item.image_url || item.media?.[0]?.url || "",
+        stock: Number(item.stock ?? 0),
+        available_stock: Number(item.available_stock ?? item.stock ?? 0),
+        availability_status: String(item.availability_status || "IN_STOCK"),
+        merchandising_tags: Array.isArray(item.merchandising_tags)
+          ? item.merchandising_tags
+          : [],
+        total_sold_30d: Number(item.total_sold_30d ?? 0),
+        media: item.media || [],
+        category: {
+          id: item.category?.id ?? 0,
+          name: item.category?.name ?? "Uncategorized",
+        },
+      });
+    });
+
+    return normalized;
   }, []);
 
   const suggestionCategories = useMemo(() => {
@@ -592,6 +483,21 @@ export function CustomerDashboard() {
     }
   }, [normalizeProducts]);
 
+  const loadMerchandising = useCallback(async () => {
+    try {
+      const response = await api.get("/products/merchandising/");
+      const payload = (response.data || {}) as Record<string, unknown[]>;
+      setMerchandising({
+        trending_now: normalizeProducts(payload.trending_now || []),
+        almost_gone: normalizeProducts(payload.almost_gone || []),
+        just_restocked: normalizeProducts(payload.just_restocked || []),
+        back_in_stock: normalizeProducts(payload.back_in_stock || []),
+      });
+    } catch {
+      setMerchandising({});
+    }
+  }, [normalizeProducts]);
+
   const detectGeoDetails = async () => {
     setIsDetectingGeo(true);
     setGeoDetectionFailed(false);
@@ -750,21 +656,25 @@ export function CustomerDashboard() {
     setIsTopSellingView(false);
     setProductsError(null);
     try {
-      const response = await api.get("/products/");
+      const response = await api.get("/products/", {
+        params:
+          availabilityFilter !== "ALL"
+            ? { availability_status: availabilityFilter }
+            : undefined,
+      });
       const apiProducts = normalizeProducts(
         response.data.results || response.data,
       );
-      // Use API products if available, otherwise show demo products
-      setProducts(apiProducts.length > 0 ? apiProducts : DEMO_PRODUCTS);
+      setProducts(apiProducts);
+      await loadMerchandising();
     } catch (error) {
       console.error("Failed to load products:", error);
-      // Fallback to demo products if API fails
-      setProducts(DEMO_PRODUCTS);
-      setProductsError("Couldn't load live products. Showing demo products.");
+      setProducts([]);
+      setProductsError("Couldn't load products right now.");
     } finally {
       setLoading(false);
     }
-  }, [normalizeProducts]);
+  }, [availabilityFilter, loadMerchandising, normalizeProducts]);
 
   const loadTopSellingProducts = async () => {
     setLoading(true);
@@ -809,18 +719,8 @@ export function CustomerDashboard() {
       setProducts(searchedProducts);
     } catch (error) {
       console.error("Search failed:", error);
-
-      const normalized = query.toLowerCase();
-      const filtered = DEMO_PRODUCTS.filter(
-        (p) =>
-          p.name.toLowerCase().includes(normalized) ||
-          p.description.toLowerCase().includes(normalized) ||
-          p.category.name.toLowerCase().includes(normalized),
-      );
-      setProducts(filtered);
-      setProductsError(
-        "Search is temporarily unavailable. Showing demo matches.",
-      );
+      setProducts([]);
+      setProductsError("Search is temporarily unavailable.");
     } finally {
       setLoading(false);
     }
@@ -1043,6 +943,15 @@ export function CustomerDashboard() {
 
   const toggleSuggestionAutoplay = () => {
     setIsSuggestionAutoplayEnabled((prev) => !prev);
+  };
+
+  const availabilityLabelMap: Record<string, string> = {
+    ALL: "All",
+    IN_STOCK: "In Stock",
+    ALMOST_GONE: "Almost Gone",
+    JUST_RESTOCKED: "Just Restocked",
+    BACK_IN_STOCK: "Back in Stock",
+    OUT_OF_STOCK: "Out of Stock",
   };
 
   const styles = {
@@ -1729,6 +1638,72 @@ export function CustomerDashboard() {
                 onAction={loadProducts}
               />
             )}
+
+            {!!(
+              merchandising.trending_now?.length ||
+              merchandising.almost_gone?.length ||
+              merchandising.just_restocked?.length ||
+              merchandising.back_in_stock?.length
+            ) && (
+              <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    title: "Trending Now",
+                    key: "trending_now",
+                    items: merchandising.trending_now || [],
+                  },
+                  {
+                    title: "Almost Gone",
+                    key: "almost_gone",
+                    items: merchandising.almost_gone || [],
+                  },
+                  {
+                    title: "Just Restocked",
+                    key: "just_restocked",
+                    items: merchandising.just_restocked || [],
+                  },
+                  {
+                    title: "Back in Stock",
+                    key: "back_in_stock",
+                    items: merchandising.back_in_stock || [],
+                  },
+                ].map((section) => (
+                  <Card key={section.key} className="border border-border/70">
+                    <CardContent className="p-4">
+                      <p className="text-sm font-bold text-foreground">
+                        {section.title}
+                      </p>
+                      {section.items[0] ? (
+                        <button
+                          type="button"
+                          className="mt-3 flex w-full items-center gap-3 text-left"
+                          onClick={() => viewProduct(section.items[0])}
+                        >
+                          <img
+                            src={section.items[0].image}
+                            alt={section.items[0].name}
+                            className="h-12 w-12 rounded-md object-cover"
+                          />
+                          <div className="min-w-0">
+                            <p className="line-clamp-1 text-sm font-semibold">
+                              {section.items[0].name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatPrice(section.items[0].price)}
+                            </p>
+                          </div>
+                        </button>
+                      ) : (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          No items yet.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
             <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-2xl font-black text-foreground sm:text-3xl">
@@ -1744,6 +1719,22 @@ export function CustomerDashboard() {
                     ? "amazing product"
                     : "amazing products"}
                 </p>
+                {!search && !isTopSellingView && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {Object.keys(availabilityLabelMap).map((key) => (
+                      <Button
+                        key={key}
+                        size="sm"
+                        variant={
+                          availabilityFilter === key ? "default" : "outline"
+                        }
+                        onClick={() => setAvailabilityFilter(key)}
+                      >
+                        {availabilityLabelMap[key]}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
               {(search || isTopSellingView) && (
                 <Button
@@ -1823,25 +1814,42 @@ export function CustomerDashboard() {
                       </p>
                       <Badge
                         variant={
-                          product.stock > 10
+                          (product.available_stock ?? product.stock) > 10
                             ? "default"
-                            : product.stock > 0
+                            : (product.available_stock ?? product.stock) > 0
                               ? "secondary"
                               : "destructive"
                         }
                         className="text-xs font-bold shadow-sm"
                       >
-                        {product.stock > 0 ? `${product.stock} left` : "Out"}
+                        {product.availability_status === "ALMOST_GONE"
+                          ? "Almost Gone"
+                          : product.availability_status === "JUST_RESTOCKED"
+                            ? "Just Restocked"
+                            : product.availability_status === "BACK_IN_STOCK"
+                              ? "Back in Stock"
+                              : (product.available_stock ?? product.stock) > 0
+                                ? `${product.available_stock ?? product.stock} left`
+                                : "Out"}
                       </Badge>
                     </div>
+                    {isTopSellingView && (product.total_sold_30d || 0) > 0 && (
+                      <p className="mb-4 text-xs font-medium text-muted-foreground">
+                        Sold in last 30 days: {product.total_sold_30d}
+                      </p>
+                    )}
                     <div className="space-y-2">
                       <Button
                         onClick={(e) => addToCart(product, e.currentTarget)}
                         className={styles.productAddToCartButton}
-                        disabled={product.stock === 0}
+                        disabled={
+                          (product.available_stock ?? product.stock) === 0
+                        }
                       >
                         <ShoppingCart className="mr-2 h-4 w-4" />
-                        {product.stock === 0 ? "Unavailable" : "Add to Cart"}
+                        {(product.available_stock ?? product.stock) === 0
+                          ? "Unavailable"
+                          : "Add to Cart"}
                       </Button>
 
                       <div className="grid grid-cols-2 gap-2">
