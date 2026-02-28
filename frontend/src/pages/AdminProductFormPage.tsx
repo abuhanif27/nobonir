@@ -296,7 +296,10 @@ export function AdminProductFormPage() {
       } else {
         const response = await api.post("/products/products/", payload);
         const createdId = response.data?.id;
-        showSuccess("Product created. Now upload gallery images.");
+        if (createdId && mediaFiles.length > 0) {
+          await uploadMediaForProduct(createdId);
+        }
+        showSuccess("Product created successfully.");
         if (createdId) {
           navigate(`/admin/products/${createdId}`);
           return;
@@ -345,6 +348,34 @@ export function AdminProductFormPage() {
     }
   };
 
+  const uploadMediaForProduct = async (productId: string | number) => {
+    if (mediaFiles.length === 0) {
+      return;
+    }
+
+    const baseOrder = Number(mediaForm.sort_order || 0);
+    const cleanAltText = mediaForm.alt_text.trim();
+    for (const [index, file] of mediaFiles.entries()) {
+      const payload = new FormData();
+      payload.append("image_file", file);
+      payload.append(
+        "alt_text",
+        cleanAltText ? `${cleanAltText} ${index + 1}` : file.name,
+      );
+      payload.append("sort_order", String(baseOrder + index));
+      payload.append("is_primary", String(index === 0 && mediaForm.is_primary));
+      if (mediaForm.variant_id) {
+        payload.append("variant_id", mediaForm.variant_id);
+      }
+
+      await api.post(`/products/${productId}/media/`, payload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    }
+  };
+
   const uploadMedia = async () => {
     if (!id) {
       return;
@@ -357,30 +388,7 @@ export function AdminProductFormPage() {
 
     setSavingMedia(true);
     try {
-      const baseOrder = Number(mediaForm.sort_order || 0);
-      const cleanAltText = mediaForm.alt_text.trim();
-      for (const [index, file] of mediaFiles.entries()) {
-        const payload = new FormData();
-        payload.append("image_file", file);
-        payload.append(
-          "alt_text",
-          cleanAltText ? `${cleanAltText} ${index + 1}` : file.name,
-        );
-        payload.append("sort_order", String(baseOrder + index));
-        payload.append(
-          "is_primary",
-          String(index === 0 && mediaForm.is_primary),
-        );
-        if (mediaForm.variant_id) {
-          payload.append("variant_id", mediaForm.variant_id);
-        }
-
-        await api.post(`/products/${id}/media/`, payload, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-      }
+      await uploadMediaForProduct(id);
       await refreshProductAssets();
 
       setMediaForm({
@@ -702,188 +710,193 @@ export function AdminProductFormPage() {
                   </Button>
                 </div>
 
-                {isEditMode && id && (
-                  <Card className="mt-6 border-dashed">
+                <Card className="mt-6 border-dashed">
                     <CardHeader>
-                      <CardTitle>Variants & Media</CardTitle>
+                      <CardTitle>
+                        {isEditMode && id ? "Variants & Media" : "Product Gallery"}
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="grid gap-4 md:grid-cols-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Color</label>
-                          <Input
-                            value={variantForm.color}
-                            onChange={(event) =>
-                              setVariantForm((current) => ({
-                                ...current,
-                                color: event.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Size</label>
-                          <Input
-                            value={variantForm.size}
-                            onChange={(event) =>
-                              setVariantForm((current) => ({
-                                ...current,
-                                size: event.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">SKU</label>
-                          <Input
-                            value={variantForm.sku}
-                            onChange={(event) =>
-                              setVariantForm((current) => ({
-                                ...current,
-                                sku: event.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">
-                            Stock Override
-                          </label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={variantForm.stock_override}
-                            onChange={(event) =>
-                              setVariantForm((current) => ({
-                                ...current,
-                                stock_override: event.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <Button
-                          onClick={createVariant}
-                          disabled={savingVariant}
-                        >
-                          {savingVariant ? "Adding..." : "Add Variant"}
-                        </Button>
-                      </div>
-
-                      <div className="space-y-3 rounded-md border p-3">
-                        <p className="text-sm font-semibold">
-                          Existing Variants
-                        </p>
-                        {variants.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">
-                            No variants yet.
-                          </p>
-                        ) : (
-                          <div className="grid gap-2 md:grid-cols-2">
-                            {variants.map((variant) => {
-                              const draft = variantDrafts[variant.id] || {
-                                color: variant.color || "",
-                                size: variant.size || "",
-                                sku: variant.sku || "",
-                                stock_override: String(
-                                  variant.stock_override ?? variant.stock ?? "",
-                                ),
-                              };
-
-                              return (
-                                <div
-                                  key={variant.id}
-                                  className="space-y-2 rounded-md border p-3 text-sm"
-                                >
-                                  <div className="grid gap-2 sm:grid-cols-2">
-                                    <Input
-                                      value={draft.color}
-                                      onChange={(event) =>
-                                        setVariantDrafts((current) => ({
-                                          ...current,
-                                          [variant.id]: {
-                                            ...draft,
-                                            color: event.target.value,
-                                          },
-                                        }))
-                                      }
-                                      placeholder="Color"
-                                    />
-                                    <Input
-                                      value={draft.size}
-                                      onChange={(event) =>
-                                        setVariantDrafts((current) => ({
-                                          ...current,
-                                          [variant.id]: {
-                                            ...draft,
-                                            size: event.target.value,
-                                          },
-                                        }))
-                                      }
-                                      placeholder="Size"
-                                    />
-                                    <Input
-                                      value={draft.sku}
-                                      onChange={(event) =>
-                                        setVariantDrafts((current) => ({
-                                          ...current,
-                                          [variant.id]: {
-                                            ...draft,
-                                            sku: event.target.value,
-                                          },
-                                        }))
-                                      }
-                                      placeholder="SKU"
-                                    />
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      value={draft.stock_override}
-                                      onChange={(event) =>
-                                        setVariantDrafts((current) => ({
-                                          ...current,
-                                          [variant.id]: {
-                                            ...draft,
-                                            stock_override: event.target.value,
-                                          },
-                                        }))
-                                      }
-                                      placeholder="Stock override"
-                                    />
-                                  </div>
-
-                                  <div className="flex justify-end gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => updateVariant(variant.id)}
-                                      disabled={savingVariantId === variant.id}
-                                    >
-                                      {savingVariantId === variant.id
-                                        ? "Saving..."
-                                        : "Save"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="bg-red-600 text-white hover:bg-red-700"
-                                      onClick={() => deleteVariant(variant.id)}
-                                      disabled={
-                                        deletingVariantId === variant.id
-                                      }
-                                    >
-                                      {deletingVariantId === variant.id
-                                        ? "Deleting..."
-                                        : "Delete"}
-                                    </Button>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                      {isEditMode && id && (
+                        <>
+                          <div className="grid gap-4 md:grid-cols-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Color</label>
+                              <Input
+                                value={variantForm.color}
+                                onChange={(event) =>
+                                  setVariantForm((current) => ({
+                                    ...current,
+                                    color: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Size</label>
+                              <Input
+                                value={variantForm.size}
+                                onChange={(event) =>
+                                  setVariantForm((current) => ({
+                                    ...current,
+                                    size: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">SKU</label>
+                              <Input
+                                value={variantForm.sku}
+                                onChange={(event) =>
+                                  setVariantForm((current) => ({
+                                    ...current,
+                                    sku: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">
+                                Stock Override
+                              </label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={variantForm.stock_override}
+                                onChange={(event) =>
+                                  setVariantForm((current) => ({
+                                    ...current,
+                                    stock_override: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
                           </div>
-                        )}
-                      </div>
+                          <div className="flex justify-end">
+                            <Button
+                              onClick={createVariant}
+                              disabled={savingVariant}
+                            >
+                              {savingVariant ? "Adding..." : "Add Variant"}
+                            </Button>
+                          </div>
+
+                          <div className="space-y-3 rounded-md border p-3">
+                            <p className="text-sm font-semibold">
+                              Existing Variants
+                            </p>
+                            {variants.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                No variants yet.
+                              </p>
+                            ) : (
+                              <div className="grid gap-2 md:grid-cols-2">
+                                {variants.map((variant) => {
+                                  const draft = variantDrafts[variant.id] || {
+                                    color: variant.color || "",
+                                    size: variant.size || "",
+                                    sku: variant.sku || "",
+                                    stock_override: String(
+                                      variant.stock_override ?? variant.stock ?? "",
+                                    ),
+                                  };
+
+                                  return (
+                                    <div
+                                      key={variant.id}
+                                      className="space-y-2 rounded-md border p-3 text-sm"
+                                    >
+                                      <div className="grid gap-2 sm:grid-cols-2">
+                                        <Input
+                                          value={draft.color}
+                                          onChange={(event) =>
+                                            setVariantDrafts((current) => ({
+                                              ...current,
+                                              [variant.id]: {
+                                                ...draft,
+                                                color: event.target.value,
+                                              },
+                                            }))
+                                          }
+                                          placeholder="Color"
+                                        />
+                                        <Input
+                                          value={draft.size}
+                                          onChange={(event) =>
+                                            setVariantDrafts((current) => ({
+                                              ...current,
+                                              [variant.id]: {
+                                                ...draft,
+                                                size: event.target.value,
+                                              },
+                                            }))
+                                          }
+                                          placeholder="Size"
+                                        />
+                                        <Input
+                                          value={draft.sku}
+                                          onChange={(event) =>
+                                            setVariantDrafts((current) => ({
+                                              ...current,
+                                              [variant.id]: {
+                                                ...draft,
+                                                sku: event.target.value,
+                                              },
+                                            }))
+                                          }
+                                          placeholder="SKU"
+                                        />
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          value={draft.stock_override}
+                                          onChange={(event) =>
+                                            setVariantDrafts((current) => ({
+                                              ...current,
+                                              [variant.id]: {
+                                                ...draft,
+                                                stock_override: event.target.value,
+                                              },
+                                            }))
+                                          }
+                                          placeholder="Stock override"
+                                        />
+                                      </div>
+
+                                      <div className="flex justify-end gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => updateVariant(variant.id)}
+                                          disabled={savingVariantId === variant.id}
+                                        >
+                                          {savingVariantId === variant.id
+                                            ? "Saving..."
+                                            : "Save"}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="bg-red-600 text-white hover:bg-red-700"
+                                          onClick={() => deleteVariant(variant.id)}
+                                          disabled={
+                                            deletingVariantId === variant.id
+                                          }
+                                        >
+                                          {deletingVariantId === variant.id
+                                            ? "Deleting..."
+                                            : "Delete"}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2 md:col-span-2">
@@ -908,6 +921,7 @@ export function AdminProductFormPage() {
                               : "Select one or more product images."}
                           </p>
                         </div>
+                        {isEditMode && id && (
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Variant</label>
                           <select
@@ -929,6 +943,7 @@ export function AdminProductFormPage() {
                             ))}
                           </select>
                         </div>
+                        )}
                         <div className="space-y-2">
                           <label className="text-sm font-medium">
                             Sort Order
@@ -976,12 +991,19 @@ export function AdminProductFormPage() {
                         </div>
                       </div>
 
-                      <div className="flex justify-end">
-                        <Button onClick={uploadMedia} disabled={savingMedia}>
-                          {savingMedia ? "Uploading..." : "Upload Media"}
-                        </Button>
-                      </div>
+                      {isEditMode && id ? (
+                        <div className="flex justify-end">
+                          <Button onClick={uploadMedia} disabled={savingMedia}>
+                            {savingMedia ? "Uploading..." : "Upload Media"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Selected images will upload automatically after you click Create Product.
+                        </p>
+                      )}
 
+                      {isEditMode && id && (
                       <div className="space-y-3 rounded-md border p-3">
                         <p className="text-sm font-semibold">Existing Media</p>
                         {mediaItems.length === 0 ? (
@@ -1113,9 +1135,9 @@ export function AdminProductFormPage() {
                           </div>
                         )}
                       </div>
+                      )}
                     </CardContent>
                   </Card>
-                )}
               </>
             )}
           </CardContent>
