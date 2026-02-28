@@ -18,6 +18,47 @@ const NOTIFICATION_SECTION_SESSION_KEY = "nobonir_notification_section";
 
 type NotificationFilter = "ALL" | "UNREAD" | "READ";
 
+const formatRelativeTime = (isoDate: string) => {
+  const timestamp = new Date(isoDate).getTime();
+  if (Number.isNaN(timestamp)) {
+    return "just now";
+  }
+
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) {
+    return `${weeks}w ago`;
+  }
+
+  const months = Math.floor(days / 30);
+  if (months < 12) {
+    return `${months}mo ago`;
+  }
+
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+};
+
 export function NotificationsPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
@@ -193,7 +234,9 @@ export function NotificationsPage() {
                           </p>
                           <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
                             <Clock3 className="h-3 w-3" />
-                            {new Date(item.createdAt).toLocaleString()}
+                            <span title={new Date(item.createdAt).toLocaleString()}>
+                              {formatRelativeTime(item.createdAt)}
+                            </span>
                           </p>
                         </button>
                         <div className="flex shrink-0 gap-2">
