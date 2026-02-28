@@ -41,6 +41,7 @@ import {
   Menu,
   X,
   BellRing,
+  Clock3,
 } from "lucide-react";
 
 interface Product {
@@ -110,12 +111,59 @@ type LocalWishlistItem = {
   };
 };
 
+type OrderNotificationSource = {
+  id: number;
+  status: string;
+  updated_at: string;
+};
+
 const SUGGESTION_CAROUSEL_AUTOPLAY_MS = 3000;
 const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 const PRODUCTS_PAGE_SIZE = 12;
 const FALLBACK_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop";
 const NOTIFICATION_SECTION_SESSION_KEY = "nobonir_notification_section";
+
+const formatRelativeTime = (isoDate: string) => {
+  const timestamp = new Date(isoDate).getTime();
+  if (Number.isNaN(timestamp)) {
+    return "just now";
+  }
+
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) {
+    return `${weeks}w ago`;
+  }
+
+  const months = Math.floor(days / 30);
+  if (months < 12) {
+    return `${months}mo ago`;
+  }
+
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+};
 
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -141,6 +189,9 @@ export function CustomerDashboard() {
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [notificationItems, setNotificationItems] = useState<
     UserNotification[]
+  >([]);
+  const [orderNotificationSource, setOrderNotificationSource] = useState<
+    OrderNotificationSource[]
   >([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
@@ -372,6 +423,40 @@ export function CustomerDashboard() {
 
   const statusNotifications = useMemo<StatusNotificationInput[]>(() => {
     const items: StatusNotificationInput[] = [];
+    const orderStatusLabels: Record<string, string> = {
+      PENDING: "Order received",
+      PAID: "Payment confirmed",
+      PROCESSING: "Preparing items",
+      SHIPPED: "Shipped",
+      DELIVERED: "Delivered",
+      CANCELLED: "Cancelled",
+    };
+
+    const orderItems = [...orderNotificationSource]
+      .sort(
+        (left, right) =>
+          new Date(right.updated_at).getTime() -
+          new Date(left.updated_at).getTime(),
+      )
+      .slice(0, 5);
+
+    orderItems.forEach((order) => {
+      const statusLabel = orderStatusLabels[order.status] || order.status;
+      const tone: StatusNotificationInput["tone"] =
+        order.status === "CANCELLED"
+          ? "warning"
+          : order.status === "DELIVERED"
+            ? "success"
+            : "info";
+
+      items.push({
+        term: "Order Update",
+        message: `Order #${order.id} is now ${statusLabel}.`,
+        tone,
+        sectionKey: `order_status:${order.status}`,
+      });
+    });
+
     const trending = merchandising.trending_now?.[0];
     const almostGone = merchandising.almost_gone?.[0];
     const restocked = merchandising.just_restocked?.[0];
@@ -422,8 +507,8 @@ export function CustomerDashboard() {
       });
     }
 
-    return items.slice(0, 4);
-  }, [merchandising, productsError]);
+    return items.slice(0, 10);
+  }, [merchandising, orderNotificationSource, productsError]);
 
   const unreadNotificationCount = useMemo(
     () => notificationItems.filter((item) => !item.read).length,
@@ -452,6 +537,41 @@ export function CustomerDashboard() {
     const updated = syncStatusNotifications(user.id, statusNotifications);
     setNotificationItems(updated);
   }, [isAuthenticated, statusNotifications, user?.id]);
+
+  const loadOrderNotificationSource = useCallback(async () => {
+    if (!isAuthenticated) {
+      setOrderNotificationSource([]);
+      return;
+    }
+
+    try {
+      const response = await api.get("/orders/my/");
+      const rows = Array.isArray(response.data) ? response.data : [];
+      const normalized = rows
+        .map((row) => ({
+          id: Number(row?.id || 0),
+          status: String(row?.status || "").toUpperCase(),
+          updated_at: String(row?.updated_at || row?.created_at || ""),
+        }))
+        .filter((row) => row.id > 0 && row.status);
+      setOrderNotificationSource(normalized);
+    } catch {
+      setOrderNotificationSource([]);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    void loadOrderNotificationSource();
+    const timer = window.setInterval(() => {
+      void loadOrderNotificationSource();
+    }, 45000);
+
+    return () => window.clearInterval(timer);
+  }, [isAuthenticated, loadOrderNotificationSource]);
 
   useEffect(() => {
     if (
@@ -1003,6 +1123,13 @@ export function CustomerDashboard() {
       }
 
       if (item.sectionKey) {
+        if (item.sectionKey.startsWith("order_status:")) {
+          const statusValue = item.sectionKey.replace("order_status:", "");
+          setIsNotificationMenuOpen(false);
+          navigate(`/orders?status=${encodeURIComponent(statusValue)}`);
+          return;
+        }
+
         await handleMerchandisingSectionClick(item.sectionKey);
         return;
       }
@@ -1021,8 +1148,14 @@ export function CustomerDashboard() {
     }
 
     sessionStorage.removeItem(NOTIFICATION_SECTION_SESSION_KEY);
+    if (pendingSection.startsWith("order_status:")) {
+      const statusValue = pendingSection.replace("order_status:", "");
+      navigate(`/orders?status=${encodeURIComponent(statusValue)}`);
+      return;
+    }
+
     void handleMerchandisingSectionClick(pendingSection);
-  }, [handleMerchandisingSectionClick]);
+  }, [handleMerchandisingSectionClick, navigate]);
 
   const navigateToPage = useCallback(
     (page: number) => {
@@ -1477,6 +1610,18 @@ export function CustomerDashboard() {
                                   </p>
                                   <p className="mt-0.5 text-xs text-muted-foreground">
                                     {notification.message}
+                                  </p>
+                                  <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                                    <Clock3 className="h-3 w-3" />
+                                    <span
+                                      title={new Date(
+                                        notification.createdAt,
+                                      ).toLocaleString()}
+                                    >
+                                      {formatRelativeTime(
+                                        notification.createdAt,
+                                      )}
+                                    </span>
                                   </p>
                                 </button>
                               );

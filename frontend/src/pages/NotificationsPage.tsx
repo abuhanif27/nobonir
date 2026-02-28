@@ -2,13 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BellRing, CheckCheck, Clock3, Filter, Trash2 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
+import api from "@/lib/api";
 import {
   clearReadNotifications,
   getUserNotifications,
   markAllNotificationsAsRead,
   markNotificationAsRead,
   markNotificationAsUnread,
+  StatusNotificationInput,
   removeNotification,
+  syncStatusNotifications,
   UserNotification,
 } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
@@ -65,18 +68,61 @@ export function NotificationsPage() {
   const [items, setItems] = useState<UserNotification[]>([]);
   const [filter, setFilter] = useState<NotificationFilter>("ALL");
 
-  const loadNotifications = useCallback(() => {
+  const syncOrderStatusNotifications = useCallback(async () => {
     if (!user?.id) {
       setItems([]);
       return;
     }
 
-    setItems(getUserNotifications(user.id));
+    try {
+      const response = await api.get("/orders/my/");
+      const rows = Array.isArray(response.data) ? response.data : [];
+      const statusLabelMap: Record<string, string> = {
+        PENDING: "Order received",
+        PAID: "Payment confirmed",
+        PROCESSING: "Preparing items",
+        SHIPPED: "Shipped",
+        DELIVERED: "Delivered",
+        CANCELLED: "Cancelled",
+      };
+
+      const orderStatusNotifications = rows.reduce<StatusNotificationInput[]>(
+        (acc, row) => {
+          const orderId = Number(row?.id || 0);
+          const status = String(row?.status || "").toUpperCase();
+          if (!orderId || !status) {
+            return acc;
+          }
+
+          const tone: StatusNotificationInput["tone"] =
+            status === "CANCELLED"
+              ? "warning"
+              : status === "DELIVERED"
+                ? "success"
+                : "info";
+
+          acc.push({
+            term: "Order Update",
+            message: `Order #${orderId} is now ${statusLabelMap[status] || status}.`,
+            tone,
+            sectionKey: `order_status:${status}`,
+          });
+
+          return acc;
+        },
+        [],
+      );
+
+      const updated = syncStatusNotifications(user.id, orderStatusNotifications);
+      setItems(updated);
+    } catch {
+      setItems(getUserNotifications(user.id));
+    }
   }, [user?.id]);
 
   useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+    void syncOrderStatusNotifications();
+  }, [syncOrderStatusNotifications]);
 
   const filteredItems = useMemo(() => {
     if (filter === "UNREAD") {
@@ -103,10 +149,18 @@ export function NotificationsPage() {
     const updated = markNotificationAsRead(user.id, item.id);
     setItems(updated);
 
-    if (item.sectionKey) {
-      sessionStorage.setItem(NOTIFICATION_SECTION_SESSION_KEY, item.sectionKey);
-      navigate("/");
+    if (!item.sectionKey) {
+      return;
     }
+
+    if (item.sectionKey.startsWith("order_status:")) {
+      const statusValue = item.sectionKey.replace("order_status:", "");
+      navigate(`/orders?status=${encodeURIComponent(statusValue)}`);
+      return;
+    }
+
+    sessionStorage.setItem(NOTIFICATION_SECTION_SESSION_KEY, item.sectionKey);
+    navigate("/");
   };
 
   const toggleReadState = (item: UserNotification) => {

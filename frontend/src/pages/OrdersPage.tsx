@@ -190,6 +190,29 @@ export function OrdersPage() {
     loadOrders();
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const statusParam = (params.get("status") || "").toUpperCase();
+
+    const validStatuses: OrderStatus[] = [
+      "PENDING",
+      "PAID",
+      "PROCESSING",
+      "SHIPPED",
+      "DELIVERED",
+      "CANCELLED",
+    ];
+
+    if (statusParam === "ALL") {
+      setActiveFilter("ALL");
+      return;
+    }
+
+    if (validStatuses.includes(statusParam as OrderStatus)) {
+      setActiveFilter(statusParam as OrderStatus);
+    }
+  }, [location.search]);
+
   const loadMyReviews = async () => {
     setMyReviewsLoading(true);
     setMyReviewsError(null);
