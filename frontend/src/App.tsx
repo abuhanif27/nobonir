@@ -10,6 +10,7 @@ import { ProductPage } from "@/pages/ProductPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { WishlistPage } from "@/pages/WishlistPage";
+import { NotificationsPage } from "@/pages/NotificationsPage";
 import { AdminProductFormPage } from "@/pages/AdminProductFormPage";
 import { ThemeProvider } from "@/lib/theme";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -63,6 +64,7 @@ function App() {
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
               </Route>
 
               {/* Admin routes */}

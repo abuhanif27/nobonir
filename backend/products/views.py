@@ -134,6 +134,15 @@ class ProductViewSet(viewsets.ModelViewSet):
 			)
 		)
 
+	def _parse_product_id(self, value):
+		if value in (None, ""):
+			return None
+
+		try:
+			return int(value)
+		except (TypeError, ValueError):
+			return None
+
 	def get_queryset(self):
 		queryset = self._with_available_stock(super().get_queryset())
 		min_price = self.request.query_params.get("min_price")
@@ -429,16 +438,19 @@ class ProductViewSet(viewsets.ModelViewSet):
 			.annotate(count=Count("id"))
 		)
 
-		view_map = {
-			int(row["metadata__product_id"]): int(row["count"])
-			for row in view_events
-			if row.get("metadata__product_id") not in (None, "")
-		}
-		add_to_cart_map = {
-			int(row["metadata__product_id"]): int(row["count"])
-			for row in add_to_cart_events
-			if row.get("metadata__product_id") not in (None, "")
-		}
+		view_map = {}
+		for row in view_events:
+			product_id = self._parse_product_id(row.get("metadata__product_id"))
+			if product_id is None:
+				continue
+			view_map[product_id] = int(row.get("count") or 0)
+
+		add_to_cart_map = {}
+		for row in add_to_cart_events:
+			product_id = self._parse_product_id(row.get("metadata__product_id"))
+			if product_id is None:
+				continue
+			add_to_cart_map[product_id] = int(row.get("count") or 0)
 
 		items = []
 		for product in sales_queryset:
@@ -507,22 +519,25 @@ class ProductViewSet(viewsets.ModelViewSet):
 			)
 		)
 
-		view_map = {
-			int(row["metadata__product_id"]): {
+		view_map = {}
+		for row in view_rows:
+			product_id = self._parse_product_id(row.get("metadata__product_id"))
+			if product_id is None:
+				continue
+			view_map[product_id] = {
 				"view_events": int(row.get("view_events") or 0),
 				"view_sessions": int(row.get("view_sessions") or 0),
 			}
-			for row in view_rows
-			if row.get("metadata__product_id") not in (None, "")
-		}
-		cart_map = {
-			int(row["metadata__product_id"]): {
+
+		cart_map = {}
+		for row in cart_rows:
+			product_id = self._parse_product_id(row.get("metadata__product_id"))
+			if product_id is None:
+				continue
+			cart_map[product_id] = {
 				"add_to_cart_events": int(row.get("add_to_cart_events") or 0),
 				"add_to_cart_sessions": int(row.get("add_to_cart_sessions") or 0),
 			}
-			for row in cart_rows
-			if row.get("metadata__product_id") not in (None, "")
-		}
 
 		products = Product.objects.filter(id__in=set(view_map.keys()) | set(cart_map.keys())).only("id", "name")
 		name_map = {int(product.id): product.name for product in products}

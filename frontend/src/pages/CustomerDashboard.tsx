@@ -6,6 +6,13 @@ import { getErrorData, getErrorStatus } from "@/lib/apiError";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { animateFlyToCart } from "@/lib/flyToCart";
+import {
+  getUserNotifications,
+  markNotificationAsRead,
+  StatusNotificationInput,
+  syncStatusNotifications,
+  UserNotification,
+} from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
@@ -33,6 +40,7 @@ import {
   Globe2,
   Menu,
   X,
+  BellRing,
 } from "lucide-react";
 
 interface Product {
@@ -107,6 +115,7 @@ const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 const PRODUCTS_PAGE_SIZE = 12;
 const FALLBACK_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop";
+const NOTIFICATION_SECTION_SESSION_KEY = "nobonir_notification_section";
 
 export function CustomerDashboard() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -129,6 +138,10 @@ export function CustomerDashboard() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isTopSellingView, setIsTopSellingView] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [notificationItems, setNotificationItems] = useState<
+    UserNotification[]
+  >([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
   const [preferenceForm, setPreferenceForm] = useState<PreferenceForm>({
@@ -154,6 +167,7 @@ export function CustomerDashboard() {
   const [detectedContinent, setDetectedContinent] = useState("");
   const [geoDetectionFailed, setGeoDetectionFailed] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationMenuRef = useRef<HTMLDivElement | null>(null);
   const lastAutoPersonalizeKeyRef = useRef("");
 
   const getAgeFromBirthDate = (dateOfBirth?: string) => {
@@ -356,6 +370,89 @@ export function CustomerDashboard() {
     });
   }, [visibleSuggestions, suggestionStartIndex]);
 
+  const statusNotifications = useMemo<StatusNotificationInput[]>(() => {
+    const items: StatusNotificationInput[] = [];
+    const trending = merchandising.trending_now?.[0];
+    const almostGone = merchandising.almost_gone?.[0];
+    const restocked = merchandising.just_restocked?.[0];
+    const backInStock = merchandising.back_in_stock?.[0];
+
+    if (almostGone) {
+      items.push({
+        term: "Low Stock Alert",
+        message: `${almostGone.name} is almost gone. Order soon to avoid missing out.`,
+        tone: "warning",
+        sectionKey: "almost_gone",
+      });
+    }
+
+    if (restocked) {
+      items.push({
+        term: "Restock Update",
+        message: `${restocked.name} is freshly restocked and available now.`,
+        tone: "success",
+        sectionKey: "just_restocked",
+      });
+    }
+
+    if (backInStock) {
+      items.push({
+        term: "Back In Stock",
+        message: `${backInStock.name} has returned to stock.`,
+        tone: "success",
+        sectionKey: "back_in_stock",
+      });
+    }
+
+    if (trending) {
+      items.push({
+        term: "Trending Now",
+        message: `${trending.name} is currently trending with high customer demand.`,
+        tone: "info",
+        sectionKey: "trending_now",
+      });
+    }
+
+    if (productsError) {
+      items.push({
+        term: "Catalog Sync",
+        message:
+          "Live product updates are delayed right now. Some availability may refresh shortly.",
+        tone: "warning",
+      });
+    }
+
+    return items.slice(0, 4);
+  }, [merchandising, productsError]);
+
+  const unreadNotificationCount = useMemo(
+    () => notificationItems.filter((item) => !item.read).length,
+    [notificationItems],
+  );
+
+  const recentNotificationItems = useMemo(
+    () => notificationItems.slice(0, 6),
+    [notificationItems],
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      setNotificationItems([]);
+      return;
+    }
+
+    setNotificationItems(getUserNotifications(user.id));
+  }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      return;
+    }
+
+    const updated = syncStatusNotifications(user.id, statusNotifications);
+    setNotificationItems(updated);
+  }, [isAuthenticated, statusNotifications, user?.id]);
+
   useEffect(() => {
     if (
       activeSuggestionCategory !== "All" &&
@@ -465,23 +562,29 @@ export function CustomerDashboard() {
   }, [calculatedAge]);
 
   useEffect(() => {
-    if (!isUserMenuOpen) {
+    if (!isUserMenuOpen && !isNotificationMenuOpen) {
       return;
     }
 
     const handleOutsideClick = (event: MouseEvent) => {
-      if (!userMenuRef.current) {
-        return;
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsUserMenuOpen(false);
       }
 
-      if (!userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
+      if (
+        notificationMenuRef.current &&
+        !notificationMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsNotificationMenuOpen(false);
       }
     };
 
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [isUserMenuOpen]);
+  }, [isUserMenuOpen, isNotificationMenuOpen]);
 
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent) => {
@@ -490,6 +593,7 @@ export function CustomerDashboard() {
       }
 
       setIsUserMenuOpen(false);
+      setIsNotificationMenuOpen(false);
       setIsMobileMenuOpen(false);
     };
 
@@ -866,6 +970,7 @@ export function CustomerDashboard() {
 
   const handleMerchandisingSectionClick = useCallback(
     async (sectionKey: string) => {
+      setIsNotificationMenuOpen(false);
       setSearch("");
 
       if (sectionKey === "trending_now") {
@@ -890,6 +995,34 @@ export function CustomerDashboard() {
     },
     [loadProducts],
   );
+
+  const handleNotificationItemClick = useCallback(
+    async (item: UserNotification) => {
+      if (user?.id) {
+        setNotificationItems(markNotificationAsRead(user.id, item.id));
+      }
+
+      if (item.sectionKey) {
+        await handleMerchandisingSectionClick(item.sectionKey);
+        return;
+      }
+
+      setIsNotificationMenuOpen(false);
+    },
+    [handleMerchandisingSectionClick, user?.id],
+  );
+
+  useEffect(() => {
+    const pendingSection = sessionStorage.getItem(
+      NOTIFICATION_SECTION_SESSION_KEY,
+    );
+    if (!pendingSection) {
+      return;
+    }
+
+    sessionStorage.removeItem(NOTIFICATION_SECTION_SESSION_KEY);
+    void handleMerchandisingSectionClick(pendingSection);
+  }, [handleMerchandisingSectionClick]);
 
   const navigateToPage = useCallback(
     (page: number) => {
@@ -1273,6 +1406,90 @@ export function CustomerDashboard() {
                     <Trophy className="h-4 w-4" />
                     <span className="hidden sm:inline">Top Selling</span>
                   </Button>
+                  <div className="relative" ref={notificationMenuRef}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="relative gap-2"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsNotificationMenuOpen((prev) => !prev);
+                      }}
+                      aria-haspopup="menu"
+                      aria-expanded={isNotificationMenuOpen}
+                      aria-controls="dashboard-notification-menu"
+                    >
+                      <BellRing className="h-4 w-4" />
+                      <span className="hidden sm:inline">Notifications</span>
+                      {unreadNotificationCount > 0 && (
+                        <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-teal-600 px-1 text-[10px] font-bold text-white">
+                          {unreadNotificationCount > 99
+                            ? "99+"
+                            : unreadNotificationCount}
+                        </span>
+                      )}
+                    </Button>
+
+                    {isNotificationMenuOpen && (
+                      <div
+                        id="dashboard-notification-menu"
+                        role="menu"
+                        aria-label="Notifications"
+                        className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-border bg-card p-2 shadow-lg"
+                      >
+                        <div className="flex items-center justify-between gap-2 px-2 py-1">
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            Product Status Notifications
+                          </p>
+                          <Link
+                            to="/notifications"
+                            onClick={() => setIsNotificationMenuOpen(false)}
+                            className="text-xs font-medium text-teal-700 hover:underline dark:text-teal-300"
+                          >
+                            View all
+                          </Link>
+                        </div>
+                        <div className="max-h-80 overflow-auto">
+                          {recentNotificationItems.length > 0 ? (
+                            recentNotificationItems.map((notification) => {
+                              const toneClass =
+                                notification.tone === "warning"
+                                  ? "text-amber-700 dark:text-amber-300"
+                                  : notification.tone === "success"
+                                    ? "text-emerald-700 dark:text-emerald-300"
+                                    : "text-cyan-700 dark:text-cyan-300";
+
+                              return (
+                                <button
+                                  key={notification.id}
+                                  type="button"
+                                  className="w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted"
+                                  onClick={() => {
+                                    void handleNotificationItemClick(
+                                      notification,
+                                    );
+                                  }}
+                                >
+                                  <p
+                                    className={`text-xs font-semibold ${toneClass}`}
+                                  >
+                                    {notification.term}
+                                  </p>
+                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                    {notification.message}
+                                  </p>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <p className="px-2 py-3 text-xs text-muted-foreground">
+                              No new notifications.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <div className="relative" ref={userMenuRef}>
                     <button
                       type="button"
@@ -1441,6 +1658,19 @@ export function CustomerDashboard() {
                 </Button>
                 {isAuthenticated ? (
                   <>
+                    <Link
+                      to="/notifications"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={styles.mobileNavOutlineButton}
+                      >
+                        <BellRing className="mr-2 h-4 w-4" />
+                        Notifications
+                      </Button>
+                    </Link>
                     <Link
                       to="/profile"
                       onClick={() => setIsMobileMenuOpen(false)}
