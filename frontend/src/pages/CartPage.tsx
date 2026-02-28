@@ -32,6 +32,15 @@ import {
 
 interface CartItem {
   id: number;
+  variant?: {
+    id: number;
+    color?: string;
+    size?: string;
+    sku?: string;
+    stock_override?: number | null;
+  } | null;
+  variant_id?: number | null;
+  variant_key?: string;
   product: {
     id: number;
     name: string;
@@ -267,6 +276,7 @@ export function CartPage() {
     for (const item of localItems) {
       await api.post("/cart/items/", {
         product_id: item.product.id,
+        variant_id: item.variant_id ?? null,
         quantity: item.quantity,
       });
     }
@@ -575,8 +585,14 @@ export function CartPage() {
                           <p className="text-sm text-muted-foreground">
                             {formatPrice(item.product.price)} each
                           </p>
+                          {item.variant && (
+                            <p className="text-sm text-muted-foreground">
+                              Variant: {item.variant.color || "Default"}
+                              {item.variant.size ? ` / ${item.variant.size}` : ""}
+                            </p>
+                          )}
                           <p className="text-sm text-muted-foreground">
-                            Stock: {item.product.stock}
+                            Stock: {item.variant?.stock_override ?? item.product.stock}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -605,12 +621,15 @@ export function CartPage() {
                                 updateQuantity(
                                   item.id,
                                   Math.min(
-                                    item.product.stock,
+                                    item.variant?.stock_override ?? item.product.stock,
                                     item.quantity + 1,
                                   ),
                                 )
                               }
-                              disabled={item.quantity >= item.product.stock}
+                              disabled={
+                                item.quantity >=
+                                (item.variant?.stock_override ?? item.product.stock)
+                              }
                               aria-label={`Increase quantity for ${item.product.name}`}
                             >
                               <Plus className="h-4 w-4" />

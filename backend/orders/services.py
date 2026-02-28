@@ -15,6 +15,14 @@ def _calculate_cart_subtotal(cart: Cart) -> Decimal:
     return subtotal
 
 
+def _variant_label(item) -> str:
+    if not item.variant_id:
+        return ""
+
+    parts = [segment for segment in [item.variant.color, item.variant.size] if segment]
+    return " / ".join(parts)
+
+
 def validate_coupon_for_user(user, coupon_code: str):
     normalized = (coupon_code or "").strip().upper()
     if not normalized:
@@ -58,7 +66,7 @@ def get_coupon_preview(user, coupon_code: str):
 @transaction.atomic
 def create_order_from_cart(user, shipping_address: str, billing_address: str = "", coupon_code: str = "") -> Order:
     cart, _ = Cart.objects.get_or_create(user=user)
-    cart = Cart.objects.select_related("user").prefetch_related("items__product").get(pk=cart.pk)
+    cart = Cart.objects.select_related("user").prefetch_related("items__product", "items__variant").get(pk=cart.pk)
     if not cart.items.exists():
         raise ValueError("Cart is empty")
 
@@ -74,12 +82,16 @@ def create_order_from_cart(user, shipping_address: str, billing_address: str = "
     )
     subtotal = Decimal("0.00")
 
-    for item in cart.items.select_related("product"):
+    for item in cart.items.select_related("product", "variant"):
         product = item.product
+        variant_label = _variant_label(item)
+        display_name = product.name if not variant_label else f"{product.name} ({variant_label})"
         OrderItem.objects.create(
             order=order,
             product=product,
-            product_name=product.name,
+            variant=item.variant,
+            product_name=display_name,
+            variant_label=variant_label,
             unit_price=product.price,
             quantity=item.quantity,
         )

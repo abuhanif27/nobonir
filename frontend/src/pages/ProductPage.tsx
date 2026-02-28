@@ -68,6 +68,13 @@ interface ProductReview {
 
 type CartQuantityItem = { quantity?: number };
 type LocalCartItem = {
+  variant_key?: string;
+  variant_id?: number | null;
+  variant?: {
+    id: number;
+    color?: string;
+    size?: string;
+  } | null;
   product?: {
     id?: number;
   };
@@ -473,12 +480,22 @@ export function ProductPage() {
       imageSrc: productImage,
     });
 
+    const selectedVariant = (product.variants || []).find(
+      (variant) =>
+        (selectedColor ? variant.color === selectedColor : true) &&
+        (selectedSize ? variant.size === selectedSize : true),
+    );
+    const selectedVariantId = selectedVariant?.id || null;
+    const variantKey = selectedVariantId
+      ? `${product.id}:${selectedVariantId}`
+      : `${product.id}:default`;
+
     const addToLocalDemoCart = () => {
       const key = "nobonir_demo_cart";
       const existingRaw = localStorage.getItem(key);
       const existing = existingRaw ? JSON.parse(existingRaw) : [];
       const existingIndex = existing.findIndex(
-        (item: LocalCartItem) => item.product?.id === product.id,
+        (item: LocalCartItem) => item.variant_key === variantKey,
       );
 
       if (existingIndex >= 0) {
@@ -495,6 +512,15 @@ export function ProductPage() {
             image: productImage,
             stock: product.stock,
           },
+          variant_key: variantKey,
+          variant_id: selectedVariantId,
+          variant: selectedVariantId
+            ? {
+                id: selectedVariantId,
+                color: selectedVariant?.color,
+                size: selectedVariant?.size,
+              }
+            : null,
         });
       }
 
@@ -506,6 +532,7 @@ export function ProductPage() {
     try {
       await api.post("/cart/items/", {
         product_id: product.id,
+        variant_id: selectedVariantId,
         quantity,
       });
     } catch {
@@ -516,6 +543,7 @@ export function ProductPage() {
     await refreshCartCount();
     void trackEvent("add_to_cart", {
       product_id: product.id,
+      variant_id: selectedVariantId,
       quantity,
       stock: product.stock,
       cart_mode: cartMode,

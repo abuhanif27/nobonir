@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models import F, Sum
 from django.utils import timezone
 
-from .models import InventoryMovement, Product, StockNotificationSubscription, StockReservation
+from .models import InventoryMovement, Product, ProductVariant, StockNotificationSubscription, StockReservation
 
 
 RESERVATION_TTL_MINUTES = 20
@@ -18,13 +18,23 @@ def cleanup_expired_reservations():
     ).update(status=StockReservation.Status.EXPIRED, updated_at=now)
 
 
-def get_reserved_quantity(product_id: int, exclude_cart_id: int | None = None) -> int:
+def get_reserved_quantity(
+    product_id: int,
+    exclude_cart_id: int | None = None,
+    variant_id: int | None = None,
+    include_all_variants: bool = False,
+) -> int:
     cleanup_expired_reservations()
     queryset = StockReservation.objects.filter(
         product_id=product_id,
         status=StockReservation.Status.ACTIVE,
         expires_at__gte=timezone.now(),
     )
+    if variant_id is not None:
+        queryset = queryset.filter(variant_id=variant_id)
+    elif not include_all_variants:
+        queryset = queryset.filter(variant__isnull=True)
+
     if exclude_cart_id:
         queryset = queryset.exclude(cart_id=exclude_cart_id)
 
@@ -33,8 +43,24 @@ def get_reserved_quantity(product_id: int, exclude_cart_id: int | None = None) -
 
 
 def get_available_stock(product: Product, exclude_cart_id: int | None = None) -> int:
-    reserved = get_reserved_quantity(product.id, exclude_cart_id=exclude_cart_id)
+    reserved = get_reserved_quantity(
+        product.id,
+        exclude_cart_id=exclude_cart_id,
+        include_all_variants=True,
+    )
     return max(int(product.stock) - reserved, 0)
+
+
+def get_available_variant_stock(variant: ProductVariant, exclude_cart_id: int | None = None) -> int:
+    if variant.stock_override is None:
+        return max(int(variant.product.stock), 0)
+
+    reserved = get_reserved_quantity(
+        variant.product_id,
+        exclude_cart_id=exclude_cart_id,
+        variant_id=variant.id,
+    )
+    return max(int(variant.stock_override) - reserved, 0)
 
 
 def _create_inventory_movement(
@@ -160,6 +186,7 @@ def reserve_stock(
     cart,
     product: Product,
     quantity: int,
+    variant: ProductVariant | None = None,
 ) -> StockReservation | None:
     cleanup_expired_reservations()
     normalized_quantity = max(int(quantity), 0)
@@ -167,6 +194,7 @@ def reserve_stock(
     reservation = StockReservation.objects.select_for_update().filter(
         cart=cart,
         product=product,
+        variant=variant,
         status=StockReservation.Status.ACTIVE,
         order__isnull=True,
     ).first()
@@ -177,11 +205,17 @@ def reserve_stock(
             reservation.save(update_fields=["status", "updated_at"])
         return None
 
-    available = get_available_stock(product, exclude_cart_id=cart.id)
+    if variant and variant.stock_override is not None:
+        available = get_available_variant_stock(variant, exclude_cart_id=cart.id)
+    else:
+        available = get_available_stock(product, exclude_cart_id=cart.id)
     if normalized_quantity > available:
-        raise ValueError(
-            f"Only {available} units available for reservation for {product.name}."
-        )
+        target_name = product.name
+        if variant:
+            label_parts = [piece for piece in [variant.color, variant.size] if piece]
+            if label_parts:
+                target_name = f"{product.name} ({' / '.join(label_parts)})"
+        raise ValueError(f"Only {available} units available for reservation for {target_name}.")
 
     expires_at = timezone.now() + timedelta(minutes=RESERVATION_TTL_MINUTES)
     if reservation:
@@ -192,6 +226,7 @@ def reserve_stock(
 
     return StockReservation.objects.create(
         product=product,
+        variant=variant,
         cart=cart,
         quantity=normalized_quantity,
         status=StockReservation.Status.ACTIVE,

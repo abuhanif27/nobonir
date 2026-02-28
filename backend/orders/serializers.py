@@ -6,7 +6,15 @@ from .models import Coupon, CouponUsage, Order, OrderItem
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "product_name", "unit_price", "quantity"]
+        fields = [
+            "id",
+            "product",
+            "variant",
+            "variant_label",
+            "product_name",
+            "unit_price",
+            "quantity",
+        ]
 
 
 class OrderSerializer(serializers.ModelSerializer):
