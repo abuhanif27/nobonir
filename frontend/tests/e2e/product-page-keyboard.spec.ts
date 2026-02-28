@@ -166,3 +166,137 @@ test("mobile sticky add-to-cart CTA is keyboard reachable", async ({
   await expect(mobileStickyAddToCart).toBeFocused();
   await page.keyboard.press("Enter");
 });
+
+test("customer can edit an existing review from product page", async ({
+  page,
+}) => {
+  let patchCalls = 0;
+  let patchPayload: { rating?: number; comment?: string } | null = null;
+  const myReviews = [
+    {
+      id: 44,
+      product: 1,
+      product_name: "Keyboard QA Headphones",
+      rating: 3,
+      comment: "Original review comment",
+      is_approved: true,
+      created_at: "2026-02-05T08:00:00Z",
+      updated_at: "2026-02-05T08:00:00Z",
+    },
+  ];
+
+  await page.unroute("**/reviews/my/");
+  await page.route("**/reviews/my/", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(myReviews),
+    });
+  });
+
+  await page.route("**/reviews/my/44/", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.continue();
+      return;
+    }
+
+    patchCalls += 1;
+    patchPayload = route.request().postDataJSON() as {
+      rating?: number;
+      comment?: string;
+    };
+
+    myReviews[0] = {
+      ...myReviews[0],
+      rating: patchPayload.rating ?? myReviews[0].rating,
+      comment: patchPayload.comment ?? myReviews[0].comment,
+      updated_at: "2026-02-06T08:00:00Z",
+    };
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(myReviews[0]),
+    });
+  });
+
+  await page.goto("/product/1");
+
+  await expect(
+    page.getByRole("button", { name: "Edit Review", exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit Review", exact: true }).click();
+  const reviewTextarea = page.getByPlaceholder(
+    "What did you like? What could be improved? (Optional)",
+  );
+  await reviewTextarea.fill("Updated review from Playwright flow");
+
+  await page.getByRole("button", { name: "Update Review" }).click();
+
+  await expect.poll(() => patchCalls).toBe(1);
+  await expect
+    .poll(() => patchPayload?.comment)
+    .toBe("Updated review from Playwright flow");
+  await expect(
+    page.getByText("Review updated successfully.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Click Edit Review to Update" }),
+  ).toBeVisible();
+});
+
+test("customer can delete an existing review from product page", async ({
+  page,
+}) => {
+  let deleteCalls = 0;
+  const myReviews = [
+    {
+      id: 55,
+      product: 1,
+      product_name: "Keyboard QA Headphones",
+      rating: 4,
+      comment: "To be deleted",
+      is_approved: true,
+      created_at: "2026-02-05T08:00:00Z",
+      updated_at: "2026-02-05T08:00:00Z",
+    },
+  ];
+
+  await page.unroute("**/reviews/my/");
+  await page.route("**/reviews/my/", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(myReviews),
+    });
+  });
+
+  await page.route("**/reviews/my/55/", async (route) => {
+    if (route.request().method() !== "DELETE") {
+      await route.continue();
+      return;
+    }
+
+    deleteCalls += 1;
+    myReviews.length = 0;
+    await route.fulfill({ status: 204, body: "" });
+  });
+
+  page.on("dialog", async (dialog) => {
+    await dialog.accept();
+  });
+
+  await page.goto("/product/1");
+
+  await expect(page.getByRole("button", { name: "Delete" })).toBeVisible();
+  await page.getByRole("button", { name: "Delete" }).click();
+
+  await expect.poll(() => deleteCalls).toBe(1);
+  await expect(
+    page.getByText("Review deleted successfully.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Submit Review" }),
+  ).toBeVisible();
+});

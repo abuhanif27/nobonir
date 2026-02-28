@@ -146,6 +146,40 @@ class ReviewFlowTests(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 		self.assertIn("product", response.data)
 
+	def test_review_eligibility_requires_product_query_parameter(self):
+		self.client.force_authenticate(user=self.user)
+
+		response = self.client.get("/api/reviews/can-review/")
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertIn("required", str(response.data).lower())
+
+	def test_review_eligibility_rejects_invalid_product_query_parameter(self):
+		self.client.force_authenticate(user=self.user)
+
+		response = self.client.get("/api/reviews/can-review/", {"product": "abc"})
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertIn("valid integer", str(response.data).lower())
+
+	def test_review_eligibility_returns_false_for_non_delivered_orders(self):
+		self._create_order_with_status(self.user, "PAID")
+		self.client.force_authenticate(user=self.user)
+
+		response = self.client.get("/api/reviews/can-review/", {"product": self.product.id})
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertFalse(response.data["can_review"])
+
+	def test_review_eligibility_returns_true_for_delivered_orders(self):
+		self._create_order_with_status(self.user, "DELIVERED")
+		self.client.force_authenticate(user=self.user)
+
+		response = self.client.get("/api/reviews/can-review/", {"product": self.product.id})
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertTrue(response.data["can_review"])
+
 
 class ReviewThrottleTests(APITestCase):
 	def setUp(self):

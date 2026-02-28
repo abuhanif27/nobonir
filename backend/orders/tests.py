@@ -284,3 +284,133 @@ class CheckoutThrottleTests(APITestCase):
 		)
 
 		self.assertEqual(second.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class CheckoutAndStatusTransitionAPITests(APITestCase):
+	def setUp(self):
+		self.user = User.objects.create_user(
+			username="checkout-api-user",
+			email="checkout-api@example.com",
+			password="Secret123!",
+			role="CUSTOMER",
+		)
+		self.admin_user = User.objects.create_user(
+			username="order-admin",
+			email="order-admin@example.com",
+			password="Secret123!",
+			role="ADMIN",
+			is_staff=True,
+		)
+		category = Category.objects.create(name="Accessories", slug="accessories")
+		self.product = Product.objects.create(
+			category=category,
+			name="Wireless Charger",
+			slug="wireless-charger",
+			description="MagSafe charger",
+			price=Decimal("250.00"),
+			stock=15,
+			is_active=True,
+		)
+
+	def _create_cart_item(self, user, quantity=2):
+		cart = Cart.objects.get_or_create(user=user)[0]
+		CartItem.objects.create(cart=cart, product=self.product, quantity=quantity)
+
+	def test_checkout_creates_pending_order_and_clears_cart(self):
+		self._create_cart_item(self.user, quantity=2)
+		self.client.force_authenticate(user=self.user)
+
+		response = self.client.post(
+			"/api/orders/checkout/",
+			{
+				"shipping_address": "Dhaka",
+				"billing_address": "Dhaka",
+				"payment_method": "CARD",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+		self.assertEqual(response.data["status"], Order.Status.PENDING)
+		self.assertEqual(response.data["total_amount"], "500.00")
+		self.assertEqual(len(response.data["items"]), 1)
+		self.assertFalse(CartItem.objects.filter(cart__user=self.user).exists())
+
+	def test_checkout_returns_400_when_cart_is_empty(self):
+		self.client.force_authenticate(user=self.user)
+
+		response = self.client.post(
+			"/api/orders/checkout/",
+			{
+				"shipping_address": "Dhaka",
+				"billing_address": "Dhaka",
+				"payment_method": "CARD",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertEqual(response.data["detail"], "Cart is empty")
+
+	def test_admin_can_transition_order_statuses(self):
+		order = Order.objects.create(
+			user=self.user,
+			status=Order.Status.PENDING,
+			shipping_address="Dhaka",
+			billing_address="Dhaka",
+			total_amount=Decimal("250.00"),
+		)
+		self.client.force_authenticate(user=self.admin_user)
+
+		for next_status in [
+			Order.Status.PROCESSING,
+			Order.Status.SHIPPED,
+			Order.Status.DELIVERED,
+		]:
+			response = self.client.patch(
+				f"/api/orders/admin/{order.id}/",
+				{"status": next_status},
+				format="json",
+			)
+			self.assertEqual(response.status_code, status.HTTP_200_OK)
+			self.assertEqual(response.data["status"], next_status)
+
+		order.refresh_from_db()
+		self.assertEqual(order.status, Order.Status.DELIVERED)
+
+	def test_admin_status_transition_rejects_invalid_status(self):
+		order = Order.objects.create(
+			user=self.user,
+			status=Order.Status.PENDING,
+			shipping_address="Dhaka",
+			billing_address="Dhaka",
+			total_amount=Decimal("250.00"),
+		)
+		self.client.force_authenticate(user=self.admin_user)
+
+		response = self.client.patch(
+			f"/api/orders/admin/{order.id}/",
+			{"status": "UNKNOWN_STATUS"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertEqual(response.data["detail"], "Invalid status.")
+
+	def test_customer_cannot_update_admin_order_status(self):
+		order = Order.objects.create(
+			user=self.user,
+			status=Order.Status.PENDING,
+			shipping_address="Dhaka",
+			billing_address="Dhaka",
+			total_amount=Decimal("250.00"),
+		)
+		self.client.force_authenticate(user=self.user)
+
+		response = self.client.patch(
+			f"/api/orders/admin/{order.id}/",
+			{"status": Order.Status.SHIPPED},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
