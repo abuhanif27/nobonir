@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from cart.models import Cart
-from products.services import consume_cart_reservations
+from products.services import attach_cart_reservations_to_order
 from .models import Coupon, CouponUsage, Order, OrderItem
 
 
@@ -99,6 +99,6 @@ def create_order_from_cart(user, shipping_address: str, billing_address: str = "
     order.total_amount = total
     order.save(update_fields=["subtotal_amount", "discount_amount", "coupon_code", "total_amount"])
 
-    consume_cart_reservations(cart)
+    attach_cart_reservations_to_order(cart=cart, order=order)
     cart.items.all().delete()
     return order

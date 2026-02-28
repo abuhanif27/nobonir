@@ -12,6 +12,7 @@ from orders.models import Order
 from orders.models import Coupon, CouponUsage
 from products.models import InventoryMovement
 from products.services import adjust_product_stock
+from products.services import consume_order_reservations, release_order_reservations
 from analytics.services import track_analytics_event
 from .models import Payment
 
@@ -44,6 +45,8 @@ def process_payment(order: Order, method: str, success: bool, transaction_id: st
     )
 
     if success:
+        consume_order_reservations(order)
+
         if order.coupon_code:
             coupon = Coupon.objects.select_for_update().filter(code=order.coupon_code, is_active=True).first()
             if not coupon:
@@ -86,6 +89,7 @@ def process_payment(order: Order, method: str, success: bool, transaction_id: st
             },
         )
     else:
+        release_order_reservations(order)
         order.status = Order.Status.CANCELLED
         order.save(update_fields=["status", "updated_at"])
 

@@ -12,7 +12,8 @@ from payments.services import process_payment
 from payments.models import Payment
 from orders.services import create_order_from_cart
 from orders.models import Coupon, Order, OrderItem
-from products.models import Category, Product
+from products.models import Category, Product, StockReservation
+from products.services import reserve_stock
 from rest_framework import status
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.test import APITestCase
@@ -97,6 +98,36 @@ class OrderServiceTests(TestCase):
 
 		with self.assertRaisesMessage(ValueError, "has expired"):
 			create_order_from_cart(self.user, "Dhaka", "Baridhara", "NOBONIR")
+
+	def test_checkout_keeps_reservation_active_and_links_it_to_order(self):
+		cart = Cart.objects.get(user=self.user)
+		reserve_stock(cart=cart, product=self.product, quantity=2)
+
+		order = create_order_from_cart(self.user, "Dhaka")
+
+		reservation = StockReservation.objects.get(cart=cart, product=self.product)
+		self.assertEqual(reservation.status, StockReservation.Status.ACTIVE)
+		self.assertEqual(reservation.order_id, order.id)
+
+	def test_successful_payment_consumes_order_reservations(self):
+		cart = Cart.objects.get(user=self.user)
+		reserve_stock(cart=cart, product=self.product, quantity=2)
+		order = create_order_from_cart(self.user, "Dhaka")
+
+		process_payment(order, method="SIM", success=True)
+
+		reservation = StockReservation.objects.get(cart=cart, product=self.product)
+		self.assertEqual(reservation.status, StockReservation.Status.CONSUMED)
+
+	def test_failed_payment_releases_order_reservations(self):
+		cart = Cart.objects.get(user=self.user)
+		reserve_stock(cart=cart, product=self.product, quantity=2)
+		order = create_order_from_cart(self.user, "Dhaka")
+
+		process_payment(order, method="SIM", success=False)
+
+		reservation = StockReservation.objects.get(cart=cart, product=self.product)
+		self.assertEqual(reservation.status, StockReservation.Status.RELEASED)
 
 
 class OrderInvoiceAPITests(APITestCase):

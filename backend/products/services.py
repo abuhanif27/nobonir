@@ -168,6 +168,7 @@ def reserve_stock(
         cart=cart,
         product=product,
         status=StockReservation.Status.ACTIVE,
+        order__isnull=True,
     ).first()
 
     if normalized_quantity == 0:
@@ -204,6 +205,7 @@ def release_cart_reservations(cart):
     StockReservation.objects.filter(
         cart=cart,
         status=StockReservation.Status.ACTIVE,
+        order__isnull=True,
     ).update(status=StockReservation.Status.RELEASED, updated_at=timezone.now())
 
 
@@ -212,6 +214,36 @@ def consume_cart_reservations(cart):
     cleanup_expired_reservations()
     StockReservation.objects.filter(
         cart=cart,
+        status=StockReservation.Status.ACTIVE,
+        order__isnull=True,
+    ).update(status=StockReservation.Status.CONSUMED, updated_at=timezone.now())
+
+
+@transaction.atomic
+def attach_cart_reservations_to_order(*, cart, order):
+    cleanup_expired_reservations()
+    now = timezone.now()
+    return StockReservation.objects.filter(
+        cart=cart,
+        status=StockReservation.Status.ACTIVE,
+        order__isnull=True,
+    ).update(order=order, updated_at=now)
+
+
+@transaction.atomic
+def release_order_reservations(order):
+    cleanup_expired_reservations()
+    return StockReservation.objects.filter(
+        order=order,
+        status=StockReservation.Status.ACTIVE,
+    ).update(status=StockReservation.Status.RELEASED, updated_at=timezone.now())
+
+
+@transaction.atomic
+def consume_order_reservations(order):
+    cleanup_expired_reservations()
+    return StockReservation.objects.filter(
+        order=order,
         status=StockReservation.Status.ACTIVE,
     ).update(status=StockReservation.Status.CONSUMED, updated_at=timezone.now())
 

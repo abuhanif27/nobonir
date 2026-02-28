@@ -165,6 +165,13 @@ class StockReservation(models.Model):
 
 	product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="stock_reservations")
 	cart = models.ForeignKey("cart.Cart", on_delete=models.CASCADE, related_name="stock_reservations")
+	order = models.ForeignKey(
+		"orders.Order",
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name="stock_reservations",
+	)
 	quantity = models.PositiveIntegerField(default=1)
 	status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, db_index=True)
 	expires_at = models.DateTimeField(db_index=True)
@@ -176,7 +183,7 @@ class StockReservation(models.Model):
 		constraints = [
 			models.UniqueConstraint(
 				fields=["product", "cart"],
-				condition=models.Q(status="ACTIVE"),
+				condition=models.Q(status="ACTIVE", order__isnull=True),
 				name="unique_active_reservation_per_cart_product",
 			),
 		]
