@@ -108,3 +108,31 @@ class AIAssistantEndpointTests(TestCase):
 		response = self.client.get("/api/ai/assistant/notification-insights/")
 		self.assertEqual(response.status_code, 200)
 		self.assertIsInstance(response.json(), list)
+
+	def test_chat_endpoint_handles_price_stock_lookup(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "what is price and stock of cotton shirt"},
+			content_type="application/json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "PRICE_STOCK_LOOKUP")
+		self.assertIn("price", body["reply"].lower())
+		self.assertIn("stock", body["reply"].lower())
+		if body["suggested_products"]:
+			self.assertIn("available_stock", body["suggested_products"][0])
+
+	def test_chat_endpoint_supports_guest_mode(self):
+		guest_client = APIClient()
+		response = guest_client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "suggest budget shirt"},
+			content_type="application/json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertIn("reply", body)
+		self.assertIn("suggested_products", body)

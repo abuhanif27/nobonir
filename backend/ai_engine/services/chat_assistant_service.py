@@ -20,6 +20,18 @@ class AssistantResult:
     products: list[Product]
 
 
+def _is_authenticated_user(user) -> bool:
+    return bool(getattr(user, "is_authenticated", False))
+
+
+def _fallback_products(limit: int = 4) -> list[Product]:
+    return list(
+        Product.objects.filter(is_active=True, stock__gt=0)
+        .select_related("category")
+        .order_by("-updated_at")[:limit]
+    )
+
+
 def _normalize_message(message: str) -> str:
     return " ".join((message or "").strip().split()).lower()
 
@@ -66,7 +78,9 @@ def _recommend_products_for_message(user, normalized_message: str) -> list[Produ
     search_results = semantic_product_search(normalized_message, limit=4)
     if search_results:
         return search_results
-    return get_personalized_recommendations_for_user(user, limit=4)
+    if _is_authenticated_user(user):
+        return get_personalized_recommendations_for_user(user, limit=4)
+    return _fallback_products(limit=4)
 
 
 def _build_price_stock_reply(products: list[Product]) -> str:
@@ -87,15 +101,28 @@ def _build_price_stock_reply(products: list[Product]) -> str:
 def generate_assistant_response(user, message: str) -> AssistantResult:
     normalized_message = _normalize_message(message)
     if not normalized_message:
+        products = (
+            get_personalized_recommendations_for_user(user, limit=4)
+            if _is_authenticated_user(user)
+            else _fallback_products(limit=4)
+        )
+        guest_hint = " Sign in for personalized picks and order support." if not _is_authenticated_user(user) else ""
         return AssistantResult(
             intent="GENERAL",
-            reply="Share what you are shopping for, and I will suggest products that match your needs.",
-            products=get_personalized_recommendations_for_user(user, limit=4),
+            reply=f"Share what you are shopping for, and I will suggest products that match your needs.{guest_hint}",
+            products=products,
         )
 
     intent = _detect_intent(normalized_message)
 
     if intent == "ORDER_HELP":
+        if not _is_authenticated_user(user):
+            return AssistantResult(
+                intent=intent,
+                reply="Order tracking needs sign-in so I can securely access your account orders.",
+                products=_fallback_products(limit=4),
+            )
+
         latest_order = (
             Order.objects.filter(user=user)
             .only("id", "status", "updated_at")
@@ -118,7 +145,11 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         products = semantic_product_search(normalized_message, limit=4)
         reply = _build_price_stock_reply(products)
         if not products:
-            products = get_personalized_recommendations_for_user(user, limit=4)
+            products = (
+                get_personalized_recommendations_for_user(user, limit=4)
+                if _is_authenticated_user(user)
+                else _fallback_products(limit=4)
+            )
         return AssistantResult(intent=intent, reply=reply, products=products)
 
     if intent == "FIT_HELP":
@@ -137,10 +168,15 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
             reply = "I could not find strong matches right now. Try a more specific query like category, color, or budget."
         return AssistantResult(intent=intent, reply=reply, products=products)
 
-    products = get_personalized_recommendations_for_user(user, limit=4)
+    products = (
+        get_personalized_recommendations_for_user(user, limit=4)
+        if _is_authenticated_user(user)
+        else _fallback_products(limit=4)
+    )
+    guest_hint = " Sign in to unlock personalized recommendations and order help." if not _is_authenticated_user(user) else ""
     return AssistantResult(
         intent="GENERAL",
-        reply="I can help with recommendations, order tracking, and fit guidance. Tell me what you need.",
+        reply=f"I can help with recommendations, order tracking, and fit guidance. Tell me what you need.{guest_hint}",
         products=products,
     )
 

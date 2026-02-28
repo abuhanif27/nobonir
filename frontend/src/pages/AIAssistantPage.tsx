@@ -1,28 +1,10 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bot, Send } from "lucide-react";
-import api from "@/lib/api";
+import { askAssistant, AssistantMessage } from "@/lib/assistant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-
-type AssistantProduct = {
-  id: number;
-  name: string;
-  slug: string;
-  price: string | number;
-  image: string;
-  category: string;
-  availability_status: string;
-};
-
-type AssistantMessage = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  intent?: string;
-  products?: AssistantProduct[];
-};
 
 export function AIAssistantPage() {
   const location = useLocation();
@@ -59,21 +41,13 @@ export function AIAssistantPage() {
     setIsLoading(true);
 
     try {
-      const response = await api.post("/ai/assistant/chat/", {
-        message: trimmed,
-      });
-
-      const body = response.data || {};
+      const body = await askAssistant(trimmed);
       const assistantMessage: AssistantMessage = {
         id: `assistant_${Date.now()}`,
         role: "assistant",
-        text: String(
-          body.reply || "I could not generate a response right now.",
-        ),
-        intent: String(body.intent || "GENERAL"),
-        products: Array.isArray(body.suggested_products)
-          ? body.suggested_products
-          : [],
+        text: body.reply,
+        intent: body.intent,
+        products: body.suggested_products,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -148,6 +122,9 @@ export function AIAssistantPage() {
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {product.availability_status}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Stock: {product.available_stock}
                           </p>
                         </Link>
                       ))}

@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Bot, Send, X } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import { askAssistant, AssistantMessage } from "@/lib/assistant";
@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
 export function FloatingAssistantWidget() {
-  const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
 
   const [open, setOpen] = useState(false);
@@ -24,11 +23,6 @@ export function FloatingAssistantWidget() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-
-    if (!isAuthenticated) {
-      navigate("/login");
-      return;
-    }
 
     const trimmed = query.trim();
     if (!trimmed || isLoading) {
@@ -94,6 +88,12 @@ export function FloatingAssistantWidget() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              {!isAuthenticated ? (
+                <p className="text-xs text-muted-foreground">
+                  Guest mode is active. Sign in for personalized recommendations
+                  and order tracking.
+                </p>
+              ) : null}
               <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {messages.map((message) => (
                   <div
@@ -153,13 +153,7 @@ export function FloatingAssistantWidget() {
         type="button"
         size="icon"
         className="fixed bottom-4 right-4 z-50 h-14 w-14 rounded-full shadow-lg sm:bottom-6 sm:right-6"
-        onClick={() => {
-          if (!isAuthenticated) {
-            navigate("/login");
-            return;
-          }
-          setOpen(true);
-        }}
+        onClick={() => setOpen(true)}
         aria-label="Open AI assistant"
       >
         <Bot className="h-6 w-6" />

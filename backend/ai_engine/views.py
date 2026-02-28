@@ -193,7 +193,7 @@ class SentimentAPIView(APIView):
 
 
 class AssistantChatAPIView(APIView):
-	permission_classes = [permissions.IsAuthenticated]
+	permission_classes = [permissions.AllowAny]
 
 	def post(self, request):
 		serializer = AssistantChatRequestSerializer(data=request.data)
