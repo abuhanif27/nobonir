@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/api";
 import {
@@ -154,6 +154,7 @@ export function AdminProductFormPage() {
   );
   const [pendingDeleteAction, setPendingDeleteAction] =
     useState<PendingDeleteAction | null>(null);
+  const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const title = useMemo(
     () => (isEditMode ? "Edit Product" : "Add Product"),
@@ -252,6 +253,24 @@ export function AdminProductFormPage() {
       ),
     );
   }, [mediaItems]);
+
+  useEffect(() => {
+    if (!pendingDeleteAction) {
+      return;
+    }
+
+    cancelDeleteButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setPendingDeleteAction(null);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [pendingDeleteAction]);
 
   const onSubmit = async () => {
     if (
@@ -1135,17 +1154,29 @@ export function AdminProductFormPage() {
       </main>
 
       {pendingDeleteAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-confirm-title"
+          aria-describedby="delete-confirm-message"
+        >
           <Card className="w-full max-w-md">
             <CardHeader>
-              <CardTitle>{pendingDeleteAction.title}</CardTitle>
+              <CardTitle id="delete-confirm-title">
+                {pendingDeleteAction.title}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+              <p
+                id="delete-confirm-message"
+                className="text-sm text-muted-foreground"
+              >
                 {pendingDeleteAction.message}
               </p>
               <div className="flex justify-end gap-2">
                 <Button
+                  ref={cancelDeleteButtonRef}
                   variant="outline"
                   onClick={() => setPendingDeleteAction(null)}
                 >
