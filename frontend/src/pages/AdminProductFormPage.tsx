@@ -77,6 +77,20 @@ interface MediaFormPayload {
   variant_id: string;
 }
 
+type PendingDeleteAction =
+  | {
+      type: "variant";
+      id: number;
+      title: string;
+      message: string;
+    }
+  | {
+      type: "media";
+      id: number;
+      title: string;
+      message: string;
+    };
+
 const EMPTY_FORM: ProductPayload = {
   category_id: "",
   name: "",
@@ -138,6 +152,8 @@ export function AdminProductFormPage() {
   const [mediaDrafts, setMediaDrafts] = useState<Record<number, MediaDraft>>(
     {},
   );
+  const [pendingDeleteAction, setPendingDeleteAction] =
+    useState<PendingDeleteAction | null>(null);
 
   const title = useMemo(
     () => (isEditMode ? "Edit Product" : "Add Product"),
@@ -390,15 +406,8 @@ export function AdminProductFormPage() {
     }
   };
 
-  const deleteVariant = async (variantId: number) => {
+  const executeVariantDelete = async (variantId: number) => {
     if (!id) {
-      return;
-    }
-
-    const shouldDelete = window.confirm(
-      "Delete this variant? This will also remove any media linked to it.",
-    );
-    if (!shouldDelete) {
       return;
     }
 
@@ -417,6 +426,15 @@ export function AdminProductFormPage() {
     } finally {
       setDeletingVariantId(null);
     }
+  };
+
+  const deleteVariant = (variantId: number) => {
+    setPendingDeleteAction({
+      type: "variant",
+      id: variantId,
+      title: "Delete variant",
+      message: "This will remove the variant and media linked to it.",
+    });
   };
 
   const updateMedia = async (mediaId: number) => {
@@ -447,13 +465,8 @@ export function AdminProductFormPage() {
     }
   };
 
-  const deleteMedia = async (mediaId: number) => {
+  const executeMediaDelete = async (mediaId: number) => {
     if (!id) {
-      return;
-    }
-
-    const shouldDelete = window.confirm("Delete this media item?");
-    if (!shouldDelete) {
       return;
     }
 
@@ -472,6 +485,31 @@ export function AdminProductFormPage() {
     } finally {
       setDeletingMediaId(null);
     }
+  };
+
+  const deleteMedia = (mediaId: number) => {
+    setPendingDeleteAction({
+      type: "media",
+      id: mediaId,
+      title: "Delete media",
+      message: "This media item will be permanently removed.",
+    });
+  };
+
+  const confirmDeleteAction = async () => {
+    if (!pendingDeleteAction) {
+      return;
+    }
+
+    const action = pendingDeleteAction;
+    setPendingDeleteAction(null);
+
+    if (action.type === "variant") {
+      await executeVariantDelete(action.id);
+      return;
+    }
+
+    await executeMediaDelete(action.id);
   };
 
   return (
@@ -1095,6 +1133,35 @@ export function AdminProductFormPage() {
           </CardContent>
         </Card>
       </main>
+
+      {pendingDeleteAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>{pendingDeleteAction.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {pendingDeleteAction.message}
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setPendingDeleteAction(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={confirmDeleteAction}
+                >
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
