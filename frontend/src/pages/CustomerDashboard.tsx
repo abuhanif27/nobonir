@@ -117,6 +117,7 @@ export function CustomerDashboard() {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [hasPrevPage, setHasPrevPage] = useState(false);
   const [jumpPageInput, setJumpPageInput] = useState("1");
+  const [isJumpInputFocused, setIsJumpInputFocused] = useState(false);
   const [merchandising, setMerchandising] = useState<MerchandisingResponse>({});
   const [availabilityFilter, setAvailabilityFilter] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -2097,7 +2098,11 @@ export function CustomerDashboard() {
                     const digitsOnly = event.target.value.replace(/\D/g, "");
                     setJumpPageInput(digitsOnly);
                   }}
-                  onFocus={(event) => event.currentTarget.select()}
+                  onFocus={(event) => {
+                    event.currentTarget.select();
+                    setIsJumpInputFocused(true);
+                  }}
+                  onBlur={() => setIsJumpInputFocused(false)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
@@ -2118,6 +2123,11 @@ export function CustomerDashboard() {
                 >
                   Go
                 </Button>
+                {isJumpInputFocused && (
+                  <span className="hidden text-xs text-muted-foreground md:inline">
+                    Press Enter to jump
+                  </span>
+                )}
               </div>
               <Button
                 variant="outline"
