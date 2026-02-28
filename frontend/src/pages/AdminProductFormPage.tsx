@@ -29,6 +29,38 @@ interface ProductPayload {
   is_active: boolean;
 }
 
+interface ProductVariant {
+  id: number;
+  color?: string;
+  size?: string;
+  sku?: string;
+  stock?: number | null;
+}
+
+interface ProductMedia {
+  id: number;
+  url: string;
+  alt_text?: string;
+  sort_order?: number;
+  is_primary?: boolean;
+  variant_id?: number | null;
+}
+
+interface VariantFormPayload {
+  color: string;
+  size: string;
+  sku: string;
+  stock_override: string;
+}
+
+interface MediaFormPayload {
+  image_url: string;
+  alt_text: string;
+  sort_order: string;
+  is_primary: boolean;
+  variant_id: string;
+}
+
 const EMPTY_FORM: ProductPayload = {
   category_id: "",
   name: "",
@@ -60,6 +92,24 @@ export function AdminProductFormPage() {
   const [loading, setLoading] = useState(true);
   const [formLoadError, setFormLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [mediaItems, setMediaItems] = useState<ProductMedia[]>([]);
+  const [variantForm, setVariantForm] = useState<VariantFormPayload>({
+    color: "",
+    size: "",
+    sku: "",
+    stock_override: "",
+  });
+  const [mediaForm, setMediaForm] = useState<MediaFormPayload>({
+    image_url: "",
+    alt_text: "",
+    sort_order: "0",
+    is_primary: false,
+    variant_id: "",
+  });
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [savingVariant, setSavingVariant] = useState(false);
+  const [savingMedia, setSavingMedia] = useState(false);
 
   const title = useMemo(
     () => (isEditMode ? "Edit Product" : "Add Product"),
@@ -89,10 +139,14 @@ export function AdminProductFormPage() {
           image_url: product.image_url || "",
           is_active: Boolean(product.is_active),
         });
+        setVariants(Array.isArray(product.variants) ? product.variants : []);
+        setMediaItems(Array.isArray(product.media) ? product.media : []);
         return;
       }
 
       setForm(EMPTY_FORM);
+      setVariants([]);
+      setMediaItems([]);
     } catch (error: unknown) {
       const message = getErrorMessage(error, "Failed to load product form");
       setFormLoadError(message);
@@ -151,6 +205,88 @@ export function AdminProductFormPage() {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const createVariant = async () => {
+    if (!id) {
+      return;
+    }
+
+    setSavingVariant(true);
+    try {
+      const payload = {
+        color: variantForm.color.trim(),
+        size: variantForm.size.trim(),
+        sku: variantForm.sku.trim(),
+        stock_override: variantForm.stock_override.trim()
+          ? Number(variantForm.stock_override)
+          : null,
+      };
+      const response = await api.post(`/products/${id}/variants/`, payload);
+      setVariants((current) => [...current, response.data]);
+      setVariantForm({ color: "", size: "", sku: "", stock_override: "" });
+      showSuccess("Variant added.");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to add variant."));
+    } finally {
+      setSavingVariant(false);
+    }
+  };
+
+  const uploadMedia = async () => {
+    if (!id) {
+      return;
+    }
+
+    if (!mediaForm.image_url.trim() && !mediaFile) {
+      showError("Provide image URL or choose a file.");
+      return;
+    }
+
+    setSavingMedia(true);
+    try {
+      const payload = new FormData();
+      if (mediaForm.image_url.trim()) {
+        payload.append("image_url", mediaForm.image_url.trim());
+      }
+      if (mediaFile) {
+        payload.append("image_file", mediaFile);
+      }
+      payload.append("alt_text", mediaForm.alt_text.trim());
+      payload.append("sort_order", String(Number(mediaForm.sort_order || 0)));
+      payload.append("is_primary", String(mediaForm.is_primary));
+      if (mediaForm.variant_id) {
+        payload.append("variant_id", mediaForm.variant_id);
+      }
+
+      await api.post(`/products/${id}/media/`, payload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const refreshed = await api.get(`/products/products/${id}/`);
+      setMediaItems(
+        Array.isArray(refreshed.data?.media) ? refreshed.data.media : [],
+      );
+      setVariants(
+        Array.isArray(refreshed.data?.variants) ? refreshed.data.variants : [],
+      );
+
+      setMediaForm({
+        image_url: "",
+        alt_text: "",
+        sort_order: "0",
+        is_primary: false,
+        variant_id: "",
+      });
+      setMediaFile(null);
+      showSuccess("Media uploaded.");
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, "Failed to upload media."));
+    } finally {
+      setSavingMedia(false);
     }
   };
 
@@ -336,6 +472,240 @@ export function AdminProductFormPage() {
                         : "Create Product"}
                   </Button>
                 </div>
+
+                {isEditMode && id && (
+                  <Card className="mt-6 border-dashed">
+                    <CardHeader>
+                      <CardTitle>Variants & Media</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid gap-4 md:grid-cols-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Color</label>
+                          <Input
+                            value={variantForm.color}
+                            onChange={(event) =>
+                              setVariantForm((current) => ({
+                                ...current,
+                                color: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Size</label>
+                          <Input
+                            value={variantForm.size}
+                            onChange={(event) =>
+                              setVariantForm((current) => ({
+                                ...current,
+                                size: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">SKU</label>
+                          <Input
+                            value={variantForm.sku}
+                            onChange={(event) =>
+                              setVariantForm((current) => ({
+                                ...current,
+                                sku: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">
+                            Stock Override
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={variantForm.stock_override}
+                            onChange={(event) =>
+                              setVariantForm((current) => ({
+                                ...current,
+                                stock_override: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={createVariant}
+                          disabled={savingVariant}
+                        >
+                          {savingVariant ? "Adding..." : "Add Variant"}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3 rounded-md border p-3">
+                        <p className="text-sm font-semibold">
+                          Existing Variants
+                        </p>
+                        {variants.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            No variants yet.
+                          </p>
+                        ) : (
+                          <div className="grid gap-2 md:grid-cols-2">
+                            {variants.map((variant) => (
+                              <div
+                                key={variant.id}
+                                className="rounded-md border px-3 py-2 text-sm"
+                              >
+                                <p className="font-medium">
+                                  {variant.color || "Default"}
+                                  {variant.size ? ` / ${variant.size}` : ""}
+                                </p>
+                                <p className="text-muted-foreground">
+                                  SKU: {variant.sku || "—"} • Stock:{" "}
+                                  {variant.stock ?? "—"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium">
+                            Image URL
+                          </label>
+                          <Input
+                            value={mediaForm.image_url}
+                            onChange={(event) =>
+                              setMediaForm((current) => ({
+                                ...current,
+                                image_url: event.target.value,
+                              }))
+                            }
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium">
+                            Or Upload File
+                          </label>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) =>
+                              setMediaFile(event.target.files?.[0] || null)
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Variant</label>
+                          <select
+                            value={mediaForm.variant_id}
+                            onChange={(event) =>
+                              setMediaForm((current) => ({
+                                ...current,
+                                variant_id: event.target.value,
+                              }))
+                            }
+                            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                          >
+                            <option value="">Product default</option>
+                            {variants.map((variant) => (
+                              <option key={variant.id} value={variant.id}>
+                                {variant.color || "Default"}
+                                {variant.size ? ` / ${variant.size}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">
+                            Sort Order
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={mediaForm.sort_order}
+                            onChange={(event) =>
+                              setMediaForm((current) => ({
+                                ...current,
+                                sort_order: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium">
+                            Alt Text
+                          </label>
+                          <Input
+                            value={mediaForm.alt_text}
+                            onChange={(event) =>
+                              setMediaForm((current) => ({
+                                ...current,
+                                alt_text: event.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex items-end pb-2 md:col-span-2">
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={mediaForm.is_primary}
+                              onChange={(event) =>
+                                setMediaForm((current) => ({
+                                  ...current,
+                                  is_primary: event.target.checked,
+                                }))
+                              }
+                            />
+                            Set as primary
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Button onClick={uploadMedia} disabled={savingMedia}>
+                          {savingMedia ? "Uploading..." : "Upload Media"}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3 rounded-md border p-3">
+                        <p className="text-sm font-semibold">Existing Media</p>
+                        {mediaItems.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            No media yet.
+                          </p>
+                        ) : (
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {mediaItems.map((media) => (
+                              <div
+                                key={media.id}
+                                className="rounded-md border p-2"
+                              >
+                                <img
+                                  src={media.url}
+                                  alt={media.alt_text || "Product media"}
+                                  className="h-28 w-full rounded object-cover"
+                                />
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  Variant: {media.variant_id || "Default"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Order: {media.sort_order ?? 0}
+                                  {media.is_primary ? " • Primary" : ""}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             )}
           </CardContent>
