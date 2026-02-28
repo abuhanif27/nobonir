@@ -1,12 +1,13 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from common.permissions import IsCustomerRole
 from products.models import Product
 from .models import Cart, CartItem, WishlistItem
-from .serializers import CartItemSerializer, WishlistItemSerializer
+from .serializers import CartItemQuantitySerializer, CartItemSerializer, WishlistItemSerializer
 from .utils import get_or_create_cart_for_request
 
 
@@ -21,6 +22,13 @@ class CartOverviewAPIView(APIView):
 
 class CartItemAPIView(APIView):
 	permission_classes = [permissions.AllowAny]
+	throttle_classes = [ScopedRateThrottle]
+
+	def get_throttles(self):
+		if self.request.method in {"POST", "PATCH", "DELETE"}:
+			self.throttle_scope = "cart_write"
+			return super().get_throttles()
+		return []
 
 	def post(self, request):
 		cart, _ = get_or_create_cart_for_request(request)
@@ -40,7 +48,9 @@ class CartItemAPIView(APIView):
 	def patch(self, request, item_id):
 		cart, _ = get_or_create_cart_for_request(request)
 		item = get_object_or_404(CartItem, cart=cart, pk=item_id)
-		quantity = int(request.data.get("quantity", item.quantity))
+		serializer = CartItemQuantitySerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		quantity = serializer.validated_data["quantity"]
 		if quantity <= 0:
 			item.delete()
 			return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework import viewsets
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from common.permissions import IsAdminRole
@@ -15,6 +16,7 @@ class ReviewListCreateAPIView(generics.ListCreateAPIView):
 	serializer_class = ReviewSerializer
 	queryset = Review.objects.select_related("user", "product", "product__category").all()
 	filterset_fields = ["product"]
+	throttle_classes = [ScopedRateThrottle]
 
 	def get_queryset(self):
 		queryset = self.queryset
@@ -26,6 +28,12 @@ class ReviewListCreateAPIView(generics.ListCreateAPIView):
 		if self.request.method == "POST":
 			return [permissions.IsAuthenticated(), IsCustomerRole()]
 		return [permissions.AllowAny()]
+
+	def get_throttles(self):
+		if self.request.method == "POST":
+			self.throttle_scope = "review_create"
+			return super().get_throttles()
+		return []
 
 	def perform_create(self, serializer):
 		review = serializer.save(user=self.request.user)
@@ -53,9 +61,16 @@ class MyReviewListAPIView(generics.ListAPIView):
 class MyReviewDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
 	serializer_class = ReviewSerializer
+	throttle_classes = [ScopedRateThrottle]
 
 	def get_queryset(self):
 		return Review.objects.select_related("product").filter(user=self.request.user)
+
+	def get_throttles(self):
+		if self.request.method in {"PATCH", "PUT", "DELETE"}:
+			self.throttle_scope = "review_update"
+			return super().get_throttles()
+		return []
 
 
 class ReviewEligibilityAPIView(APIView):

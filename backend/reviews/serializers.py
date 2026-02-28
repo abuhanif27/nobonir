@@ -29,6 +29,9 @@ class ReviewSerializer(serializers.ModelSerializer):
         return value
 
     def validate_product(self, product):
+        if not product.is_active:
+            raise serializers.ValidationError("You can review only active products.")
+
         request = self.context.get("request")
         user = getattr(request, "user", None)
 
@@ -51,6 +54,17 @@ class ReviewSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("You have already reviewed this product.")
 
         return product
+
+    def validate_comment(self, value):
+        cleaned = (value or "").strip()
+        if len(cleaned) > 2000:
+            raise serializers.ValidationError("Comment cannot exceed 2000 characters.")
+        return cleaned
+
+    def validate(self, attrs):
+        if self.instance is not None and "product" in attrs and attrs["product"].id != self.instance.product_id:
+            raise serializers.ValidationError({"product": "Product cannot be changed after review creation."})
+        return attrs
 
     def get_user_name(self, obj):
         full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()

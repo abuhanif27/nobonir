@@ -40,14 +40,32 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class CheckoutSerializer(serializers.Serializer):
-    shipping_address = serializers.CharField()
-    billing_address = serializers.CharField(required=False, allow_blank=True)
+    shipping_address = serializers.CharField(max_length=2000)
+    billing_address = serializers.CharField(required=False, allow_blank=True, max_length=2000)
     payment_method = serializers.ChoiceField(choices=["CARD", "COD"], default="CARD")
     coupon_code = serializers.CharField(required=False, allow_blank=True, max_length=40)
+
+    def validate_shipping_address(self, value):
+        cleaned = (value or "").strip()
+        if not cleaned:
+            raise serializers.ValidationError("Shipping address is required.")
+        return cleaned
+
+    def validate_billing_address(self, value):
+        return (value or "").strip()
+
+    def validate_coupon_code(self, value):
+        return (value or "").strip().upper()
 
 
 class CouponValidateSerializer(serializers.Serializer):
     coupon_code = serializers.CharField(max_length=40)
+
+    def validate_coupon_code(self, value):
+        cleaned = (value or "").strip().upper()
+        if not cleaned:
+            raise serializers.ValidationError("Coupon code is required.")
+        return cleaned
 
 
 class AdminOrderSerializer(serializers.ModelSerializer):

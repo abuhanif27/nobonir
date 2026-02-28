@@ -107,6 +107,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 12,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "review_create": "10/hour",
+        "review_update": "30/hour",
+        "cart_write": "120/hour",
+        "order_checkout": "15/hour",
+        "order_coupon_validate": "60/hour",
+        "order_invoice_download": "30/hour",
+    },
 }
 
 SPECTACULAR_SETTINGS = {

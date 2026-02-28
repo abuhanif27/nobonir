@@ -1,6 +1,7 @@
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 from decimal import Decimal, ROUND_HALF_UP
 from ipaddress import ip_address
 from pathlib import Path
@@ -515,6 +516,8 @@ def build_invoice_pdf_response(order: Order, request):
 
 class CheckoutAPIView(APIView):
 	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+	throttle_classes = [ScopedRateThrottle]
+	throttle_scope = "order_checkout"
 
 	def post(self, request):
 		serializer = CheckoutSerializer(data=request.data)
@@ -545,6 +548,8 @@ class CheckoutAPIView(APIView):
 
 class CouponValidateAPIView(APIView):
 	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+	throttle_classes = [ScopedRateThrottle]
+	throttle_scope = "order_coupon_validate"
 
 	def post(self, request):
 		serializer = CouponValidateSerializer(data=request.data)
@@ -570,6 +575,8 @@ class MyOrderListAPIView(APIView):
 
 class MyOrderInvoiceAPIView(APIView):
 	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+	throttle_classes = [ScopedRateThrottle]
+	throttle_scope = "order_invoice_download"
 
 	def get(self, request, order_id: int):
 		order = (
@@ -589,6 +596,8 @@ class MyOrderInvoiceAPIView(APIView):
 
 class MyOrderInvoicePDFAPIView(APIView):
 	permission_classes = [permissions.IsAuthenticated, IsCustomerRole]
+	throttle_classes = [ScopedRateThrottle]
+	throttle_scope = "order_invoice_download"
 
 	def get(self, request, order_id: int):
 		order = (

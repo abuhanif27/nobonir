@@ -1,3 +1,6 @@
+from copy import deepcopy
+
+from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -10,6 +13,8 @@ from payments.models import Payment
 from orders.services import create_order_from_cart
 from orders.models import Coupon, Order, OrderItem
 from products.models import Category, Product
+from rest_framework import status
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.test import APITestCase
 
 User = get_user_model()
@@ -219,3 +224,63 @@ class OrderInvoiceAPITests(APITestCase):
 		response = self.client.get(f"/api/orders/admin/{self.order.id}/invoice.pdf/")
 
 		self.assertEqual(response.status_code, 403)
+
+	def test_superuser_can_access_admin_invoice_pdf(self):
+		superuser = User.objects.create_superuser(
+			username="root-user",
+			email="root@example.com",
+			password="Secret123!",
+		)
+		self.client.force_authenticate(user=superuser)
+		response = self.client.get(f"/api/orders/admin/{self.order.id}/invoice.pdf/")
+
+		self.assertEqual(response.status_code, 200)
+
+
+class CheckoutThrottleTests(APITestCase):
+	def setUp(self):
+		cache.clear()
+		self._old_throttle_rates = deepcopy(ScopedRateThrottle.THROTTLE_RATES)
+		ScopedRateThrottle.THROTTLE_RATES = {
+			**ScopedRateThrottle.THROTTLE_RATES,
+			"order_checkout": "1/min",
+		}
+		self.user = User.objects.create_user(
+			username="checkout-throttle",
+			email="checkout-throttle@example.com",
+			password="Secret123!",
+			role="CUSTOMER",
+		)
+		category = Category.objects.create(name="Gaming", slug="gaming")
+		self.product = Product.objects.create(
+			category=category,
+			name="Mouse",
+			slug="mouse",
+			description="Gaming mouse",
+			price=Decimal("50.00"),
+			stock=30,
+			is_active=True,
+		)
+		cart = Cart.objects.create(user=self.user)
+		CartItem.objects.create(cart=cart, product=self.product, quantity=1)
+		self.client.force_authenticate(user=self.user)
+
+	def tearDown(self):
+		ScopedRateThrottle.THROTTLE_RATES = self._old_throttle_rates
+		cache.clear()
+
+	def test_checkout_requests_are_throttled(self):
+		first = self.client.post(
+			"/api/orders/checkout/",
+			{"shipping_address": "Dhaka", "billing_address": "Dhaka", "payment_method": "CARD"},
+			format="json",
+		)
+		self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+
+		second = self.client.post(
+			"/api/orders/checkout/",
+			{"shipping_address": "Dhaka", "billing_address": "Dhaka", "payment_method": "CARD"},
+			format="json",
+		)
+
+		self.assertEqual(second.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
