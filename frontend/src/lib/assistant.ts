@@ -17,17 +17,62 @@ export type AssistantMessage = {
   text: string;
   intent?: string;
   products?: AssistantProduct[];
+  createdAt?: string;
 };
 
-export const askAssistant = async (message: string) => {
-  const response = await api.post("/ai/assistant/chat/", { message });
+const SESSION_STORAGE_PREFIX = "nobonir_assistant_session";
+
+const storageKeyForScope = (scope: string) =>
+  `${SESSION_STORAGE_PREFIX}_${scope}`;
+
+export const getAssistantSessionKey = (scope: string) => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return localStorage.getItem(storageKeyForScope(scope)) || "";
+};
+
+export const setAssistantSessionKey = (scope: string, sessionKey: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  localStorage.setItem(storageKeyForScope(scope), sessionKey);
+};
+
+export const askAssistant = async (message: string, sessionKey?: string) => {
+  const response = await api.post("/ai/assistant/chat/", {
+    message,
+    session_key: sessionKey || undefined,
+  });
   const body = response.data || {};
 
   return {
     reply: String(body.reply || "I could not generate a response right now."),
     intent: String(body.intent || "GENERAL"),
+    session_key: String(body.session_key || ""),
     suggested_products: Array.isArray(body.suggested_products)
       ? body.suggested_products
       : [],
+  };
+};
+
+export const getAssistantHistory = async (sessionKey?: string) => {
+  const response = await api.get("/ai/assistant/history/", {
+    params: {
+      session_key: sessionKey || undefined,
+    },
+  });
+  const body = response.data || {};
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+
+  return {
+    session_key: String(body.session_key || ""),
+    messages: messages.map((item: Record<string, unknown>, index: number) => ({
+      id: `history_${index}_${String(item.created_at || "")}`,
+      role: item.role === "user" ? "user" : "assistant",
+      text: String(item.text || ""),
+      intent: String(item.intent || ""),
+      createdAt: String(item.created_at || ""),
+    })) as AssistantMessage[],
   };
 };

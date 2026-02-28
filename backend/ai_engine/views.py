@@ -13,11 +13,14 @@ from .serializers import QuerySerializer, SentimentSerializer, UserPreferenceSer
 from .serializers import (
 	AssistantChatRequestSerializer,
 	AssistantChatResponseSerializer,
+	AssistantHistoryQuerySerializer,
+	AssistantHistoryResponseSerializer,
 	AssistantNotificationInsightSerializer,
 )
 from .services.chat_assistant_service import (
 	build_assistant_response_payload,
 	build_notification_insights,
+	list_chat_history,
 )
 from .services.recommendation_service import (
 	get_personalized_recommendations_for_user,
@@ -217,3 +220,25 @@ class AssistantNotificationInsightsAPIView(APIView):
 		serializer = AssistantNotificationInsightSerializer(data=insights, many=True)
 		serializer.is_valid(raise_exception=True)
 		return Response(serializer.validated_data)
+
+
+class AssistantHistoryAPIView(APIView):
+	permission_classes = [permissions.AllowAny]
+
+	def get(self, request):
+		query_serializer = AssistantHistoryQuerySerializer(data=request.query_params)
+		query_serializer.is_valid(raise_exception=True)
+
+		session_key, messages = list_chat_history(
+			user=request.user,
+			session_key=query_serializer.validated_data.get("session_key"),
+		)
+
+		response_serializer = AssistantHistoryResponseSerializer(
+			data={
+				"session_key": session_key,
+				"messages": messages,
+			}
+		)
+		response_serializer.is_valid(raise_exception=True)
+		return Response(response_serializer.validated_data)

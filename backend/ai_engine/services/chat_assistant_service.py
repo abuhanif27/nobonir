@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from uuid import uuid4
 
 from cart.models import CartItem, WishlistItem
+from ai_engine.models import AssistantChatMessage, AssistantChatSession
 from orders.models import Order
 from products.models import Product
 from products.serializers import ProductSerializer
@@ -20,8 +22,36 @@ class AssistantResult:
     products: list[Product]
 
 
+def _safe_session_key(candidate: str | None) -> str:
+    normalized = (candidate or "").strip()
+    if not normalized:
+        return str(uuid4())
+    return normalized[:80]
+
+
 def _is_authenticated_user(user) -> bool:
     return bool(getattr(user, "is_authenticated", False))
+
+
+def get_or_create_chat_session(user, session_key: str | None = None) -> AssistantChatSession:
+    key = _safe_session_key(session_key)
+    if _is_authenticated_user(user):
+        session = AssistantChatSession.objects.filter(session_key=key).first()
+        if session is None:
+            return AssistantChatSession.objects.create(session_key=key, user=user)
+
+        if session.user_id and session.user_id != user.id:
+            return AssistantChatSession.objects.create(session_key=str(uuid4()), user=user)
+
+        if session.user_id is None:
+            session.user = user
+            session.save(update_fields=["user", "updated_at"])
+        return session
+
+    return AssistantChatSession.objects.get_or_create(
+        session_key=key,
+        defaults={"user": None},
+    )[0]
 
 
 def _fallback_products(limit: int = 4) -> list[Product]:
@@ -96,6 +126,15 @@ def _build_price_stock_reply(products: list[Product]) -> str:
         stock_label = "Out of stock" if available_stock <= 0 else f"Stock: {available_stock}"
         lines.append(f"- {product.name}: ৳{product.price} ({stock_label})")
     return "\n".join(lines)
+
+
+def list_chat_history(user, session_key: str | None = None, limit: int = 60) -> tuple[str, list[dict]]:
+    session = get_or_create_chat_session(user=user, session_key=session_key)
+    messages = list(
+        session.messages.order_by("created_at", "id")
+        .values("role", "text", "intent", "created_at")[: max(1, min(limit, 200))]
+    )
+    return session.session_key, messages
 
 
 def generate_assistant_response(user, message: str) -> AssistantResult:
@@ -222,9 +261,24 @@ def build_notification_insights(user) -> list[dict]:
 
 
 def build_assistant_response_payload(user, message: str, request) -> dict:
+    session = get_or_create_chat_session(user=user, session_key=request.data.get("session_key"))
+    AssistantChatMessage.objects.create(
+        session=session,
+        role=AssistantChatMessage.Role.USER,
+        text=message,
+    )
+
     assistant_result = generate_assistant_response(user=user, message=message)
+    AssistantChatMessage.objects.create(
+        session=session,
+        role=AssistantChatMessage.Role.ASSISTANT,
+        text=assistant_result.reply,
+        intent=assistant_result.intent,
+    )
+
     return {
         "reply": assistant_result.reply,
         "intent": assistant_result.intent,
+        "session_key": session.session_key,
         "suggested_products": _serialize_products(assistant_result.products, request=request),
     }

@@ -102,6 +102,7 @@ class AIAssistantEndpointTests(TestCase):
 		body = response.json()
 		self.assertIn("reply", body)
 		self.assertIn("intent", body)
+		self.assertIn("session_key", body)
 		self.assertIn("suggested_products", body)
 
 	def test_notification_insights_endpoint_returns_array(self):
@@ -135,4 +136,43 @@ class AIAssistantEndpointTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		body = response.json()
 		self.assertIn("reply", body)
+		self.assertIn("session_key", body)
 		self.assertIn("suggested_products", body)
+
+	def test_history_endpoint_returns_persisted_messages_for_user(self):
+		chat_response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "need shirt options"},
+			content_type="application/json",
+		)
+		session_key = chat_response.json().get("session_key")
+
+		history_response = self.client.get(
+			"/api/ai/assistant/history/",
+			{"session_key": session_key},
+		)
+
+		self.assertEqual(history_response.status_code, 200)
+		history_body = history_response.json()
+		self.assertEqual(history_body["session_key"], session_key)
+		self.assertGreaterEqual(len(history_body["messages"]), 2)
+		self.assertEqual(history_body["messages"][0]["role"], "user")
+
+	def test_history_endpoint_returns_persisted_messages_for_guest(self):
+		guest_client = APIClient()
+		chat_response = guest_client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "budget t shirt"},
+			content_type="application/json",
+		)
+		session_key = chat_response.json().get("session_key")
+
+		history_response = guest_client.get(
+			"/api/ai/assistant/history/",
+			{"session_key": session_key},
+		)
+
+		self.assertEqual(history_response.status_code, 200)
+		history_body = history_response.json()
+		self.assertEqual(history_body["session_key"], session_key)
+		self.assertGreaterEqual(len(history_body["messages"]), 2)

@@ -22,6 +22,7 @@ class SentimentSerializer(serializers.Serializer):
 
 class AssistantChatRequestSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=1000)
+    session_key = serializers.CharField(max_length=80, required=False, allow_blank=True)
 
 
 class AssistantChatProductSerializer(serializers.Serializer):
@@ -38,7 +39,24 @@ class AssistantChatProductSerializer(serializers.Serializer):
 class AssistantChatResponseSerializer(serializers.Serializer):
     reply = serializers.CharField()
     intent = serializers.CharField()
+    session_key = serializers.CharField()
     suggested_products = AssistantChatProductSerializer(many=True)
+
+
+class AssistantHistoryQuerySerializer(serializers.Serializer):
+    session_key = serializers.CharField(max_length=80, required=False, allow_blank=True)
+
+
+class AssistantHistoryMessageSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=["user", "assistant"])
+    text = serializers.CharField()
+    intent = serializers.CharField(allow_blank=True)
+    created_at = serializers.DateTimeField()
+
+
+class AssistantHistoryResponseSerializer(serializers.Serializer):
+    session_key = serializers.CharField()
+    messages = AssistantHistoryMessageSerializer(many=True)
 
 
 class AssistantNotificationInsightSerializer(serializers.Serializer):

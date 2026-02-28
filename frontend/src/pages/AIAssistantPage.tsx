@@ -1,12 +1,20 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bot, Send } from "lucide-react";
-import { askAssistant, AssistantMessage } from "@/lib/assistant";
+import { useAuthStore } from "@/lib/auth";
+import {
+  askAssistant,
+  AssistantMessage,
+  getAssistantHistory,
+  getAssistantSessionKey,
+  setAssistantSessionKey,
+} from "@/lib/assistant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
 export function AIAssistantPage() {
+  const { isAuthenticated, user } = useAuthStore();
   const location = useLocation();
   const focusContext = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -15,6 +23,7 @@ export function AIAssistantPage() {
 
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionKey, setSessionKey] = useState("");
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "assistant_welcome",
@@ -22,6 +31,55 @@ export function AIAssistantPage() {
       text: "I can help with product recommendations, order support, and fit guidance. Ask me anything about your shopping.",
     },
   ]);
+
+  const sessionScope = useMemo(
+    () => (isAuthenticated && user?.id ? `user_${user.id}` : "guest"),
+    [isAuthenticated, user?.id],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadHistory = async () => {
+      const stored = getAssistantSessionKey(sessionScope);
+      try {
+        const history = await getAssistantHistory(stored || undefined);
+        if (cancelled) {
+          return;
+        }
+
+        const nextSessionKey = history.session_key || stored;
+        if (nextSessionKey) {
+          setSessionKey(nextSessionKey);
+          setAssistantSessionKey(sessionScope, nextSessionKey);
+        }
+
+        if (history.messages.length > 0) {
+          setMessages(history.messages);
+          return;
+        }
+
+        setMessages([
+          {
+            id: "assistant_welcome",
+            role: "assistant",
+            text: "I can help with product recommendations, order support, and fit guidance. Ask me anything about your shopping.",
+          },
+        ]);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+        setSessionKey(stored);
+      }
+    };
+
+    void loadHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionScope]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -41,7 +99,11 @@ export function AIAssistantPage() {
     setIsLoading(true);
 
     try {
-      const body = await askAssistant(trimmed);
+      const body = await askAssistant(trimmed, sessionKey);
+      if (body.session_key) {
+        setSessionKey(body.session_key);
+        setAssistantSessionKey(sessionScope, body.session_key);
+      }
       const assistantMessage: AssistantMessage = {
         id: `assistant_${Date.now()}`,
         role: "assistant",

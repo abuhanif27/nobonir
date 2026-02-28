@@ -1,18 +1,30 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bot, Send, X } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
-import { askAssistant, AssistantMessage } from "@/lib/assistant";
+import {
+  askAssistant,
+  AssistantMessage,
+  getAssistantHistory,
+  getAssistantSessionKey,
+  setAssistantSessionKey,
+} from "@/lib/assistant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
 export function FloatingAssistantWidget() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
+
+  const sessionScope = useMemo(
+    () => (isAuthenticated && user?.id ? `user_${user.id}` : "guest"),
+    [isAuthenticated, user?.id],
+  );
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionKey, setSessionKey] = useState("");
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "assistant_welcome_widget",
@@ -20,6 +32,50 @@ export function FloatingAssistantWidget() {
       text: "Hi! I can answer product price, stock, and recommendation questions.",
     },
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadHistory = async () => {
+      const stored = getAssistantSessionKey(sessionScope);
+      try {
+        const history = await getAssistantHistory(stored || undefined);
+        if (cancelled) {
+          return;
+        }
+
+        const nextSessionKey = history.session_key || stored;
+        if (nextSessionKey) {
+          setSessionKey(nextSessionKey);
+          setAssistantSessionKey(sessionScope, nextSessionKey);
+        }
+
+        if (history.messages.length > 0) {
+          setMessages(history.messages);
+          return;
+        }
+
+        setMessages([
+          {
+            id: "assistant_welcome_widget",
+            role: "assistant",
+            text: "Hi! I can answer product price, stock, and recommendation questions.",
+          },
+        ]);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+        setSessionKey(stored);
+      }
+    };
+
+    void loadHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionScope]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -41,7 +97,11 @@ export function FloatingAssistantWidget() {
     setIsLoading(true);
 
     try {
-      const body = await askAssistant(trimmed);
+      const body = await askAssistant(trimmed, sessionKey);
+      if (body.session_key) {
+        setSessionKey(body.session_key);
+        setAssistantSessionKey(sessionScope, body.session_key);
+      }
       setMessages((prev) => [
         ...prev,
         {
