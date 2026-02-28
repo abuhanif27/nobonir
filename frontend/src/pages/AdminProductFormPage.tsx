@@ -70,7 +70,6 @@ interface VariantFormPayload {
 interface MediaFormPayload {
   alt_text: string;
   sort_order: string;
-  is_primary: boolean;
   variant_id: string;
 }
 
@@ -129,10 +128,10 @@ export function AdminProductFormPage() {
   const [mediaForm, setMediaForm] = useState<MediaFormPayload>({
     alt_text: "",
     sort_order: "0",
-    is_primary: false,
     variant_id: "",
   });
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [savingVariant, setSavingVariant] = useState(false);
   const [savingMedia, setSavingMedia] = useState(false);
   const [savingVariantId, setSavingVariantId] = useState<number | null>(null);
@@ -154,6 +153,11 @@ export function AdminProductFormPage() {
   const title = useMemo(
     () => (isEditMode ? "Edit Product" : "Add Product"),
     [isEditMode],
+  );
+
+  const hasPrimaryMedia = useMemo(
+    () => mediaItems.some((media) => Boolean(media.is_primary)),
+    [mediaItems],
   );
 
   const loadForm = useCallback(async () => {
@@ -276,6 +280,11 @@ export function AdminProductFormPage() {
       return;
     }
 
+    if (!isEditMode && !mainImageFile) {
+      showError("Main product image is required before creating a product.");
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
@@ -296,7 +305,7 @@ export function AdminProductFormPage() {
       } else {
         const response = await api.post("/products/products/", payload);
         const createdId = response.data?.id;
-        if (createdId && mediaFiles.length > 0) {
+        if (createdId && (mainImageFile || galleryFiles.length > 0)) {
           await uploadMediaForProduct(createdId);
         }
         showSuccess("Product created successfully.");
@@ -349,22 +358,40 @@ export function AdminProductFormPage() {
   };
 
   const uploadMediaForProduct = async (productId: string | number) => {
-    if (mediaFiles.length === 0) {
+    if (!mainImageFile && galleryFiles.length === 0) {
       return;
     }
 
     const baseOrder = Number(mediaForm.sort_order || 0);
     const cleanAltText = mediaForm.alt_text.trim();
-    for (const [index, file] of mediaFiles.entries()) {
+
+    if (mainImageFile) {
+      const payload = new FormData();
+      payload.append("image_file", mainImageFile);
+      payload.append(
+        "alt_text",
+        cleanAltText ? `${cleanAltText} (Main)` : mainImageFile.name,
+      );
+      payload.append("sort_order", String(baseOrder));
+      payload.append("is_primary", "true");
+      await api.post(`/products/${productId}/media/`, payload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    }
+
+    const galleryBaseOrder = baseOrder + (mainImageFile ? 1 : 0);
+    for (const [index, file] of galleryFiles.entries()) {
       const payload = new FormData();
       payload.append("image_file", file);
       payload.append(
         "alt_text",
         cleanAltText ? `${cleanAltText} ${index + 1}` : file.name,
       );
-      payload.append("sort_order", String(baseOrder + index));
-      payload.append("is_primary", String(index === 0 && mediaForm.is_primary));
-      if (mediaForm.variant_id) {
+      payload.append("sort_order", String(galleryBaseOrder + index));
+      payload.append("is_primary", "false");
+      if (mediaForm.variant_id && isEditMode) {
         payload.append("variant_id", mediaForm.variant_id);
       }
 
@@ -381,8 +408,15 @@ export function AdminProductFormPage() {
       return;
     }
 
-    if (mediaFiles.length === 0) {
-      showError("Choose at least one image file.");
+    if (!mainImageFile && galleryFiles.length === 0) {
+      showError("Choose a main image or at least one gallery image.");
+      return;
+    }
+
+    if (!mainImageFile && !hasPrimaryMedia) {
+      showError(
+        "No primary image found. Upload a main image to keep one image as primary.",
+      );
       return;
     }
 
@@ -394,10 +428,10 @@ export function AdminProductFormPage() {
       setMediaForm({
         alt_text: "",
         sort_order: "0",
-        is_primary: false,
         variant_id: "",
       });
-      setMediaFiles([]);
+      setMainImageFile(null);
+      setGalleryFiles([]);
       showSuccess("Gallery images uploaded.");
     } catch (error: unknown) {
       showError(getErrorMessage(error, "Failed to upload media."));
@@ -901,14 +935,32 @@ export function AdminProductFormPage() {
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2 md:col-span-2">
                           <label className="text-sm font-medium">
-                            Upload Product Gallery (multiple)
+                            Main Product Image (single)
+                          </label>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) =>
+                              setMainImageFile(event.target.files?.[0] || null)
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {mainImageFile
+                              ? `Main image selected: ${mainImageFile.name}`
+                              : "Select one image to be the primary product image."}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium">
+                            Gallery Images (multiple)
                           </label>
                           <Input
                             type="file"
                             accept="image/*"
                             multiple
                             onChange={(event) =>
-                              setMediaFiles(
+                              setGalleryFiles(
                                 event.target.files
                                   ? Array.from(event.target.files)
                                   : [],
@@ -916,9 +968,9 @@ export function AdminProductFormPage() {
                             }
                           />
                           <p className="text-xs text-muted-foreground">
-                            {mediaFiles.length > 0
-                              ? `${mediaFiles.length} file(s) selected`
-                              : "Select one or more product images."}
+                            {galleryFiles.length > 0
+                              ? `${galleryFiles.length} gallery file(s) selected`
+                              : "Select one or more additional gallery images."}
                           </p>
                         </div>
                         {isEditMode && id && (
@@ -974,26 +1026,20 @@ export function AdminProductFormPage() {
                             }
                           />
                         </div>
-                        <div className="flex items-end pb-2 md:col-span-2">
-                          <label className="inline-flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={mediaForm.is_primary}
-                              onChange={(event) =>
-                                setMediaForm((current) => ({
-                                  ...current,
-                                  is_primary: event.target.checked,
-                                }))
-                              }
-                            />
-                            Set as primary
-                          </label>
+                        <div className="text-xs text-muted-foreground md:col-span-2">
+                          Main image is uploaded as primary automatically. Gallery images are uploaded as non-primary.
                         </div>
                       </div>
 
                       {isEditMode && id ? (
                         <div className="flex justify-end">
-                          <Button onClick={uploadMedia} disabled={savingMedia}>
+                          <Button
+                            onClick={uploadMedia}
+                            disabled={
+                              savingMedia ||
+                              (!mainImageFile && galleryFiles.length === 0)
+                            }
+                          >
                             {savingMedia ? "Uploading..." : "Upload Media"}
                           </Button>
                         </div>
@@ -1027,11 +1073,18 @@ export function AdminProductFormPage() {
                                   key={media.id}
                                   className="space-y-2 rounded-md border p-2"
                                 >
-                                  <img
-                                    src={media.url}
-                                    alt={media.alt_text || "Product media"}
-                                    className="h-28 w-full rounded object-cover"
-                                  />
+                                  <div className="relative">
+                                    <img
+                                      src={media.url}
+                                      alt={media.alt_text || "Product media"}
+                                      className="h-28 w-full rounded object-cover"
+                                    />
+                                    {media.is_primary && (
+                                      <span className="absolute left-2 top-2 rounded bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">
+                                        Primary
+                                      </span>
+                                    )}
+                                  </div>
 
                                   <Input
                                     value={draft.alt_text}
