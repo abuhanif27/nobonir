@@ -11,9 +11,11 @@ import { ProfilePage } from "@/pages/ProfilePage";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { WishlistPage } from "@/pages/WishlistPage";
 import { NotificationsPage } from "@/pages/NotificationsPage";
+import { AIAssistantPage } from "@/pages/AIAssistantPage";
 import { AdminProductFormPage } from "@/pages/AdminProductFormPage";
 import { ThemeProvider } from "@/lib/theme";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FloatingAssistantWidget } from "@/components/FloatingAssistantWidget";
 import { CurrencyProvider } from "@/lib/currency";
 import { FeedbackProvider } from "@/lib/feedback";
 
@@ -65,6 +67,7 @@ function App() {
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/assistant" element={<AIAssistantPage />} />
               </Route>
 
               {/* Admin routes */}
@@ -83,6 +86,7 @@ function App() {
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <FloatingAssistantWidget />
             <ThemeToggle />
           </BrowserRouter>
         </FeedbackProvider>

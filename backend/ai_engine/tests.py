@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from ai_engine.services.recommendation_service import (
 	get_personalized_recommendations_for_user,
@@ -69,3 +70,41 @@ class AISearchTests(TestCase):
 		response = self.client.get("/api/ai/search/", {"query": "quiet fan"})
 		self.assertEqual(response.status_code, 200)
 		self.assertGreaterEqual(len(response.json()), 1)
+
+
+class AIAssistantEndpointTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+		self.user = User.objects.create_user(
+			username="assistant-user",
+			email="assistant@example.com",
+			password="Secret123!",
+		)
+		self.client.force_authenticate(user=self.user)
+		category = Category.objects.create(name="Fashion", slug="fashion")
+		self.product = Product.objects.create(
+			category=category,
+			name="Cotton Shirt",
+			slug="cotton-shirt",
+			description="Comfortable fit shirt",
+			price=25,
+			stock=10,
+		)
+
+	def test_chat_endpoint_returns_structured_payload(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "recommend a shirt"},
+			content_type="application/json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertIn("reply", body)
+		self.assertIn("intent", body)
+		self.assertIn("suggested_products", body)
+
+	def test_notification_insights_endpoint_returns_array(self):
+		response = self.client.get("/api/ai/assistant/notification-insights/")
+		self.assertEqual(response.status_code, 200)
+		self.assertIsInstance(response.json(), list)

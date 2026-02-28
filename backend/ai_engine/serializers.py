@@ -20,6 +20,34 @@ class SentimentSerializer(serializers.Serializer):
     text = serializers.CharField()
 
 
+class AssistantChatRequestSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=1000)
+
+
+class AssistantChatProductSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    slug = serializers.CharField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    image = serializers.CharField(allow_blank=True)
+    category = serializers.CharField()
+    availability_status = serializers.CharField()
+    available_stock = serializers.IntegerField(min_value=0)
+
+
+class AssistantChatResponseSerializer(serializers.Serializer):
+    reply = serializers.CharField()
+    intent = serializers.CharField()
+    suggested_products = AssistantChatProductSerializer(many=True)
+
+
+class AssistantNotificationInsightSerializer(serializers.Serializer):
+    term = serializers.CharField()
+    message = serializers.CharField()
+    tone = serializers.ChoiceField(choices=["info", "warning", "success"])
+    sectionKey = serializers.CharField()
+
+
 class UserPreferenceSerializer(serializers.ModelSerializer):
     preferred_categories = serializers.PrimaryKeyRelatedField(
         many=True,

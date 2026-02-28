@@ -10,6 +10,15 @@ from rest_framework.views import APIView
 from products.serializers import ProductSerializer
 from .models import UserPreference
 from .serializers import QuerySerializer, SentimentSerializer, UserPreferenceSerializer
+from .serializers import (
+	AssistantChatRequestSerializer,
+	AssistantChatResponseSerializer,
+	AssistantNotificationInsightSerializer,
+)
+from .services.chat_assistant_service import (
+	build_assistant_response_payload,
+	build_notification_insights,
+)
 from .services.recommendation_service import (
 	get_personalized_recommendations_for_user,
 	get_recommendations_for_user,
@@ -181,3 +190,30 @@ class SentimentAPIView(APIView):
 		serializer = SentimentSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 		return Response(analyze_sentiment(serializer.validated_data["text"]))
+
+
+class AssistantChatAPIView(APIView):
+	permission_classes = [permissions.IsAuthenticated]
+
+	def post(self, request):
+		serializer = AssistantChatRequestSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+
+		payload = build_assistant_response_payload(
+			user=request.user,
+			message=serializer.validated_data["message"],
+			request=request,
+		)
+		response_serializer = AssistantChatResponseSerializer(data=payload)
+		response_serializer.is_valid(raise_exception=True)
+		return Response(response_serializer.validated_data)
+
+
+class AssistantNotificationInsightsAPIView(APIView):
+	permission_classes = [permissions.IsAuthenticated]
+
+	def get(self, request):
+		insights = build_notification_insights(request.user)
+		serializer = AssistantNotificationInsightSerializer(data=insights, many=True)
+		serializer.is_valid(raise_exception=True)
+		return Response(serializer.validated_data)

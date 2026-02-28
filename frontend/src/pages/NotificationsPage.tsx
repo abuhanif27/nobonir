@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BellRing, CheckCheck, Clock3, Filter, Trash2 } from "lucide-react";
+import {
+  BellRing,
+  Bot,
+  CheckCheck,
+  Clock3,
+  Filter,
+  Trash2,
+} from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
 import {
@@ -113,7 +120,35 @@ export function NotificationsPage() {
         [],
       );
 
-      const updated = syncStatusNotifications(user.id, orderStatusNotifications);
+      let combinedNotifications = [...orderStatusNotifications];
+
+      try {
+        const assistantInsightResponse = await api.get(
+          "/ai/assistant/notification-insights/",
+        );
+        const assistantInsights = Array.isArray(assistantInsightResponse.data)
+          ? assistantInsightResponse.data
+          : [];
+
+        const normalizedAssistantInsights = assistantInsights
+          .map((item) => ({
+            term: String(item?.term || "AI Assistant"),
+            message: String(item?.message || ""),
+            tone:
+              item?.tone === "warning" || item?.tone === "success"
+                ? item.tone
+                : ("info" as const),
+            sectionKey: String(item?.sectionKey || "ai_assistant:general"),
+          }))
+          .filter((item) => item.message);
+
+        combinedNotifications = [
+          ...combinedNotifications,
+          ...normalizedAssistantInsights,
+        ];
+      } catch {}
+
+      const updated = syncStatusNotifications(user.id, combinedNotifications);
       setItems(updated);
     } catch {
       setItems(getUserNotifications(user.id));
@@ -156,6 +191,12 @@ export function NotificationsPage() {
     if (item.sectionKey.startsWith("order_status:")) {
       const statusValue = item.sectionKey.replace("order_status:", "");
       navigate(`/orders?status=${encodeURIComponent(statusValue)}`);
+      return;
+    }
+
+    if (item.sectionKey.startsWith("ai_assistant:")) {
+      const focus = item.sectionKey.replace("ai_assistant:", "");
+      navigate(`/assistant?focus=${encodeURIComponent(focus)}`);
       return;
     }
 
@@ -223,6 +264,12 @@ export function NotificationsPage() {
               Unread: {unreadCount} · Total: {items.length}
             </p>
             <div className="flex flex-wrap gap-2">
+              <Link to="/assistant">
+                <Button size="sm" variant="outline">
+                  <Bot className="mr-1.5 h-3.5 w-3.5" />
+                  Open AI Assistant
+                </Button>
+              </Link>
               {(["ALL", "UNREAD", "READ"] as NotificationFilter[]).map(
                 (key) => (
                   <Button
@@ -288,7 +335,9 @@ export function NotificationsPage() {
                           </p>
                           <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
                             <Clock3 className="h-3 w-3" />
-                            <span title={new Date(item.createdAt).toLocaleString()}>
+                            <span
+                              title={new Date(item.createdAt).toLocaleString()}
+                            >
                               {formatRelativeTime(item.createdAt)}
                             </span>
                           </p>
