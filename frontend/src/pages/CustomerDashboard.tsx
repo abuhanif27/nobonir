@@ -926,11 +926,31 @@ export function CustomerDashboard() {
       return true;
     };
 
+    const fetchWithTimeout = async (
+      url: string,
+      options: RequestInit = {},
+      timeout = 3000,
+    ) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal,
+        });
+        clearTimeout(id);
+        return response;
+      } catch (e) {
+        clearTimeout(id);
+        throw e;
+      }
+    };
+
     try {
       let browserGeo: unknown = null;
 
       try {
-        const browserResponse = await fetch("https://ipwho.is/", {
+        const browserResponse = await fetchWithTimeout("https://ipwho.is/", {
           cache: "no-store",
         });
         if (browserResponse.ok) {
@@ -943,20 +963,6 @@ export function CustomerDashboard() {
         browserGeo = null;
       }
 
-      if (!browserGeo) {
-        try {
-          const browserResponse = await fetch("https://ipapi.co/json/", {
-            cache: "no-store",
-          });
-          if (browserResponse.ok) {
-            const browserData = await browserResponse.json();
-            browserGeo = browserData;
-          }
-        } catch {
-          browserGeo = null;
-        }
-      }
-
       if (browserGeo && applyGeoData(browserGeo)) {
         return;
       }
@@ -964,11 +970,10 @@ export function CustomerDashboard() {
       try {
         const getPublicIp = async () => {
           try {
-            const response = await fetch(
+            const response = await fetchWithTimeout(
               "https://api64.ipify.org?format=json",
-              {
-                cache: "no-store",
-              },
+              { cache: "no-store" },
+              2000,
             );
             if (response.ok) {
               const data = await response.json();
@@ -977,13 +982,15 @@ export function CustomerDashboard() {
               }
             }
           } catch {
-            // Continue to next provider
+            // Continue
           }
 
           try {
-            const response = await fetch("https://ifconfig.co/json", {
-              cache: "no-store",
-            });
+            const response = await fetchWithTimeout(
+              "https://ifconfig.co/json",
+              { cache: "no-store" },
+              2000,
+            );
             if (response.ok) {
               const data = await response.json();
               if (data?.ip) {
@@ -991,7 +998,7 @@ export function CustomerDashboard() {
               }
             }
           } catch {
-            // Continue to backend lookup without IP
+            // Continue
           }
 
           return "";
@@ -1009,7 +1016,24 @@ export function CustomerDashboard() {
           return;
         }
       } catch {
-        // Continue to backend no-ip fallback
+        // Continue
+      }
+
+      // Last resort external
+      try {
+        const browserResponse = await fetchWithTimeout(
+          "https://ipapi.co/json/",
+          { cache: "no-store" },
+          2000,
+        );
+        if (browserResponse.ok) {
+          const browserData = await browserResponse.json();
+          if (applyGeoData(browserData)) {
+            return;
+          }
+        }
+      } catch {
+        // Continue to final fallback
       }
 
       const fallbackResponse = await api.get("/ai/geo-detect/", {

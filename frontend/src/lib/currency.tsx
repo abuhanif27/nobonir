@@ -20,8 +20,8 @@ const CurrencyContext = createContext<CurrencyContextValue | undefined>(
 );
 
 const BASE_CURRENCY = "USD";
-const RATE_REFRESH_MS = 5 * 60 * 1000;
-const GEO_REFRESH_MS = 5 * 60 * 1000;
+const RATE_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
+const GEO_REFRESH_MS = 24 * 60 * 60 * 1000; // 24 hours
 const CURRENCY_STORAGE_KEY = "nobonir_currency_context_v1";
 
 type PersistedCurrencyState = {
@@ -193,9 +193,29 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       ).toUpperCase();
     };
 
+    const fetchWithTimeout = async (
+      url: string,
+      options: RequestInit = {},
+      timeout = 3000,
+    ) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal,
+        });
+        clearTimeout(id);
+        return response;
+      } catch (e) {
+        clearTimeout(id);
+        throw e;
+      }
+    };
+
     const resolveGeoContext = async (): Promise<GeoResolution> => {
       try {
-        const response = await fetch("https://ipwho.is/", {
+        const response = await fetchWithTimeout("https://ipwho.is/", {
           cache: "no-store",
         });
         if (response.ok) {
@@ -209,23 +229,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch {
-        // Continue to next fallback
-      }
-
-      try {
-        const response = await fetch("https://ipapi.co/json/", {
-          cache: "no-store",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const code = normalizeCountryCode(data);
-          const currency = normalizeCurrencyCode(data);
-          if (code || currency) {
-            return { countryCode: code, currencyCode: currency };
-          }
-        }
-      } catch {
-        // Continue to backend lookups
+        // Silent fallback
       }
 
       try {
@@ -243,6 +247,25 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {
         // Continue to backend fallback
+      }
+
+      try {
+        // ipapi.co is frequently blocked or rate-limited; use a short timeout
+        const response = await fetchWithTimeout(
+          "https://ipapi.co/json/",
+          { cache: "no-store" },
+          2000,
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const code = normalizeCountryCode(data);
+          const currency = normalizeCurrencyCode(data);
+          if (code || currency) {
+            return { countryCode: code, currencyCode: currency };
+          }
+        }
+      } catch {
+        // Silent fallback
       }
 
       try {
