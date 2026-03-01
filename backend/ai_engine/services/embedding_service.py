@@ -7,10 +7,8 @@ import numpy as np
 from django.conf import settings
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-try:
-    from sentence_transformers import SentenceTransformer
-except Exception:
-    SentenceTransformer = None
+# Fallback to TfidfVectorizer if SentenceTransformer is broken on Windows (e.g. missing c10.dll)
+SentenceTransformer = None
 
 
 MODEL_DIR = Path(settings.BASE_DIR) / "ai_models"

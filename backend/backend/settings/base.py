@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "reviews",
     "ai_engine",
     "analytics",
+    "shop",
 ]
 
 MIDDLEWARE = [

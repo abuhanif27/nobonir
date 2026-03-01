@@ -119,7 +119,7 @@ def get_llm_runtime_status() -> dict:
     }
 
 
-def _build_llm_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool) -> str:
+def _build_llm_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool, history: list[dict] | None = None) -> str:
     product_lines = []
     for product in products[:4]:
         stock = get_available_stock(product)
@@ -130,11 +130,20 @@ def _build_llm_prompt(intent: str, message: str, products: list[Product], fallba
     context = "\n".join(product_lines) if product_lines else "- No product match available"
     auth_line = "authenticated" if is_authenticated else "guest"
 
+    history_text = ""
+    if history:
+        history_lines = []
+        for msg in history[-5:]:  # Last 5 messages for context
+            role = "User" if msg["role"] == "user" else "Assistant"
+            history_lines.append(f"{role}: {msg['text']}")
+        history_text = "Recent conversation history:\n" + "\n".join(history_lines) + "\n\n"
+
     return (
         "You are a professional e-commerce shopping advisor. "
         "Reply in plain, concise, business-friendly English in 2-5 short lines. "
         "Use ONLY the provided product context for facts like price/stock. "
         "If data is missing, clearly say that.\n"
+        f"{history_text}"
         f"User type: {auth_line}\n"
         f"Intent: {intent}\n"
         f"User message: {message}\n"
@@ -206,7 +215,7 @@ def _filter_relevant_products(products: list[Product], normalized_message: str, 
     return [product for _, product in scored[:limit]]
 
 
-def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Product], fallback_reply: str, user) -> str:
+def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Product], fallback_reply: str, user, history: list[dict] | None = None) -> str:
     if not _free_llm_enabled():
         return fallback_reply, "local", False, ["local"]
 
@@ -216,6 +225,7 @@ def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Produ
         products=products,
         fallback_reply=fallback_reply,
         is_authenticated=_is_authenticated_user(user),
+        history=history,
     )
 
     attempts: list[str] = []
@@ -236,13 +246,14 @@ def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Produ
     return fallback_reply, "local", False, attempts
 
 
-def _result_with_enhancement(intent: str, message: str, products: list[Product], fallback_reply: str, user) -> AssistantResult:
+def _result_with_enhancement(intent: str, message: str, products: list[Product], fallback_reply: str, user, history: list[dict] | None = None) -> AssistantResult:
     final_reply, llm_provider, llm_enhanced, llm_attempts = _enhance_reply_with_free_llm(
         intent=intent,
         message=message,
         products=products,
         fallback_reply=fallback_reply,
         user=user,
+        history=history,
     )
     return AssistantResult(
         intent=intent,
@@ -450,8 +461,14 @@ def clear_chat_history(user, session_key: str | None = None) -> str:
     return get_or_create_chat_session(user=user, session_key=None).session_key
 
 
-def generate_assistant_response(user, message: str) -> AssistantResult:
+def generate_assistant_response(user, message: str, session_key: str | None = None) -> AssistantResult:
     normalized_message = _normalize_message(message)
+
+    # Fetch history if session_key is provided
+    history = None
+    if session_key:
+        _, history = list_chat_history(user=user, session_key=session_key, limit=10)
+
     if not normalized_message:
         products = (
             get_personalized_recommendations_for_user(user, limit=4)
@@ -460,14 +477,14 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         )
         guest_hint = " Sign in for personalized picks and order support." if not _is_authenticated_user(user) else ""
         reply = f"Share what you are shopping for, and I will suggest products that match your needs.{guest_hint}"
-        return _result_with_enhancement("GENERAL", normalized_message, products, reply, user)
+        return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
     if _is_small_talk(normalized_message):
         reply = (
             "Hello — I’m your shopping assistant. "
             "Tell me a product type, budget, or exact item name, and I’ll provide relevant options with accurate price and stock."
         )
-        return _result_with_enhancement("GENERAL", normalized_message, [], reply, user)
+        return _result_with_enhancement("GENERAL", normalized_message, [], reply, user, history=history)
 
     intent = _detect_intent(normalized_message)
     budget_cap = _extract_budget_cap(normalized_message)
@@ -477,13 +494,13 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         reply = "These are currently top-selling products based on recent paid orders."
         if budget_cap is not None:
             reply += f" Filtered to budget under ৳{budget_cap}."
-        return _result_with_enhancement(intent, normalized_message, products, reply, user)
+        return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "ORDER_HELP":
         if not _is_authenticated_user(user):
             guest_reply = "Order tracking needs sign-in so I can securely access your account orders."
             products = _fallback_products(limit=4)
-            return _result_with_enhancement(intent, normalized_message, products, guest_reply, user)
+            return _result_with_enhancement(intent, normalized_message, products, guest_reply, user, history=history)
 
         latest_order = (
             Order.objects.filter(user=user)
@@ -501,7 +518,7 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
             reply = "I could not find an order yet. I added some recommendations to help you get started."
 
         products = get_personalized_recommendations_for_user(user, limit=4)
-        return _result_with_enhancement(intent, normalized_message, products, reply, user)
+        return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "PRICE_STOCK_LOOKUP":
         products = _apply_budget_filter(semantic_product_search(normalized_message, limit=8), budget_cap, limit=6)
@@ -513,13 +530,13 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
                 if _is_authenticated_user(user)
                 else _fallback_products(limit=4)
             )
-        return _result_with_enhancement(intent, normalized_message, products, reply, user)
+        return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "FIT_HELP":
         products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=6)
         products = _filter_relevant_products(products, normalized_message, limit=4)
         reply = "For better fit, compare size guides on product pages and check recent reviews before checkout."
-        return _result_with_enhancement(intent, normalized_message, products, reply, user)
+        return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent in {"BUDGET_SEARCH", "RECOMMENDATION"}:
         products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=8)
@@ -533,7 +550,7 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
                 "I couldn’t find relevant products for that query. "
                 "Please share a more specific item name or category so I can return accurate options."
             )
-        return _result_with_enhancement(intent, normalized_message, products, reply, user)
+        return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     products: list[Product] = []
     guest_hint = " Sign in to unlock personalized recommendations and order help." if not _is_authenticated_user(user) else ""
@@ -541,7 +558,7 @@ def generate_assistant_response(user, message: str) -> AssistantResult:
         "I can help with product discovery, price/stock checks, and order guidance. "
         f"Tell me exactly what you want to buy.{guest_hint}"
     )
-    return _result_with_enhancement("GENERAL", normalized_message, products, reply, user)
+    return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
 
 def build_notification_insights(user) -> list[dict]:
@@ -592,7 +609,7 @@ def build_assistant_response_payload(user, message: str, request) -> dict:
         text=message,
     )
 
-    assistant_result = generate_assistant_response(user=user, message=message)
+    assistant_result = generate_assistant_response(user=user, message=message, session_key=session.session_key)
     AssistantChatMessage.objects.create(
         session=session,
         role=AssistantChatMessage.Role.ASSISTANT,
