@@ -119,37 +119,81 @@ def get_llm_runtime_status() -> dict:
     }
 
 
+# General store knowledge to provide to the LLM
+STORE_KNOWLEDGE = {
+    "shipping_policy": "We offer standard shipping across Bangladesh (2-3 days in Dhaka, 5-7 days outside).",
+    "return_policy": "7-day easy return policy for unused items in original packaging.",
+    "payment_methods": "We accept Cash on Delivery, bKash, Nagad, and all major Credit/Debit cards.",
+    "customer_support": "Available 10 AM - 10 PM daily via phone or email.",
+}
+
+
 def _build_llm_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool, history: list[dict] | None = None) -> str:
     product_lines = []
-    for product in products[:4]:
+    for product in products[:5]:
         stock = get_available_stock(product)
+        # Information Disclosure Limit for Guest vs Member
+        if is_authenticated:
+            stock_info = f"Exact Stock: {stock}"
+            price_info = f"Member Price: ৳{product.price}"
+        else:
+            stock_info = "Status: In Stock" if stock > 0 else "Status: Out of Stock"
+            price_info = f"Price: ৳{product.price}"
+            
+        desc = (product.description or "").strip()
+        if len(desc) > 100:
+            desc = desc[:97] + "..."
+        
         product_lines.append(
-            f"- {product.name} | category={product.category.name} | price=৳{product.price} | stock={stock}"
+            f"- {product.name} | Category: {product.category.name} | {price_info} | {stock_info} | Info: {desc or 'N/A'}"
         )
 
-    context = "\n".join(product_lines) if product_lines else "- No product match available"
-    auth_line = "authenticated" if is_authenticated else "guest"
+    context = "\n".join(product_lines) if product_lines else "- No specific products found matching the request."
+    auth_status = "Premium Member (Full Access)" if is_authenticated else "Guest Shopper (Limited Access)"
 
     history_text = ""
     if history:
         history_lines = []
-        for msg in history[-5:]:  # Last 5 messages for context
-            role = "User" if msg["role"] == "user" else "Assistant"
+        for msg in history[-4:]:
+            role = "User" if msg["role"] == "user" else "Nobonir Assistant"
             history_lines.append(f"{role}: {msg['text']}")
-        history_text = "Recent conversation history:\n" + "\n".join(history_lines) + "\n\n"
+        history_text = "Recent Conversation History:\n" + "\n".join(history_lines) + "\n\n"
+
+    # Define strict rules for information disclosure based on auth status
+    disclosure_rules = (
+        "Member-Specific Guidelines (User is Authenticated):\n"
+        "- Share exact stock numbers and specific inventory status.\n"
+        "- Provide highly personalized shopping advice based on their history.\n"
+        "- Use a familiar, welcoming tone that acknowledges their membership.\n\n"
+        "Guest-Specific Guidelines (User is GUEST):\n"
+        "- DO NOT share exact stock quantities (only use 'In Stock' or 'Out of Stock').\n"
+        "- Provide general, professional product information only.\n"
+        "- Politely mention that signing in unlocks detailed availability and personalized rewards.\n"
+        "- Keep responses helpful but professional and less familiar.\n"
+    )
+
+    store_facts = "\n".join([f"- {k.replace('_', ' ').title()}: {v}" for k, v in STORE_KNOWLEDGE.items()])
 
     return (
-        "You are a professional e-commerce shopping advisor. "
-        "Reply in plain, concise, business-friendly English in 2-5 short lines. "
-        "Use ONLY the provided product context for facts like price/stock. "
-        "If data is missing, clearly say that.\n"
+        "You are the 'Nobonir AI Assistant', a highly professional shopping consultant. "
+        "Your goal is to provide a conversational, knowledgeable, and proactive experience.\n\n"
+        f"{disclosure_rules}\n"
+        f"Store Context: Nobonir is Bangladesh's leading premium e-commerce platform.\n"
+        f"Store Policies & Knowledge:\n{store_facts}\n"
+        f"User Profile: {auth_status}\n"
         f"{history_text}"
-        f"User type: {auth_line}\n"
-        f"Intent: {intent}\n"
-        f"User message: {message}\n"
-        f"Product context:\n{context}\n"
-        f"Fallback draft reply: {fallback_reply}\n"
-        "Now provide the best final reply."
+        f"Current Intent: {intent}\n"
+        f"User's Query: {message}\n\n"
+        "Available Product Catalog Context (use these for specific details):\n"
+        f"{context}\n\n"
+        f"Initial Draft (for guidance): {fallback_reply}\n\n"
+        "Guidelines for Response:\n"
+        "1. Be concise but human-like (3-5 sentences).\n"
+        "2. If products are available, highlight their key benefits/prices naturally.\n"
+        "3. STRICTLY follow the disclosure rules for the current User Profile.\n"
+        "4. Use 'Store Policies & Knowledge' to answer general questions about shipping, returns, etc.\n"
+        "5. End with a helpful follow-up question.\n"
+        "Now, generate your super professional response:"
     )
 
 
@@ -160,7 +204,17 @@ SMALL_TALK_KEYWORDS = {
     "yo",
     "good morning",
     "good evening",
+    "good afternoon",
     "how are you",
+    "how's it going",
+    "sup",
+    "hi there",
+    "hello there",
+    "hey there",
+    "who are you",
+    "what is your name",
+    "what's your name",
+    "your name",
 }
 
 
@@ -186,12 +240,26 @@ TERM_STOPWORDS = {
 
 
 def _is_small_talk(normalized_message: str) -> bool:
-    compact = normalized_message.strip()
+    compact = normalized_message.strip().lower()
+    # Direct match in keywords
     if compact in SMALL_TALK_KEYWORDS:
         return True
-    if len(compact.split()) <= 2 and any(keyword in compact for keyword in {"hi", "hey", "hello"}):
+    
+    # Check if message contains common greeting patterns or identity questions
+    msg_clean = re.sub(r"[^a-z\s]", "", compact).strip()
+    if any(k in msg_clean for k in SMALL_TALK_KEYWORDS):
+        return True
+        
+    # If it's just a greeting and nothing else
+    words = compact.split()
+    if len(words) <= 1 and words and words[0] in {"hi", "hey", "hello", "yo"}:
         return True
     return False
+
+
+def _is_help_query(normalized_message: str) -> bool:
+    msg = normalized_message.lower()
+    return any(k in msg for k in ["help", "support", "what can you do", "capabilities", "features"])
 
 
 def _query_terms(normalized_message: str) -> list[str]:
@@ -310,32 +378,25 @@ def _normalize_message(message: str) -> str:
 
 
 def _detect_intent(normalized_message: str) -> str:
-    if any(
-        keyword in normalized_message
-        for keyword in [
-            "top selling",
-            "best selling",
-            "most sold",
-            "popular",
-            "trending",
-            "best product",
-        ]
-    ):
+    # Use keywords to detect intent - expanded for more professional coverage
+    msg = normalized_message.lower()
+    
+    if any(k in msg for k in ["top selling", "best selling", "popular", "trending", "best product", "most popular"]):
         return "TOP_SELLING"
 
-    if any(keyword in normalized_message for keyword in ["order", "delivery", "shipping", "status", "track"]):
+    if any(k in msg for k in ["order", "delivery", "shipping", "track", "status", "where is my", "package"]):
         return "ORDER_HELP"
 
-    if any(keyword in normalized_message for keyword in ["stock", "available", "availability", "price", "cost"]):
+    if any(k in msg for k in ["stock", "available", "availability", "have it", "ready to"]):
         return "PRICE_STOCK_LOOKUP"
 
-    if any(keyword in normalized_message for keyword in ["budget", "cheap", "under", "price", "cost"]):
+    if any(k in msg for k in ["budget", "cheap", "under", "price", "cost", "how much", "range", "low price"]):
         return "BUDGET_SEARCH"
 
-    if any(keyword in normalized_message for keyword in ["size", "fit", "fitting", "wear"]):
+    if any(k in msg for k in ["size", "fit", "fitting", "wear", "small", "large", "xl", "medium"]):
         return "FIT_HELP"
 
-    if any(keyword in normalized_message for keyword in ["recommend", "suggest", "best", "find", "looking for", "need"]):
+    if any(k in msg for k in ["recommend", "suggest", "find", "looking for", "need", "show me", "help with", "gift"]):
         return "RECOMMENDATION"
 
     return "GENERAL"
@@ -344,29 +405,42 @@ def _detect_intent(normalized_message: str) -> str:
 def _serialize_products(products: list[Product], request) -> list[dict]:
     serialized = ProductSerializer(products, many=True, context={"request": request}).data
     result = []
+    is_auth = getattr(request.user, "is_authenticated", False)
+    
     for item in serialized:
-        result.append(
-            {
-                "id": int(item.get("id") or 0),
-                "name": str(item.get("name") or ""),
-                "slug": str(item.get("slug") or ""),
-                "price": Decimal(str(item.get("price") or "0")),
-                "image": str(item.get("primary_image") or item.get("image_url") or ""),
-                "category": str((item.get("category") or {}).get("name") or ""),
-                "availability_status": str(item.get("availability_status") or "IN_STOCK"),
-                "available_stock": int(item.get("available_stock") or 0),
-            }
-        )
+        # Information Disclosure Limit in serialized data
+        stock_val = int(item.get("available_stock") or 0)
+        
+        product_data = {
+            "id": int(item.get("id") or 0),
+            "name": str(item.get("name") or ""),
+            "slug": str(item.get("slug") or ""),
+            "price": Decimal(str(item.get("price") or "0")),
+            "image": str(item.get("primary_image") or item.get("image_url") or ""),
+            "category": str((item.get("category") or {}).get("name") or ""),
+            "availability_status": str(item.get("availability_status") or "IN_STOCK"),
+        }
+        
+        if is_auth:
+            # Full details for members
+            product_data["available_stock"] = stock_val
+        else:
+            # Obfuscated stock for guests
+            product_data["available_stock"] = 1 if stock_val > 0 else 0
+            # You could add more guest-specific logic here (e.g., hiding wholesale prices if they existed)
+
+        result.append(product_data)
     return result
 
 
 def _recommend_products_for_message(user, normalized_message: str) -> list[Product]:
-    search_results = semantic_product_search(normalized_message, limit=4)
+    # Increased limit to 8 for better LLM context
+    search_results = semantic_product_search(normalized_message, limit=8)
     if search_results:
         return search_results
     if _is_authenticated_user(user):
-        return get_personalized_recommendations_for_user(user, limit=4)
-    return _fallback_products(limit=4)
+        return get_personalized_recommendations_for_user(user, limit=8)
+    return _fallback_products(limit=8)
 
 
 def _top_selling_products(limit: int = 4) -> list[Product]:
@@ -476,29 +550,43 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
             else _fallback_products(limit=4)
         )
         guest_hint = " Sign in for personalized picks and order support." if not _is_authenticated_user(user) else ""
-        reply = f"Share what you are shopping for, and I will suggest products that match your needs.{guest_hint}"
+        reply = f"Hello! I am your Nobonir shopping assistant. Please share what you are looking for, and I'll help you find the perfect match.{guest_hint}"
         return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
     if _is_small_talk(normalized_message):
         reply = (
-            "Hello — I’m your shopping assistant. "
-            "Tell me a product type, budget, or exact item name, and I’ll provide relevant options with accurate price and stock."
+            "Hello there! I'm your dedicated Nobonir Assistant. "
+            "I can help you browse our premium collection, check product availability, or track your orders. "
+            "How can I help you today?"
         )
-        return _result_with_enhancement("GENERAL", normalized_message, [], reply, user, history=history)
+        products = _recommend_products_for_message(user, normalized_message)
+        return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
+
+    if _is_help_query(normalized_message):
+        reply = (
+            "I'm here to make your shopping experience at Nobonir seamless! I can assist with:\n"
+            "• Finding products based on your preferences or budget\n"
+            "• Checking real-time price and stock availability\n"
+            "• Tracking your order status and shipping updates\n"
+            "• Providing personalized recommendations based on your style\n\n"
+            "How can I help you today?"
+        )
+        products = _fallback_products(limit=4)
+        return _result_with_enhancement("HELP", normalized_message, products, reply, user, history=history)
 
     intent = _detect_intent(normalized_message)
     budget_cap = _extract_budget_cap(normalized_message)
 
     if intent == "TOP_SELLING":
-        products = _apply_budget_filter(_top_selling_products(limit=6), budget_cap, limit=4)
-        reply = "These are currently top-selling products based on recent paid orders."
+        products = _apply_budget_filter(_top_selling_products(limit=8), budget_cap, limit=6)
+        reply = "I've curated a list of our most popular and highly-rated products for you."
         if budget_cap is not None:
-            reply += f" Filtered to budget under ৳{budget_cap}."
+            reply += f" I've specifically selected items within your budget of ৳{budget_cap}."
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "ORDER_HELP":
         if not _is_authenticated_user(user):
-            guest_reply = "Order tracking needs sign-in so I can securely access your account orders."
+            guest_reply = "To provide secure order details, I'll need you to sign in to your Nobonir account. This allows me to access your private shipping and tracking information safely."
             products = _fallback_products(limit=4)
             return _result_with_enhancement(intent, normalized_message, products, guest_reply, user, history=history)
 
@@ -511,18 +599,19 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
 
         if latest_order:
             reply = (
-                f"Your latest order #{latest_order.id} is currently {latest_order.status}. "
-                "I also included a few recommendations while you wait."
+                f"I've checked your account, and your most recent order #{latest_order.id} is currently in the '{latest_order.status}' stage. "
+                "I'll continue to monitor its progress for you. In the meantime, you might find these recommendations interesting."
             )
         else:
-            reply = "I could not find an order yet. I added some recommendations to help you get started."
+            reply = "I couldn't find any recent orders in your history yet, but I'm ready to help you find your first purchase! Here are some items that are popular right now."
 
         products = get_personalized_recommendations_for_user(user, limit=4)
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "PRICE_STOCK_LOOKUP":
-        products = _apply_budget_filter(semantic_product_search(normalized_message, limit=8), budget_cap, limit=6)
-        products = _filter_relevant_products(products, normalized_message, limit=4)
+        # Broaden search to give more context to LLM
+        products = _apply_budget_filter(semantic_product_search(normalized_message, limit=12), budget_cap, limit=8)
+        products = _filter_relevant_products(products, normalized_message, limit=5)
         reply = _build_price_stock_reply(products)
         if not products:
             products = (
@@ -533,31 +622,35 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "FIT_HELP":
-        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=6)
+        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=8)
         products = _filter_relevant_products(products, normalized_message, limit=4)
-        reply = "For better fit, compare size guides on product pages and check recent reviews before checkout."
+        reply = "Finding the perfect fit is key! I recommend checking our detailed size guides on the product pages. "
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent in {"BUDGET_SEARCH", "RECOMMENDATION"}:
-        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=8)
-        products = _filter_relevant_products(products, normalized_message, limit=4)
+        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=10)
+        products = _filter_relevant_products(products, normalized_message, limit=5)
         if products:
-            reply = "Here are the most relevant products based on your request."
+            reply = "Based on your specific interests, I've selected a few products that I think you'll really appreciate."
             if budget_cap is not None:
-                reply += f" I applied your budget limit under ৳{budget_cap}."
+                reply += f" I've ensured these options fit comfortably within your budget of ৳{budget_cap}."
         else:
             reply = (
-                "I couldn’t find relevant products for that query. "
-                "Please share a more specific item name or category so I can return accurate options."
+                "I couldn't find an exact match for that specific request in our current catalog, "
+                "but I'd love to help you find something similar. Could you share a bit more about what you're looking for?"
             )
+            products = _fallback_products(limit=4)
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
-    products: list[Product] = []
-    guest_hint = " Sign in to unlock personalized recommendations and order help." if not _is_authenticated_user(user) else ""
+    # General catch-all: proactive product search
+    products = _recommend_products_for_message(user, normalized_message)
+    guest_hint = " You might also consider signing in to receive more personalized suggestions." if not _is_authenticated_user(user) else ""
     reply = (
-        "I can help with product discovery, price/stock checks, and order guidance. "
-        f"Tell me exactly what you want to buy.{guest_hint}"
+        "I'm here to help you navigate our collection. "
+        f"Could you tell me a bit more about what you're looking for?{guest_hint}"
     )
+    if not products:
+        reply = "I'm sorry, I couldn't find anything matching your request in our catalog. Could you try a different search term?"
     return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
 
