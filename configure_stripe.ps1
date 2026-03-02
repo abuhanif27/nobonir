@@ -39,9 +39,13 @@ if (-not $StripeSecretKey -or -not $WebhookSecret) {
 }
 
 # 3) Update backend/.env safely
-$envPath = Join-Path $PSScriptRoot "backend\.env"
+$projectEnvPath = Join-Path $PSScriptRoot ".env"
+$backendEnvPath = Join-Path $PSScriptRoot "backend\.env"
+
+# Prefer project root .env (loaded by Django settings)
+$envPath = $projectEnvPath
 if (-not (Test-Path $envPath)) {
-  Write-Host "backend/.env not found, creating one..." -ForegroundColor Yellow
+  Write-Host ".env not found at project root, creating one..." -ForegroundColor Yellow
   @"
 DJANGO_SECRET_KEY=$(python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())")
 DEBUG=True
@@ -82,7 +86,13 @@ function Set-EnvLine([string]$Path, [string]$Key, [string]$Value) {
 Set-EnvLine -Path $envPath -Key "STRIPE_SECRET_KEY" -Value $StripeSecretKey
 Set-EnvLine -Path $envPath -Key "STRIPE_WEBHOOK_SECRET" -Value $WebhookSecret
 
-Write-Host "Updated backend/.env with Stripe keys." -ForegroundColor Green
+# Also mirror keys to backend/.env for compatibility if that file exists
+if (Test-Path $backendEnvPath) {
+  Set-EnvLine -Path $backendEnvPath -Key "STRIPE_SECRET_KEY" -Value $StripeSecretKey
+  Set-EnvLine -Path $backendEnvPath -Key "STRIPE_WEBHOOK_SECRET" -Value $WebhookSecret
+}
+
+Write-Host "Updated .env with Stripe keys." -ForegroundColor Green
 Write-Host "IMPORTANT: Do NOT commit backend/.env to version control." -ForegroundColor Yellow
 
 Write-Host "`nNext steps:" -ForegroundColor Cyan
@@ -91,4 +101,3 @@ Write-Host "2) Start frontend: cd frontend; npm run dev -- --host 127.0.0.1" -Fo
 Write-Host "3) Start Stripe webhook listener (new terminal):" -ForegroundColor Gray
 Write-Host "   stripe listen --forward-to http://127.0.0.1:8000/api/payments/stripe/webhook/" -ForegroundColor Gray
 Write-Host "4) In the app, proceed to Cart -> Checkout -> Card Payment" -ForegroundColor Gray
-

@@ -17,16 +17,20 @@ from analytics.services import track_analytics_event
 from .models import Payment
 
 
-ENV_PATH = Path(__file__).resolve().parents[1].parent / ".env"
+PROJECT_ENV_PATH = Path(__file__).resolve().parents[1].parent / ".env"
+BACKEND_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 
 def get_live_stripe_secret_key() -> str:
-    load_dotenv(ENV_PATH, override=True)
+    # Load both project root .env and backend/.env (if present)
+    load_dotenv(PROJECT_ENV_PATH, override=True)
+    load_dotenv(BACKEND_ENV_PATH, override=True)
     return (os.getenv("STRIPE_SECRET_KEY") or settings.STRIPE_SECRET_KEY or "").strip()
 
 
 def get_live_stripe_webhook_secret() -> str:
-    load_dotenv(ENV_PATH, override=True)
+    load_dotenv(PROJECT_ENV_PATH, override=True)
+    load_dotenv(BACKEND_ENV_PATH, override=True)
     return (os.getenv("STRIPE_WEBHOOK_SECRET") or settings.STRIPE_WEBHOOK_SECRET or "").strip()
 
 
