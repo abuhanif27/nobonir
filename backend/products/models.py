@@ -26,6 +26,7 @@ class Product(models.Model):
 	last_stock_movement_at = models.DateTimeField(null=True, blank=True, db_index=True)
 	is_active = models.BooleanField(default=True, db_index=True)
 	image_url = models.URLField(blank=True)
+	embedding = models.JSONField(null=True, blank=True, help_text="AI vector embedding for similarity search")
 	created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 	updated_at = models.DateTimeField(auto_now=True)
 

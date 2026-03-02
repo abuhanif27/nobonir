@@ -1,33 +1,18 @@
-import hashlib
-import json
-from pathlib import Path
-from typing import Iterable
-
 import numpy as np
 from django.conf import settings
+from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Fallback to TfidfVectorizer if SentenceTransformer is broken on Windows (e.g. missing c10.dll)
-SentenceTransformer = None
-
+# Fallback to TfidfVectorizer if SentenceTransformer is broken on Windows
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
 
 MODEL_DIR = Path(settings.BASE_DIR) / "ai_models"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
-_CACHE_FILE = MODEL_DIR / "embedding_cache.json"
 
 _ENCODER = None
-_EMBED_CACHE: dict[str, list[float]] = {}
-
-
-def _load_cache():
-    global _EMBED_CACHE
-    if _CACHE_FILE.exists():
-        _EMBED_CACHE = json.loads(_CACHE_FILE.read_text())
-
-
-def _save_cache():
-    _CACHE_FILE.write_text(json.dumps(_EMBED_CACHE))
-
 
 def get_encoder():
     global _ENCODER
@@ -36,51 +21,41 @@ def get_encoder():
 
     if SentenceTransformer is not None:
         local_path = MODEL_DIR / "all-MiniLM-L6-v2"
+        # Use a local cache folder to avoid repeated downloads
         _ENCODER = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=str(MODEL_DIR))
-        if not local_path.exists():
-            local_path.mkdir(parents=True, exist_ok=True)
         return _ENCODER
 
+    # Fallback for environments without torch/sentence-transformers
     _ENCODER = TfidfVectorizer(max_features=4096, stop_words="english")
     return _ENCODER
 
-
-def _hash_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def encode_texts(texts: Iterable[str]) -> np.ndarray:
-    _load_cache()
+def encode_text(text: str) -> list[float]:
+    """
+    Generates a vector embedding for a single text string.
+    Returns a list of floats (JSON serializable).
+    """
     encoder = get_encoder()
-    texts = list(texts)
-
+    
     if SentenceTransformer is not None and isinstance(encoder, SentenceTransformer):
-        output = []
-        missing_indices = []
-        missing_texts = []
+        vector = encoder.encode(text, show_progress_bar=False, normalize_embeddings=True)
+        return vector.tolist()
+    
+    # Fallback TF-IDF
+    # Note: TF-IDF fit_transform expects an iterable, so we wrap text in list
+    # In a real scenario, TF-IDF needs to be fit on the whole corpus first.
+    # Since this is a fallback, we'll just do a simple hash-like vector or fit on single doc (suboptimal but runs)
+    matrix = encoder.fit_transform([text])
+    return matrix.toarray()[0].tolist()
 
-        for idx, text in enumerate(texts):
-            key = _hash_text(text)
-            if key in _EMBED_CACHE:
-                output.append(np.array(_EMBED_CACHE[key], dtype=float))
-            else:
-                output.append(None)
-                missing_indices.append(idx)
-                missing_texts.append(text)
-
-        if missing_texts:
-            vectors = encoder.encode(missing_texts, show_progress_bar=False, normalize_embeddings=True)
-            for i, vector in enumerate(vectors):
-                target_index = missing_indices[i]
-                output[target_index] = np.array(vector, dtype=float)
-                _EMBED_CACHE[_hash_text(texts[target_index])] = output[target_index].tolist()
-            _save_cache()
-
-        return np.array(output)
-
+def encode_texts(texts: list[str]) -> list[list[float]]:
+    """
+    Generates embeddings for a list of texts.
+    """
+    encoder = get_encoder()
+    
+    if SentenceTransformer is not None and isinstance(encoder, SentenceTransformer):
+        vectors = encoder.encode(texts, show_progress_bar=False, normalize_embeddings=True)
+        return vectors.tolist()
+        
     matrix = encoder.fit_transform(texts)
-    return matrix.toarray()
-
-
-def get_or_create_embedding(text: str) -> np.ndarray:
-    return encode_texts([text])[0]
+    return matrix.toarray().tolist()

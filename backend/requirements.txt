@@ -8,8 +8,13 @@ django-filter==25.1
 # API Documentation
 drf-spectacular==0.28.0
 
-# Database
+# Database & Caching
 psycopg[binary]==3.2.9
+redis==5.0.1
+django-redis==5.4.0
+
+# Task Queue
+celery==5.3.6
 
 # AI/ML
 sentence-transformers==5.1.0
