@@ -257,6 +257,15 @@ export function CustomerDashboard() {
       .join("");
   };
 
+  const getCountryFlagUrl = (code: string) => {
+    const normalizedCode = code.trim().toLowerCase();
+    if (!/^[a-z]{2}$/.test(normalizedCode)) {
+      return "";
+    }
+
+    return `https://flagcdn.com/w40/${normalizedCode}.png`;
+  };
+
   useEffect(() => {
     if (user?.profile_picture) {
       setAvatarVersion(Date.now());
@@ -2722,11 +2731,20 @@ export function CustomerDashboard() {
             </p>
             <div className="mx-auto mb-3 inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-full border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-teal-300 shadow-lg shadow-teal-900/20 sm:w-auto sm:max-w-none sm:justify-start sm:px-5">
               <Globe2 className="h-4 w-4 shrink-0" />
-              <span className="text-sm leading-none sm:text-base">
-                {detectedCountryName
-                  ? countryCodeToFlag(detectedCountryCode)
-                  : "🌍"}
-              </span>
+              {detectedCountryName && getCountryFlagUrl(detectedCountryCode) ? (
+                <img
+                  src={getCountryFlagUrl(detectedCountryCode)}
+                  alt={`${detectedCountryCode.toUpperCase()} flag`}
+                  className="h-4 w-6 rounded-[2px] object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="text-sm leading-none sm:text-base">
+                  {detectedCountryName
+                    ? countryCodeToFlag(detectedCountryCode)
+                    : "🌍"}
+                </span>
+              )}
               <span className="text-center text-xs font-semibold leading-tight sm:text-left sm:text-sm">
                 {detectedCountryName && detectedContinent
                   ? `You're from ${detectedCountryName}, ${detectedContinent}`

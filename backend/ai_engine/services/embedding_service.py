@@ -20,10 +20,13 @@ def get_encoder():
         return _ENCODER
 
     if SentenceTransformer is not None:
-        local_path = MODEL_DIR / "all-MiniLM-L6-v2"
-        # Use a local cache folder to avoid repeated downloads
-        _ENCODER = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=str(MODEL_DIR))
-        return _ENCODER
+        try:
+            # Use a local cache folder to avoid repeated downloads
+            _ENCODER = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=str(MODEL_DIR))
+            return _ENCODER
+        except Exception:
+            # If local model cache is corrupt/unavailable, continue with lightweight fallback.
+            pass
 
     # Fallback for environments without torch/sentence-transformers
     _ENCODER = TfidfVectorizer(max_features=4096, stop_words="english")
