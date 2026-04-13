@@ -1,0 +1,57 @@
+# Unified project dependency versions (backend + frontend)
+# Workspace: nobonir
+# Note: Python packages are pinned from backend/requirements.txt.
+# Note: Frontend package versions are from frontend/package.json.
+
+[Backend - Python]
+Python>=3.12
+Django==6.0
+djangorestframework==3.15.2
+djangorestframework-simplejwt==5.5.1
+django-cors-headers==4.6.0
+django-filter==25.1
+drf-spectacular==0.28.0
+psycopg[binary]==3.2.9
+redis==5.0.1
+django-redis==5.4.0
+celery==5.3.6
+sentence-transformers==5.1.0
+scikit-learn==1.6.1
+numpy==2.2.3
+Pillow==11.0.0
+reportlab==4.2.5
+svglib==1.5.1
+python-dotenv==1.0.1
+requests==2.32.3
+chardet==5.2.0
+stripe==11.5.0
+
+[Frontend - npm dependencies]
+@tanstack/react-query@^5.90.21
+axios@1.13.5
+class-variance-authority@0.7.1
+clsx@2.1.1
+lucide-react@0.575.0
+react@18.2.0
+react-dom@18.2.0
+react-router@6.28.2
+react-router-dom@6.28.2
+tailwind-merge@3.5.0
+tailwindcss-animate@1.0.7
+zustand@4.5.5
+
+[Frontend - npm devDependencies]
+@playwright/test@^1.58.2
+@types/react@18.2.55
+@types/react-dom@18.2.19
+@typescript-eslint/eslint-plugin@6.21.0
+@typescript-eslint/parser@6.21.0
+@vitejs/plugin-react@4.2.1
+autoprefixer@10.4.24
+eslint@8.56.0
+eslint-plugin-react-hooks@4.6.0
+eslint-plugin-react-refresh@0.4.5
+postcss@8.5.6
+tailwindcss@3.4.17
+typescript@5.2.2
+vite@5.1.0
