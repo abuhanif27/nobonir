@@ -244,10 +244,11 @@ def _is_small_talk(normalized_message: str) -> bool:
     # Direct match in keywords
     if compact in SMALL_TALK_KEYWORDS:
         return True
-    
-    # Check if message contains common greeting patterns or identity questions
-    msg_clean = re.sub(r"[^a-z\s]", "", compact).strip()
-    if any(k in msg_clean for k in SMALL_TALK_KEYWORDS):
+
+    # Phrase-based matching avoids false positives such as "shirt" matching "hi".
+    msg_clean = re.sub(r"[^a-z\s]", " ", compact)
+    msg_clean = f" {' '.join(msg_clean.split())} "
+    if any(f" {k} " in msg_clean for k in SMALL_TALK_KEYWORDS):
         return True
         
     # If it's just a greeting and nothing else
@@ -579,7 +580,7 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
 
     if intent == "TOP_SELLING":
         products = _apply_budget_filter(_top_selling_products(limit=8), budget_cap, limit=6)
-        reply = "I've curated a list of our most popular and highly-rated products for you."
+        reply = "I've curated a list of our top-selling and highly-rated products for you."
         if budget_cap is not None:
             reply += f" I've specifically selected items within your budget of ৳{budget_cap}."
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)

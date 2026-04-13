@@ -146,7 +146,10 @@ export function NotificationsPage() {
           ...combinedNotifications,
           ...normalizedAssistantInsights,
         ];
-      } catch {}
+      } catch {
+        // Optional assistant insights should not block notifications.
+        void 0;
+      }
 
       const updated = syncStatusNotifications(user.id, combinedNotifications);
       setItems(updated);

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
 import api from "@/lib/api";
 
 export interface Product {
@@ -44,8 +45,8 @@ const fetchProduct = async (id: string): Promise<Product> => {
   try {
     const { data } = await api.get<Product>(`/products/${id}/`);
     return data;
-  } catch (error: any) {
-    if (error.response?.status === 404) {
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
         // Try alternate path if exists (based on original code)
         const { data } = await api.get<Product>(`/products/products/${id}/`);
         return data;
@@ -59,8 +60,8 @@ export const useProduct = (id: string | undefined) => {
     queryKey: ["product", id],
     queryFn: () => fetchProduct(id!),
     enabled: !!id,
-    retry: (failureCount, error: any) => {
-        if (error.response?.status === 404) return false;
+    retry: (failureCount, error: unknown) => {
+      if (axios.isAxiosError(error) && error.response?.status === 404) return false;
         return failureCount < 2;
     }
   });

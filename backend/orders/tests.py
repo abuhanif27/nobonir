@@ -2,7 +2,7 @@ from copy import deepcopy
 
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -130,6 +130,7 @@ class OrderServiceTests(TestCase):
 		self.assertEqual(reservation.status, StockReservation.Status.RELEASED)
 
 
+@override_settings(INVOICE_USD_TO_RATES={"USD": "1", "BDT": "121.00", "JPY": "150.00"})
 class OrderInvoiceAPITests(APITestCase):
 	def setUp(self):
 		self.user = User.objects.create_user(

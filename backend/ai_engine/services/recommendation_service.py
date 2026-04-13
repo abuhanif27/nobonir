@@ -84,8 +84,11 @@ def infer_profile_segment(user, preference: UserPreference):
     if not profile_text:
         return "neutral", 0.0
 
-    vectors = encode_texts(
-        [profile_text, SEGMENT_PROTOTYPES["male"], SEGMENT_PROTOTYPES["female"]]
+    vectors = np.asarray(
+        encode_texts(
+            [profile_text, SEGMENT_PROTOTYPES["male"], SEGMENT_PROTOTYPES["female"]]
+        ),
+        dtype=float,
     )
 
     profile_vector = vectors[0].reshape(1, -1)
@@ -126,7 +129,7 @@ def get_recommendations_for_user(user, limit: int = 8):
         return []
 
     product_texts = [_product_text(p) for p in products]
-    product_vectors = encode_texts(product_texts)
+    product_vectors = np.asarray(encode_texts(product_texts), dtype=float)
 
     history_product_ids = list(
         OrderItem.objects.filter(order__user=user).values_list("product_id", flat=True)
@@ -218,7 +221,7 @@ def get_personalized_recommendations_for_user(user, limit: int = 8):
         preference = train_user_preference_model(user)
 
     product_texts = [_product_text(p) for p in products]
-    product_vectors = encode_texts(product_texts)
+    product_vectors = np.asarray(encode_texts(product_texts), dtype=float)
 
     history_product_ids = list(
         OrderItem.objects.filter(order__user=user).values_list("product_id", flat=True)

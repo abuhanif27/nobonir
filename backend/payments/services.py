@@ -132,17 +132,21 @@ def create_stripe_checkout_session(order: Order, success_url: str, cancel_url: s
         }
     ]
 
-    return stripe.checkout.Session.create(
-        mode="payment",
-        payment_method_types=["card"],
-        line_items=line_items,
-        success_url=success_url,
-        cancel_url=cancel_url,
-        metadata={
-            "order_id": str(order.id),
-            "user_id": str(order.user_id),
-        },
-    )
+    try:
+        return stripe.checkout.Session.create(
+            mode="payment",
+            payment_method_types=["card"],
+            line_items=line_items,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "order_id": str(order.id),
+                "user_id": str(order.user_id),
+            },
+        )
+    except stripe.error.StripeError as exc:
+        error_message = str(getattr(exc, "user_message", "") or str(exc)).strip()
+        raise ValueError(error_message or "Unable to start card payment right now") from exc
 
 
 @transaction.atomic

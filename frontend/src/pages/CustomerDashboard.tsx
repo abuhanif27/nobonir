@@ -1103,39 +1103,42 @@ export function CustomerDashboard() {
     [availabilityFilter, loadMerchandising, normalizeProducts],
   );
 
-  const loadTopSellingProducts = async (page: number = 1) => {
-    setLoading(true);
-    setIsTopSellingView(true);
-    setSearch("");
-    setProductsError(null);
+  const loadTopSellingProducts = useCallback(
+    async (page: number = 1) => {
+      setLoading(true);
+      setIsTopSellingView(true);
+      setSearch("");
+      setProductsError(null);
 
-    try {
-      const response = await api.get("/products/top-selling/", {
-        params: { page, page_size: PRODUCTS_PAGE_SIZE },
-      });
-      const isPaginated = Array.isArray(response.data?.results);
-      const rows = isPaginated ? response.data.results : response.data;
-      const topSellingProducts = normalizeProducts(rows || []);
-      setProducts(topSellingProducts);
-      setProductPage(page);
-      setProductTotalCount(
-        isPaginated
-          ? Number(response.data?.count || topSellingProducts.length)
-          : topSellingProducts.length,
-      );
-      setHasNextPage(Boolean(isPaginated && response.data?.next));
-      setHasPrevPage(Boolean(isPaginated && response.data?.previous));
-    } catch (error) {
-      console.error("Failed to load top selling products:", error);
-      setProducts([]);
-      setProductTotalCount(0);
-      setHasNextPage(false);
-      setHasPrevPage(false);
-      setProductsError("Couldn't load top selling products right now.");
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        const response = await api.get("/products/top-selling/", {
+          params: { page, page_size: PRODUCTS_PAGE_SIZE },
+        });
+        const isPaginated = Array.isArray(response.data?.results);
+        const rows = isPaginated ? response.data.results : response.data;
+        const topSellingProducts = normalizeProducts(rows || []);
+        setProducts(topSellingProducts);
+        setProductPage(page);
+        setProductTotalCount(
+          isPaginated
+            ? Number(response.data?.count || topSellingProducts.length)
+            : topSellingProducts.length,
+        );
+        setHasNextPage(Boolean(isPaginated && response.data?.next));
+        setHasPrevPage(Boolean(isPaginated && response.data?.previous));
+      } catch (error) {
+        console.error("Failed to load top selling products:", error);
+        setProducts([]);
+        setProductTotalCount(0);
+        setHasNextPage(false);
+        setHasPrevPage(false);
+        setProductsError("Couldn't load top selling products right now.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [normalizeProducts],
+  );
 
   const loadSearchedProducts = useCallback(
     async (query: string, page: number = 1) => {
@@ -1209,7 +1212,7 @@ export function CustomerDashboard() {
       setAvailabilityFilter(targetAvailability);
       await loadProducts(1, targetAvailability);
     },
-    [loadProducts],
+    [loadProducts, loadTopSellingProducts],
   );
 
   const handleNotificationItemClick = useCallback(
@@ -1232,7 +1235,7 @@ export function CustomerDashboard() {
 
       setIsNotificationMenuOpen(false);
     },
-    [handleMerchandisingSectionClick, user?.id],
+    [handleMerchandisingSectionClick, navigate, user?.id],
   );
 
   useEffect(() => {
@@ -1268,7 +1271,7 @@ export function CustomerDashboard() {
 
       void loadProducts(page);
     },
-    [isTopSellingView, loadProducts, loadSearchedProducts, search],
+    [isTopSellingView, loadProducts, loadSearchedProducts, loadTopSellingProducts, search],
   );
 
   const jumpToPage = useCallback(() => {
@@ -2179,7 +2182,17 @@ export function CustomerDashboard() {
                   {suggestionWindowProducts.map((product, cardIndex) => (
                     <Card
                       key={`pref-${product.id}-${cardIndex}`}
-                      className={`h-full overflow-hidden border shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg ${
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View product ${product.name}`}
+                      onClick={() => viewProduct(product)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          viewProduct(product);
+                        }
+                      }}
+                      className={`h-full overflow-hidden border shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg cursor-pointer ${
                         cardIndex === 1 ? "ring-1 ring-teal-200" : ""
                       }`}
                     >
@@ -2204,13 +2217,19 @@ export function CustomerDashboard() {
                         <p className="mt-1 text-sm font-bold text-teal-800 dark:text-teal-300">
                           {formatPrice(product.price)}
                         </p>
-                        <Button
-                          onClick={(e) => addToCart(product, e.currentTarget)}
-                          size="sm"
-                          className="mt-auto w-full"
-                        >
-                          Add to Cart
-                        </Button>
+                        <div className="mt-auto pt-2">
+                          <Button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              addToCart(product, event.currentTarget);
+                            }}
+                            size="sm"
+                            className="w-full"
+                          >
+                            Add to Cart
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

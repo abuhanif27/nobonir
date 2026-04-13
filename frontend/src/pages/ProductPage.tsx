@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
@@ -6,6 +6,7 @@ import {
   getErrorData,
   getErrorFieldMessages,
   getErrorMessage,
+  getErrorStatus,
 } from "@/lib/apiError";
 import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
@@ -32,7 +33,6 @@ import {
   useProductReviews,
   useMyReviews,
   useReviewEligibility,
-  Product,
   ProductReview,
 } from "@/hooks/useProducts";
 import { useQueryClient } from "@tanstack/react-query";
@@ -93,8 +93,7 @@ export function ProductPage() {
   const { 
     data: reviews = [], 
     isLoading: reviewsLoading, 
-    isError: reviewsIsError,
-    error: reviewsErrorObj
+    isError: reviewsIsError
   } = useProductReviews(id);
   
   const { 
@@ -167,6 +166,44 @@ export function ProductPage() {
     savingReview ||
     (!hasReviewedProduct && !canReviewProduct) ||
     (hasReviewedProduct && !isEditingReview);
+
+  const handleRatingKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>, value: number) => {
+      if (reviewFormLocked) {
+        return;
+      }
+
+      if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setReviewRating((prev) => Math.min(5, prev + 1));
+        return;
+      }
+
+      if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+        event.preventDefault();
+        setReviewRating((prev) => Math.max(1, prev - 1));
+        return;
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        setReviewRating(1);
+        return;
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        setReviewRating(5);
+        return;
+      }
+
+      if (event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        setReviewRating(value);
+      }
+    },
+    [reviewFormLocked],
+  );
 
   const galleryImages = useMemo(() => {
     if (!product) {
@@ -441,7 +478,7 @@ export function ProductPage() {
     // Determine if it's a 404 or other error
     // In useQuery, if retry returns false for 404, we can assume 404
     // But error object might have status
-    const isNotFound = (productErrorObj as any)?.response?.status === 404;
+    const isNotFound = getErrorStatus(productErrorObj) === 404;
     
     return (
       <div className="min-h-screen bg-background">
@@ -515,12 +552,43 @@ export function ProductPage() {
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-5" role="radiogroup" aria-label="Product image gallery">
                 {galleryImages.map((image, index) => {
                   const isActive = image === productImage;
+                  const moveSelection = (nextIndex: number) => {
+                    const boundedIndex = (nextIndex + galleryImages.length) % galleryImages.length;
+                    setSelectedImage(galleryImages[boundedIndex]);
+                  };
+
+                  const handleGalleryKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+                    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                      event.preventDefault();
+                      moveSelection(index + 1);
+                      return;
+                    }
+
+                    if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                      event.preventDefault();
+                      moveSelection(index - 1);
+                      return;
+                    }
+
+                    if (event.key === "Home") {
+                      event.preventDefault();
+                      moveSelection(0);
+                      return;
+                    }
+
+                    if (event.key === "End") {
+                      event.preventDefault();
+                      moveSelection(galleryImages.length - 1);
+                    }
+                  };
+
                   return (
                     <button
                       key={`gallery-image-${index}`}
                       type="button"
                       className={`overflow-hidden rounded-md border bg-card p-1 transition ${isActive ? "border-primary ring-2 ring-primary/30" : "border-border/60"}`}
                       onClick={() => setSelectedImage(image)}
+                      onKeyDown={handleGalleryKeyDown}
                       role="radio"
                       aria-checked={isActive}
                       tabIndex={isActive ? 0 : -1}
@@ -596,6 +664,7 @@ export function ProductPage() {
                     className="rounded-r-none"
                     onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
                     disabled={quantity <= 1}
+                    aria-label="Decrease quantity"
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -607,6 +676,7 @@ export function ProductPage() {
                     className="rounded-l-none"
                     onClick={() => setQuantity((prev) => Math.min(product.available_stock ?? product.stock ?? 1, prev + 1))}
                     disabled={quantity >= (product.available_stock ?? product.stock) || (product.available_stock ?? product.stock) === 0}
+                    aria-label="Increase quantity"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -729,7 +799,7 @@ export function ProductPage() {
 
               {checkingReviewEligibility && isAuthenticated && <FlowStateBanner className="mt-3" tone="info" message="Checking review eligibility..." />}
               {isAuthenticated && myReviewsLoading && <FlowStateBanner className="mt-3" tone="info" message="Loading your review data..." />}
-              {isAuthenticated && myReviewsIsError && <FlowStateBanner className="mt-3" tone="error" message={myReviewsErrorObj ? (myReviewsErrorObj as any).message : "Error"} actionLabel="Try Again" onAction={() => queryClient.invalidateQueries({ queryKey: ["myReviews"] })} />}
+              {isAuthenticated && myReviewsIsError && <FlowStateBanner className="mt-3" tone="error" message={getErrorMessage(myReviewsErrorObj, "Error") } actionLabel="Try Again" onAction={() => queryClient.invalidateQueries({ queryKey: ["myReviews"] })} />}
 
               <div className="mt-6 space-y-4">
                 <div>
@@ -749,6 +819,7 @@ export function ProductPage() {
                             onMouseEnter={() => setReviewHoverRating(value)}
                             onMouseLeave={() => setReviewHoverRating(0)}
                             onClick={() => setReviewRating(value)}
+                            onKeyDown={(event) => handleRatingKeyDown(event, value)}
                             disabled={reviewFormLocked}
                             role="radio"
                             aria-checked={reviewRating === value}
