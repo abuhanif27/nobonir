@@ -2217,7 +2217,20 @@ export function CustomerDashboard() {
                         <p className="mt-1 text-sm font-bold text-teal-800 dark:text-teal-300">
                           {formatPrice(product.price)}
                         </p>
-                        <div className="mt-auto pt-2">
+                        <div className="mt-auto grid gap-2 pt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              viewProduct(product);
+                            }}
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Eye className="mr-1.5 h-3.5 w-3.5" />
+                            View Product
+                          </Button>
                           <Button
                             type="button"
                             onClick={(event) => {
