@@ -6,6 +6,7 @@ import {
   getErrorData,
   getErrorFieldMessages,
   getErrorMessage,
+  getErrorStatus,
 } from "@/lib/apiError";
 import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
@@ -82,6 +83,9 @@ export function CartPage() {
   );
   const [couponLoading, setCouponLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [pendingOrderIdForPayment, setPendingOrderIdForPayment] = useState<
+    number | null
+  >(null);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
 
@@ -319,24 +323,36 @@ export function CartPage() {
     setCheckoutLoading(true);
 
     try {
-      await syncLocalCartToServer();
+      let orderId = pendingOrderIdForPayment;
 
-      const orderResponse = await api.post("/orders/checkout/", {
-        shipping_address: shippingAddress.trim(),
-        billing_address: resolvedBillingAddress,
-        payment_method: paymentMethod,
-        coupon_code: couponPreview?.code || "",
-      });
-
-      const orderId = orderResponse.data?.id;
+      // If there is no pending order from a previous failed card attempt,
+      // create a fresh order from cart.
       if (!orderId) {
-        throw new Error("Order creation failed");
+        await syncLocalCartToServer();
+
+        const orderResponse = await api.post("/orders/checkout/", {
+          shipping_address: shippingAddress.trim(),
+          billing_address: resolvedBillingAddress,
+          payment_method: paymentMethod,
+          coupon_code: couponPreview?.code || "",
+        });
+
+        orderId = orderResponse.data?.id;
+        if (!orderId) {
+          throw new Error("Order creation failed");
+        }
+
+        if (paymentMethod === "CARD") {
+          setPendingOrderIdForPayment(orderId);
+        }
       }
 
       if (paymentMethod === "COD") {
         await api.post("/payments/cod/confirm/", {
           order_id: orderId,
         });
+
+        setPendingOrderIdForPayment(null);
 
         sessionStorage.setItem(
           "nobonir_flash_notice",
@@ -369,10 +385,16 @@ export function CartPage() {
       setBillingAddress("");
       setCouponCode("");
       setCouponPreview(null);
+      setPendingOrderIdForPayment(null);
 
       window.location.href = checkoutUrl;
     } catch (error: unknown) {
-      showError(getErrorMessage(error, "Checkout failed. Please try again."));
+      const fallbackMessage =
+        getErrorStatus(error) === 0
+          ? "Network error during checkout. Please check your connection and try again."
+          : (error as { message?: string })?.message ||
+            "Checkout failed. Please try again.";
+      showError(getErrorMessage(error, fallbackMessage));
     } finally {
       setCheckoutLoading(false);
     }

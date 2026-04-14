@@ -44,6 +44,24 @@ class PaymentServiceTests(TestCase):
 
 	@patch("payments.services.get_live_stripe_secret_key", return_value="sk_test_dummy")
 	@patch("payments.services.stripe.checkout.Session.create")
+	def test_create_stripe_checkout_session_prefills_customer_email(
+		self,
+		mock_create_session,
+		_mock_secret_key,
+	):
+		mock_create_session.return_value.url = "https://checkout.stripe.com/test"
+
+		create_stripe_checkout_session(
+			order=self.order,
+			success_url="http://localhost:5173/orders?payment=success",
+			cancel_url="http://localhost:5173/cart?payment=cancelled",
+		)
+
+		mock_create_session.assert_called_once()
+		self.assertEqual(mock_create_session.call_args.kwargs["customer_email"], "c2@example.com")
+
+	@patch("payments.services.get_live_stripe_secret_key", return_value="sk_test_dummy")
+	@patch("payments.services.stripe.checkout.Session.create")
 	def test_create_stripe_checkout_session_converts_stripe_errors_to_value_error(
 		self,
 		mock_create_session,

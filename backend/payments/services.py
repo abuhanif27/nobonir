@@ -118,6 +118,8 @@ def create_stripe_checkout_session(order: Order, success_url: str, cancel_url: s
     if amount_cents <= 0:
         raise ValueError("Order total must be greater than zero")
 
+    customer_email = (getattr(order.user, "email", "") or "").strip().lower()
+
     line_items = [
         {
             "price_data": {
@@ -139,6 +141,7 @@ def create_stripe_checkout_session(order: Order, success_url: str, cancel_url: s
             line_items=line_items,
             success_url=success_url,
             cancel_url=cancel_url,
+            customer_email=customer_email or None,
             metadata={
                 "order_id": str(order.id),
                 "user_id": str(order.user_id),
