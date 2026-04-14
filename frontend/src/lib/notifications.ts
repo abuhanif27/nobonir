@@ -159,11 +159,16 @@ export const syncStatusNotifications = (
 ): UserNotification[] => {
   const existing = getUserNotifications(userId);
   const bySourceKey = new Map(existing.map((item) => [item.sourceKey, item]));
+  const dismissed = new Set(getDismissedSourceKeys(userId));
   const nowIso = new Date().toISOString();
 
   const merged = [...existing];
   for (const item of incoming) {
     const sourceKey = buildSourceKey(item);
+    if (dismissed.has(sourceKey)) {
+      continue;
+    }
+
     const existingItem = bySourceKey.get(sourceKey);
 
     if (existingItem) {
