@@ -1,8 +1,10 @@
 import numpy as np
 from django.utils import timezone
-from django.db.models import Avg
+from django.core.cache import cache
+from django.db.models import Avg, Count, Max
 from sklearn.metrics.pairwise import cosine_similarity
 
+from common.performance import capture_performance
 from cart.models import CartItem
 from cart.models import WishlistItem
 from orders.models import OrderItem
@@ -212,44 +214,97 @@ def train_user_preference_model(user):
 
 
 def get_personalized_recommendations_for_user(user, limit: int = 8):
-    products = list(Product.objects.filter(is_active=True, stock__gt=0).select_related("category"))
-    if not products:
-        return []
+    with capture_performance("personalized_recommendations", extra={"user_id": user.id, "limit": int(limit or 8)}):
+        products = list(
+            Product.objects.filter(is_active=True, stock__gt=0)
+            .select_related("category")
+            .prefetch_related("media", "variants__media")
+        )
+        if not products:
+            return []
 
-    preference, _ = UserPreference.objects.get_or_create(user=user)
-    if not preference.trained_category_weights:
-        preference = train_user_preference_model(user)
+        cache_key = _recommendation_cache_key(user.id, limit)
+        cached_ids = cache.get(cache_key)
+        if cached_ids:
+            product_map = {product.id: product for product in products}
+            cached_products = [product_map[pid] for pid in cached_ids if pid in product_map]
+            if cached_products:
+                return cached_products
 
-    product_texts = [_product_text(p) for p in products]
-    product_vectors = np.asarray(encode_texts(product_texts), dtype=float)
+        preference, _ = UserPreference.objects.get_or_create(user=user)
+        if not preference.trained_category_weights:
+            preference = train_user_preference_model(user)
 
-    history_product_ids = list(
-        OrderItem.objects.filter(order__user=user).values_list("product_id", flat=True)
+        product_texts = [_product_text(p) for p in products]
+        product_vectors = np.asarray(encode_texts(product_texts), dtype=float)
+
+        history_product_ids = list(
+            OrderItem.objects.filter(order__user=user).values_list("product_id", flat=True)
+        )
+        history_product_ids += list(WishlistItem.objects.filter(user=user).values_list("product_id", flat=True))
+
+        id_to_index = {p.id: i for i, p in enumerate(products)}
+        history_indices = [id_to_index[pid] for pid in history_product_ids if pid in id_to_index]
+
+        if history_indices:
+            user_profile = np.mean(product_vectors[history_indices], axis=0).reshape(1, -1)
+            semantic_scores = cosine_similarity(user_profile, product_vectors).flatten()
+        else:
+            semantic_scores = np.zeros(len(products))
+
+        scored = []
+        for index, product in enumerate(products):
+            if product.id in history_product_ids:
+                continue
+            category_score = float(preference.trained_category_weights.get(str(product.category_id), 0.0))
+            score = (semantic_scores[index] * 3.0) + category_score
+            scored.append((score, product))
+
+        scored.sort(key=lambda row: row[0], reverse=True)
+        recommended = [product for _, product in scored[:limit]]
+
+        if recommended:
+            cache.set(cache_key, [product.id for product in recommended], timeout=180)
+            return recommended
+
+        fallback = Product.objects.filter(is_active=True, stock__gt=0).annotate(avg=Avg("reviews__rating")).order_by("-avg")
+        fallback_list = list(fallback[:limit])
+        cache.set(cache_key, [product.id for product in fallback_list], timeout=180)
+        return fallback_list
+
+
+def _recommendation_cache_key(user_id: int, limit: int) -> str:
+    safe_limit = max(1, min(int(limit or 8), 20))
+    version = _recommendation_cache_version(user_id)
+    return f"reco:v2:user:{user_id}:limit:{safe_limit}:v:{version}"
+
+
+def _recommendation_cache_version(user_id: int) -> str:
+    order_info = OrderItem.objects.filter(order__user_id=user_id).aggregate(
+        max_created=Max("order__created_at"),
+        row_count=Count("id"),
     )
-    history_product_ids += list(WishlistItem.objects.filter(user=user).values_list("product_id", flat=True))
+    wishlist_info = WishlistItem.objects.filter(user_id=user_id).aggregate(
+        max_created=Max("created_at"),
+        row_count=Count("id"),
+    )
+    cart_info = CartItem.objects.filter(cart__user_id=user_id).aggregate(
+        max_updated=Max("updated_at"),
+        row_count=Count("id"),
+    )
 
-    id_to_index = {p.id: i for i, p in enumerate(products)}
-    history_indices = [id_to_index[pid] for pid in history_product_ids if pid in id_to_index]
+    parts = [
+        _fmt_timestamp(order_info.get("max_created")),
+        str(order_info.get("row_count") or 0),
+        _fmt_timestamp(wishlist_info.get("max_created")),
+        str(wishlist_info.get("row_count") or 0),
+        _fmt_timestamp(cart_info.get("max_updated")),
+        str(cart_info.get("row_count") or 0),
+    ]
+    return "|".join(parts)
 
-    if history_indices:
-        user_profile = np.mean(product_vectors[history_indices], axis=0).reshape(1, -1)
-        semantic_scores = cosine_similarity(user_profile, product_vectors).flatten()
-    else:
-        semantic_scores = np.zeros(len(products))
 
-    scored = []
-    for index, product in enumerate(products):
-        if product.id in history_product_ids:
-            continue
-        category_score = float(preference.trained_category_weights.get(str(product.category_id), 0.0))
-        score = (semantic_scores[index] * 3.0) + category_score
-        scored.append((score, product))
-
-    scored.sort(key=lambda row: row[0], reverse=True)
-    recommended = [product for _, product in scored[:limit]]
-
-    if recommended:
-        return recommended
-
-    fallback = Product.objects.filter(is_active=True, stock__gt=0).annotate(avg=Avg("reviews__rating")).order_by("-avg")
-    return list(fallback[:limit])
+def _fmt_timestamp(value):
+    if not value:
+        return "0"
+    return str(int(value.timestamp()))

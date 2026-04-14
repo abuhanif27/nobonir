@@ -1,4 +1,8 @@
 from sklearn.metrics.pairwise import cosine_similarity
+from django.core.cache import cache
+from hashlib import md5
+
+from common.performance import capture_performance
 
 from products.models import Product
 
@@ -10,9 +14,30 @@ def semantic_product_search(query: str, limit: int = 12):
     if not normalized_query:
         return []
 
-    products = list(Product.objects.filter(is_active=True).select_related("category"))
-    if not products:
-        return []
+    safe_limit = max(1, min(int(limit or 12), 50))
+    query_digest = md5(normalized_query.lower().encode("utf-8")).hexdigest()
+    cache_key = f"semantic_search:v1:{query_digest}:{safe_limit}"
+    cached_ids = cache.get(cache_key)
+    if cached_ids:
+        id_to_product = {
+            product.id: product
+            for product in Product.objects.filter(id__in=cached_ids, is_active=True)
+            .select_related("category")
+            .prefetch_related("media", "variants__media")
+        }
+        ordered = [id_to_product[pid] for pid in cached_ids if pid in id_to_product]
+        if ordered:
+            return ordered
+
+    with capture_performance("semantic_product_search", extra={"query": normalized_query, "limit": safe_limit}):
+        products = list(
+            Product.objects.filter(is_active=True, stock__gt=0)
+            .select_related("category")
+            .prefetch_related("media", "variants__media")
+            .only("id", "name", "description", "stock", "price", "category__name", "updated_at")
+        )
+        if not products:
+            return []
 
     corpus = [f"{item.name} {item.category.name} {item.description}" for item in products]
     vectors = encode_texts(corpus + [normalized_query])
@@ -65,5 +90,6 @@ def semantic_product_search(query: str, limit: int = 12):
         idx for idx in ranked_indices if combined_scores[idx] >= min_relevance
     ]
 
-    safe_limit = max(1, min(int(limit or 12), 50))
-    return [products[index] for index in filtered_indices[:safe_limit]]
+    result = [products[index] for index in filtered_indices[:safe_limit]]
+    cache.set(cache_key, [item.id for item in result], timeout=120)
+    return result

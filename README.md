@@ -6,6 +6,7 @@ A full-stack AI-powered e-commerce platform built with Django 6.0, React 18, and
 
 ![Frontend Keyboard E2E](https://github.com/OWNER/REPO/actions/workflows/frontend-keyboard-e2e.yml/badge.svg)
 ![Frontend Build](https://github.com/OWNER/REPO/actions/workflows/frontend-build.yml/badge.svg)
+![Full Quality Gate](https://github.com/OWNER/REPO/actions/workflows/full-quality-gate.yml/badge.svg)
 
 Replace `OWNER/REPO` with your GitHub repository path to activate the badge.
 
@@ -15,6 +16,8 @@ Set these as required status checks for your default branch in GitHub:
 
 - `Frontend Build / build`
 - `Frontend Keyboard E2E / keyboard-smoke`
+- `Full Quality Gate / backend-tests`
+- `Full Quality Gate / frontend-quality`
 
 Suggested branch protection settings:
 
@@ -34,6 +37,8 @@ Quick setup in GitHub UI:
 7. In the status check list, select:
    - `Frontend Build / build`
    - `Frontend Keyboard E2E / keyboard-smoke`
+   - `Full Quality Gate / backend-tests`
+   - `Full Quality Gate / frontend-quality`
 8. (Recommended) Enable **Require branches to be up to date before merging**.
 9. Click **Create** or **Save changes**.
 
@@ -216,6 +221,21 @@ This makes it clear whether reply text came from Pollinations, HuggingFace, or l
 ```bash
 cd backend
 python manage.py test
+```
+
+Run full frontend quality gate locally:
+
+```bash
+cd frontend
+npm run build:ci
+npm run test:e2e
+```
+
+Generate API performance baseline report:
+
+```bash
+cd backend
+python manage.py profile_api
 ```
 
 ## Backend Hardening

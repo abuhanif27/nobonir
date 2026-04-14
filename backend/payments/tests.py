@@ -60,3 +60,39 @@ class PaymentServiceTests(TestCase):
 				success_url="http://localhost:5173/orders?payment=success",
 				cancel_url="http://localhost:5173/cart?payment=cancelled",
 			)
+
+	@patch("payments.services.get_live_stripe_secret_key", return_value="sk_test_dummy")
+	@patch("payments.services.stripe.checkout.Session.create")
+	def test_create_stripe_checkout_session_handles_api_connection_error(
+		self,
+		mock_create_session,
+		_mock_secret_key,
+	):
+		mock_create_session.side_effect = stripe.error.APIConnectionError(
+			message="Stripe API unreachable",
+		)
+
+		with self.assertRaisesMessage(ValueError, "Stripe API unreachable"):
+			create_stripe_checkout_session(
+				order=self.order,
+				success_url="http://localhost:5173/orders?payment=success",
+				cancel_url="http://localhost:5173/cart?payment=cancelled",
+			)
+
+	@patch("payments.services.get_live_stripe_secret_key", return_value="sk_test_dummy")
+	@patch("payments.services.stripe.checkout.Session.create")
+	def test_create_stripe_checkout_session_handles_authentication_error(
+		self,
+		mock_create_session,
+		_mock_secret_key,
+	):
+		mock_create_session.side_effect = stripe.error.AuthenticationError(
+			message="Invalid API key",
+		)
+
+		with self.assertRaisesMessage(ValueError, "Invalid API key"):
+			create_stripe_checkout_session(
+				order=self.order,
+				success_url="http://localhost:5173/orders?payment=success",
+				cancel_url="http://localhost:5173/cart?payment=cancelled",
+			)

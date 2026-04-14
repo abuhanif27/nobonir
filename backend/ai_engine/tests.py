@@ -155,6 +155,42 @@ class AIAssistantEndpointTests(TestCase):
 		self.assertIn("session_key", body)
 		self.assertIn("suggested_products", body)
 
+	def test_guest_order_help_requires_sign_in(self):
+		guest_client = APIClient()
+		response = guest_client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "where is my order"},
+			format="json",
+		)
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "ORDER_HELP")
+		self.assertIn("sign in", body["reply"].lower())
+
+	def test_guest_price_stock_obfuscates_exact_stock(self):
+		guest_client = APIClient()
+		response = guest_client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "stock and price for cotton shirt"},
+			format="json",
+		)
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "PRICE_STOCK_LOOKUP")
+		for item in body.get("suggested_products", []):
+			self.assertLessEqual(int(item.get("available_stock") or 0), 1)
+
+	def test_budget_intent_returns_budget_search_or_recommendation(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "recommend shirt under 30"},
+			format="json",
+		)
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertIn(body["intent"], {"BUDGET_SEARCH", "RECOMMENDATION"})
+		self.assertIsInstance(body["suggested_products"], list)
+
 	def test_history_endpoint_returns_persisted_messages_for_user(self):
 		chat_response = self.client.post(
 			"/api/ai/assistant/chat/",

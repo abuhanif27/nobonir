@@ -13,6 +13,7 @@ import api from "@/lib/api";
 import {
   clearReadNotifications,
   getUserNotifications,
+  onNotificationsChanged,
   markAllNotificationsAsRead,
   markNotificationAsRead,
   markNotificationAsUnread,
@@ -161,6 +162,20 @@ export function NotificationsPage() {
   useEffect(() => {
     void syncOrderStatusNotifications();
   }, [syncOrderStatusNotifications]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    return onNotificationsChanged((changedUserId) => {
+      if (changedUserId !== user.id) {
+        return;
+      }
+
+      setItems(getUserNotifications(user.id));
+    });
+  }, [user?.id]);
 
   const filteredItems = useMemo(() => {
     if (filter === "UNREAD") {

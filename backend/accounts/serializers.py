@@ -16,6 +16,21 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["first_name", "last_name", "profile_picture", "phone_number", "address", "date_of_birth"]
+
+    def validate_profile_picture(self, value):
+        if not value:
+            return value
+
+        allowed_types = {"image/jpeg", "image/png", "image/webp"}
+        content_type = (getattr(value, "content_type", "") or "").lower()
+        if content_type and content_type not in allowed_types:
+            raise serializers.ValidationError("Unsupported image type. Use JPG, PNG, or WEBP.")
+
+        max_size = 2 * 1024 * 1024
+        if value.size > max_size:
+            raise serializers.ValidationError("Profile picture size must be 2MB or less.")
+
+        return value
         
 
 class PasswordChangeSerializer(serializers.Serializer):

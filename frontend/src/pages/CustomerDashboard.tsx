@@ -6,10 +6,12 @@ import { getErrorData, getErrorStatus } from "@/lib/apiError";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
 import { animateFlyToCart } from "@/lib/flyToCart";
+import { useTheme } from "@/lib/theme";
 import {
   getUserNotifications,
   markNotificationAsRead,
   StatusNotificationInput,
+  onNotificationsChanged,
   syncStatusNotifications,
   UserNotification,
 } from "@/lib/notifications";
@@ -169,6 +171,7 @@ export function CustomerDashboard() {
   const { user, isAuthenticated, accessToken, logout } = useAuthStore();
   const { formatPrice } = useCurrency();
   const { showError, showSuccess } = useFeedback();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [productPage, setProductPage] = useState(1);
@@ -418,6 +421,20 @@ export function CustomerDashboard() {
   const isSuggestionAutoplayPaused =
     !isSuggestionAutoplayEnabled || isSuggestionInteracting;
 
+  const getSuggestionStockLabel = (product: Product) => {
+    const stockCount = Number(product.available_stock ?? product.stock ?? 0);
+
+    if (stockCount <= 0) {
+      return "Out of stock";
+    }
+
+    if (stockCount <= 3) {
+      return `${stockCount} left`;
+    }
+
+    return "Ready to ship";
+  };
+
   const suggestionWindowProducts = useMemo(() => {
     if (visibleSuggestions.length === 0) {
       return [];
@@ -536,6 +553,20 @@ export function CustomerDashboard() {
     }
 
     setNotificationItems(getUserNotifications(user.id));
+  }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      return;
+    }
+
+    return onNotificationsChanged((changedUserId) => {
+      if (changedUserId !== user.id) {
+        return;
+      }
+
+      setNotificationItems(getUserNotifications(user.id));
+    });
   }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
@@ -1530,6 +1561,11 @@ export function CustomerDashboard() {
       "w-full bg-gradient-to-r from-teal-500 via-cyan-600 to-blue-600 hover:from-teal-600 hover:via-cyan-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-semibold",
   };
 
+  const suggestionOverlayClass =
+    resolvedTheme === "dark"
+      ? "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.22),transparent_35%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.14),transparent_30%)]"
+      : "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.12),transparent_35%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.1),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.08),transparent_30%)]";
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 pt-20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 sm:pt-24">
       {/* Header */}
@@ -2065,211 +2101,301 @@ export function CustomerDashboard() {
         className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8"
       >
         {isAuthenticated && (
-          <section className="mb-8 rounded-xl border border-border bg-card/85 p-4 shadow-lg backdrop-blur-sm sm:mb-10 sm:rounded-2xl sm:p-6">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h4 className="text-base font-bold text-foreground sm:text-lg">
-                Exclusive Suggestions for You
-              </h4>
-              {isAutoPersonalizing && (
-                <span className="text-xs font-semibold text-teal-800 dark:text-teal-300">
-                  Refreshing...
-                </span>
-              )}
-            </div>
-
-            {personalizedProducts.length > 0 && (
-              <div className="mb-4 flex flex-wrap gap-2">
-                {suggestionCategories.map((category) => (
-                  <Button
-                    key={category}
-                    type="button"
-                    size="sm"
-                    variant={
-                      activeSuggestionCategory === category
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() => setActiveSuggestionCategory(category)}
-                    className="h-7 px-2.5 text-xs sm:h-8 sm:px-3 sm:text-sm"
-                  >
-                    {category}
-                  </Button>
-                ))}
-              </div>
-            )}
-
-            {personalizedProducts.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
-                Preparing your personalized picks...
-              </div>
-            ) : visibleSuggestions.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
-                No suggestions in this category yet. Try another category.
-              </div>
-            ) : (
-              <div
-                className="space-y-4"
-                onMouseEnter={() => setIsSuggestionInteracting(true)}
-                onMouseLeave={() => setIsSuggestionInteracting(false)}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft") {
-                    event.preventDefault();
-                    scrollSuggestionCarousel("left");
-                  }
-
-                  if (event.key === "ArrowRight") {
-                    event.preventDefault();
-                    scrollSuggestionCarousel("right");
-                  }
-                }}
-                tabIndex={0}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-                  <Badge
-                    variant="secondary"
-                    className="rounded-full px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1"
-                  >
-                    {isSuggestionAutoplayPaused ? "Paused" : "Auto Playing"}
-                  </Badge>
-
-                  <div className="inline-flex items-center gap-1 rounded-full border border-teal-200/70 bg-background/90 p-1 shadow-md backdrop-blur-sm sm:p-1.5">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 rounded-full sm:h-8 sm:w-8"
-                      onClick={() => scrollSuggestionCarousel("left")}
-                      aria-label="Previous suggestions"
-                      disabled={visibleSuggestions.length <= 1}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-
-                    <Button
-                      type="button"
-                      size="icon"
-                      onClick={toggleSuggestionAutoplay}
-                      aria-label={
-                        isSuggestionAutoplayEnabled
-                          ? "Pause auto sliding"
-                          : "Play auto sliding"
-                      }
-                      className="h-8 w-8 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-sm hover:from-teal-600 hover:to-cyan-700 sm:h-9 sm:w-9"
-                      disabled={visibleSuggestions.length <= 1}
-                    >
-                      {isSuggestionAutoplayEnabled ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 rounded-full sm:h-8 sm:w-8"
-                      onClick={() => scrollSuggestionCarousel("right")}
-                      aria-label="Next suggestions"
-                      disabled={visibleSuggestions.length <= 1}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+          <section className="relative mb-8 overflow-hidden rounded-3xl border border-border bg-card p-4 text-card-foreground shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur-sm sm:mb-10 sm:p-6">
+            <div className={`absolute inset-0 ${suggestionOverlayClass}`} />
+            <div className="relative">
+              <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground shadow-sm backdrop-blur-sm">
+                    <Sparkles className="h-3.5 w-3.5 text-teal-600 dark:text-cyan-300" />
+                    Curated for you
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black tracking-tight text-foreground sm:text-2xl">
+                      Exclusive Suggestions for You
+                    </h4>
+                    <p className="mt-1 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                      Hand-picked from your browsing, cart, and wishlist signals.
+                    </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {suggestionWindowProducts.map((product, cardIndex) => (
-                    <Card
-                      key={`pref-${product.id}-${cardIndex}`}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`View product ${product.name}`}
-                      onClick={() => viewProduct(product)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          viewProduct(product);
-                        }
-                      }}
-                      className={`h-full overflow-hidden border shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg cursor-pointer ${
-                        cardIndex === 1 ? "ring-1 ring-teal-200" : ""
+                {isAutoPersonalizing ? (
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full border border-teal-200 bg-teal-500/10 px-3 py-1.5 text-xs font-semibold text-teal-700 dark:border-teal-400/30 dark:text-teal-200">
+                    <span className="h-2 w-2 rounded-full bg-teal-500 animate-pulse dark:bg-teal-300" />
+                    Refreshing picks
+                  </span>
+                ) : (
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm">
+                    <Tag className="h-3.5 w-3.5 text-teal-600 dark:text-teal-300" />
+                    Personalized carousel
+                  </span>
+                )}
+              </div>
+
+              {personalizedProducts.length > 0 && (
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {suggestionCategories.map((category) => (
+                    <Button
+                      key={category}
+                      type="button"
+                      size="sm"
+                      variant={
+                        activeSuggestionCategory === category
+                          ? "default"
+                          : "outline"
+                      }
+                      onClick={() => setActiveSuggestionCategory(category)}
+                      className={`h-8 px-3 text-xs sm:h-9 sm:px-4 sm:text-sm ${
+                        activeSuggestionCategory === category
+                          ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                          : "border-border bg-background/70 text-foreground hover:bg-muted"
                       }`}
                     >
-                      <CardHeader className="p-0">
-                        <img
-                          src={resolveProductImage(product.image)}
-                          alt={product.name}
-                          className="h-32 w-full rounded-t-lg object-cover sm:h-36"
-                          loading="lazy"
-                          onError={(event) => {
-                            event.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
-                          }}
-                        />
-                      </CardHeader>
-                      <CardContent className="flex h-full flex-col p-2.5 sm:p-3">
-                        <p className="line-clamp-1 text-sm font-semibold text-foreground sm:text-base">
-                          {product.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {product.category.name}
-                        </p>
-                        <p className="mt-1 text-sm font-bold text-teal-800 dark:text-teal-300">
-                          {formatPrice(product.price)}
-                        </p>
-                        <div className="mt-auto grid gap-2 pt-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              viewProduct(product);
-                            }}
-                            size="sm"
-                            className="w-full"
-                          >
-                            <Eye className="mr-1.5 h-3.5 w-3.5" />
-                            View Product
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              addToCart(product, event.currentTarget);
-                            }}
-                            size="sm"
-                            className="w-full"
-                          >
-                            Add to Cart
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      {category}
+                    </Button>
                   ))}
                 </div>
+              )}
 
-                {visibleSuggestions.length > 1 && (
-                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                    {visibleSuggestions.map((product, index) => {
-                      const isActive = index === suggestionStartIndex;
+              {personalizedProducts.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-background/60 px-4 py-6 text-sm text-muted-foreground backdrop-blur-sm">
+                  Preparing your personalized picks...
+                </div>
+              ) : visibleSuggestions.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-background/60 px-4 py-6 text-sm text-muted-foreground backdrop-blur-sm">
+                  No suggestions in this category yet. Try another category.
+                </div>
+              ) : (
+                <div
+                  className="space-y-4"
+                  onMouseEnter={() => setIsSuggestionInteracting(true)}
+                  onMouseLeave={() => setIsSuggestionInteracting(false)}
+                  onFocusCapture={() => setIsSuggestionInteracting(true)}
+                  onBlurCapture={(event) => {
+                    const nextTarget = event.relatedTarget as Node | null;
+                    if (!event.currentTarget.contains(nextTarget)) {
+                      setIsSuggestionInteracting(false);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      scrollSuggestionCarousel("left");
+                    }
+
+                    if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      scrollSuggestionCarousel("right");
+                    }
+                  }}
+                  tabIndex={0}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className="rounded-full border border-border bg-background/80 px-2.5 py-0.5 text-xs font-semibold text-foreground sm:px-3 sm:py-1"
+                      >
+                        {isSuggestionAutoplayPaused ? "Paused" : "Auto Playing"}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="rounded-full border-border bg-background/70 px-2.5 py-0.5 text-xs font-semibold text-foreground sm:px-3 sm:py-1"
+                      >
+                        {visibleSuggestions.length} picks
+                      </Badge>
+                    </div>
+
+                    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background/70 p-1 shadow-md backdrop-blur-sm sm:p-1.5">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 rounded-full text-foreground hover:bg-muted sm:h-8 sm:w-8"
+                        onClick={() => scrollSuggestionCarousel("left")}
+                        aria-label="Previous suggestions"
+                        disabled={visibleSuggestions.length <= 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="icon"
+                        onClick={toggleSuggestionAutoplay}
+                        aria-label={
+                          isSuggestionAutoplayEnabled
+                            ? "Pause auto sliding"
+                            : "Play auto sliding"
+                        }
+                        className="h-8 w-8 rounded-full bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-105 hover:bg-primary/90 sm:h-9 sm:w-9"
+                        disabled={visibleSuggestions.length <= 1}
+                      >
+                        {isSuggestionAutoplayEnabled ? (
+                          <Pause className="h-4 w-4" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 rounded-full text-foreground hover:bg-muted sm:h-8 sm:w-8"
+                        onClick={() => scrollSuggestionCarousel("right")}
+                        aria-label="Next suggestions"
+                        disabled={visibleSuggestions.length <= 1}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {suggestionWindowProducts.map((product, cardIndex) => {
+                      const isFeaturedCard = cardIndex === 1;
+
                       return (
-                        <button
-                          key={`dot-${product.id}-${index}`}
-                          type="button"
-                          onClick={() => goToSuggestionIndex(index)}
-                          className={`h-2.5 rounded-full transition-all duration-300 ${
-                            isActive
-                              ? "w-7 bg-teal-600"
-                              : "w-2.5 bg-muted-foreground/40 hover:bg-muted-foreground/60"
+                        <Card
+                          key={`pref-${product.id}-${cardIndex}`}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`View product ${product.name}`}
+                          onClick={() => viewProduct(product)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              viewProduct(product);
+                            }
+                          }}
+                          className={`group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border border-border bg-card/90 shadow-[0_12px_32px_rgba(15,23,42,0.10)] transition-all duration-300 hover:-translate-y-1.5 hover:border-primary/40 hover:shadow-[0_24px_50px_rgba(20,184,166,0.14)] focus-visible:ring-2 focus-visible:ring-ring ${
+                            isFeaturedCard ? "ring-1 ring-teal-300/40" : ""
                           }`}
-                          aria-label={`Go to suggestion ${index + 1}`}
-                        />
+                        >
+                          <CardHeader className="relative p-0">
+                            <div className="relative overflow-hidden">
+                              <img
+                                src={resolveProductImage(product.image)}
+                                alt={product.name}
+                                className="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48"
+                                loading="lazy"
+                                onError={(event) => {
+                                  event.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent dark:from-slate-950/55" />
+                              <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                                <Badge className="rounded-full border border-border bg-background/90 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
+                                  <Sparkles className="mr-1 h-3 w-3 text-teal-600 dark:text-teal-300" />
+                                  For you
+                                </Badge>
+                                {isFeaturedCard && (
+                                  <Badge className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-sm">
+                                    Featured
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="absolute right-3 top-3">
+                                <Badge
+                                  variant="secondary"
+                                  className="rounded-full border border-border bg-background/90 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur-sm"
+                                >
+                                  {getSuggestionStockLabel(product)}
+                                </Badge>
+                              </div>
+                              <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                                <span className="rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm">
+                                  Tap card to open
+                                </span>
+                                <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-sm backdrop-blur-sm">
+                                  Quick actions below
+                                </span>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="flex h-full flex-col gap-3 p-4 sm:p-5">
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="line-clamp-1 text-base font-semibold text-card-foreground sm:text-lg">
+                                    {product.name}
+                                  </p>
+                                  <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                    <Tag className="h-3.5 w-3.5" />
+                                    {product.category.name}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                                    Price
+                                  </p>
+                                  <p className="text-lg font-black text-primary sm:text-xl">
+                                    {formatPrice(product.price)}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
+                                {product.description || "A curated recommendation based on your recent activity."}
+                              </p>
+                            </div>
+
+                            <div className="mt-auto grid gap-2 pt-1 sm:grid-cols-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  viewProduct(product);
+                                }}
+                                size="sm"
+                                className="w-full border-border bg-background text-foreground shadow-sm transition-all hover:bg-muted"
+                              >
+                                <Eye className="mr-1.5 h-3.5 w-3.5" />
+                                View Product
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  addToCart(product, event.currentTarget);
+                                }}
+                                size="sm"
+                                className="w-full bg-primary font-semibold text-primary-foreground shadow-lg transition-all hover:scale-[1.01] hover:bg-primary/90"
+                              >
+                                Add to Cart
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
                       );
                     })}
                   </div>
-                )}
-              </div>
-            )}
+
+                  {visibleSuggestions.length > 1 && (
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                      {visibleSuggestions.map((product, index) => {
+                        const isActive = index === suggestionStartIndex;
+                        return (
+                          <button
+                            key={`dot-${product.id}-${index}`}
+                            type="button"
+                            onClick={() => goToSuggestionIndex(index)}
+                            className={`h-2.5 rounded-full transition-all duration-300 ${
+                              isActive
+                                ? "w-7 bg-primary"
+                                : "w-2.5 bg-border hover:bg-muted-foreground/50"
+                            }`}
+                            aria-label={`Go to suggestion ${index + 1}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </section>
         )}
 

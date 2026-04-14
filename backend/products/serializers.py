@@ -207,6 +207,21 @@ class ProductMediaUploadSerializer(serializers.ModelSerializer):
 
         if not self.instance and not image_file:
             raise serializers.ValidationError({"image_file": "Image file is required."})
+
+        if image_file:
+            allowed_types = {"image/jpeg", "image/png", "image/webp"}
+            content_type = (getattr(image_file, "content_type", "") or "").lower()
+            if content_type and content_type not in allowed_types:
+                raise serializers.ValidationError(
+                    {"image_file": "Unsupported image type. Use JPG, PNG, or WEBP."}
+                )
+
+            max_size = 5 * 1024 * 1024
+            if image_file.size > max_size:
+                raise serializers.ValidationError(
+                    {"image_file": "Image file size must be 5MB or less."}
+                )
+
         return attrs
 
 

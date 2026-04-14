@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-04-14T11:03:20.804685Z",
+  "results": [
+    {
+      "name": "products_list",
+      "path": "/api/products/",
+      "status": 200,
+      "duration_ms": 192.1,
+      "query_count": 112
+    },
+    {
+      "name": "products_merchandising",
+      "path": "/api/products/merchandising/",
+      "status": 200,
+      "duration_ms": 19.49,
+      "query_count": 13
+    },
+    {
+      "name": "ai_recommendations",
+      "path": "/api/ai/recommendations/personalized/",
+      "status": 200,
+      "duration_ms": 425.54,
+      "query_count": 91
+    },
+    {
+      "name": "assistant_chat",
+      "path": "/api/ai/assistant/chat/",
+      "status": 200,
+      "duration_ms": 1843.72,
+      "query_count": 87
+    }
+  ]
+}

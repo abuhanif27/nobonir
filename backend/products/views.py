@@ -86,7 +86,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-	queryset = Product.objects.select_related("category").prefetch_related("media", "variants__media").all()
+	queryset = Product.objects.select_related("category").all()
 	serializer_class = ProductSerializer
 	search_fields = ["name", "description", "category__name"]
 	filterset_fields = ["category", "is_active"]
@@ -145,6 +145,9 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 	def get_queryset(self):
 		queryset = self._with_available_stock(super().get_queryset())
+		if self.action in {"retrieve", "list", "top_selling", "merchandising"}:
+			queryset = queryset.prefetch_related("media", "variants__media")
+		queryset = queryset.order_by("-created_at")
 		min_price = self.request.query_params.get("min_price")
 		max_price = self.request.query_params.get("max_price")
 
