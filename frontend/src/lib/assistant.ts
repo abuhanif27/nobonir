@@ -13,6 +13,7 @@ export type AssistantProduct = {
 
 export type AssistantMessage = {
   id: string;
+  serverId?: number;
   role: "user" | "assistant";
   text: string;
   intent?: string;
@@ -71,10 +72,15 @@ export const askAssistant = async (message: string, sessionKey?: string) => {
   };
 };
 
-export const getAssistantHistory = async (sessionKey?: string) => {
+export const getAssistantHistory = async (
+  sessionKey?: string,
+  options?: { beforeId?: number; limit?: number },
+) => {
   const response = await api.get("/ai/assistant/history/", {
     params: {
       session_key: sessionKey || undefined,
+      before_id: options?.beforeId || undefined,
+      limit: options?.limit || undefined,
     },
   });
   const body = response.data || {};
@@ -82,8 +88,17 @@ export const getAssistantHistory = async (sessionKey?: string) => {
 
   return {
     session_key: String(body.session_key || ""),
+    has_more: Boolean(body.has_more),
+    next_before_id:
+      typeof body.next_before_id === "number" && Number.isFinite(body.next_before_id)
+        ? Number(body.next_before_id)
+        : null,
     messages: messages.map((item: Record<string, unknown>, index: number) => ({
-      id: `history_${index}_${String(item.created_at || "")}`,
+      id: `history_${String(item.id || index)}_${String(item.created_at || "")}`,
+      serverId:
+        typeof item.id === "number" && Number.isFinite(item.id)
+          ? Number(item.id)
+          : undefined,
       role: item.role === "user" ? "user" : "assistant",
       text: String(item.text || ""),
       intent: String(item.intent || ""),

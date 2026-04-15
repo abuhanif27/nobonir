@@ -28,6 +28,9 @@ export function FloatingAssistantWidget() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [nextBeforeId, setNextBeforeId] = useState<number | null>(null);
   const [sessionKey, setSessionKey] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([
@@ -61,7 +64,7 @@ export function FloatingAssistantWidget() {
     const loadHistory = async () => {
       const stored = getAssistantSessionKey(sessionScope);
       try {
-        const history = await getAssistantHistory(stored || undefined);
+        const history = await getAssistantHistory(stored || undefined, { limit: 30 });
         if (cancelled) {
           return;
         }
@@ -74,10 +77,14 @@ export function FloatingAssistantWidget() {
 
         if (history.messages.length > 0) {
           setMessages(history.messages);
+          setHasMoreHistory(Boolean(history.has_more));
+          setNextBeforeId(history.next_before_id);
           return;
         }
 
         setMessages(defaultWelcomeMessages);
+        setHasMoreHistory(false);
+        setNextBeforeId(null);
       } catch {
         if (cancelled) {
           return;
@@ -103,7 +110,33 @@ export function FloatingAssistantWidget() {
       setSessionKey("");
     } finally {
       setMessages(defaultWelcomeMessages);
+      setHasMoreHistory(false);
+      setNextBeforeId(null);
       setQuery("");
+    }
+  };
+
+  const loadOlderHistory = async () => {
+    if (!sessionKey || !hasMoreHistory || !nextBeforeId || isHistoryLoading) {
+      return;
+    }
+
+    setIsHistoryLoading(true);
+    try {
+      const history = await getAssistantHistory(sessionKey, {
+        beforeId: nextBeforeId,
+        limit: 30,
+      });
+
+      setMessages((prev) => {
+        const existing = new Set(prev.map((item) => item.id));
+        const older = history.messages.filter((item) => !existing.has(item.id));
+        return [...older, ...prev];
+      });
+      setHasMoreHistory(Boolean(history.has_more));
+      setNextBeforeId(history.next_before_id);
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -199,7 +232,26 @@ export function FloatingAssistantWidget() {
               <div
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto px-4 py-4 space-y-6 scroll-smooth"
+                onScroll={(event) => {
+                  const element = event.currentTarget;
+                  if (element.scrollTop <= 24) {
+                    void loadOlderHistory();
+                  }
+                }}
               >
+                {hasMoreHistory ? (
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={loadOlderHistory}
+                      disabled={isHistoryLoading}
+                    >
+                      {isHistoryLoading ? "Loading..." : "Load older messages"}
+                    </Button>
+                  </div>
+                ) : null}
                 {!isAuthenticated ? (
                   <p className="text-[10px] text-center text-muted-foreground bg-slate-100 dark:bg-slate-800/50 py-1 rounded-md mb-2">
                     Guest mode: Sign in for personalized help.

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
+from time import monotonic
 from urllib.parse import quote
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
@@ -11,6 +12,7 @@ import sys
 from uuid import uuid4
 from django.conf import settings
 from django.db.models import Q, Sum
+from django.utils import timezone
 import requests
 
 from cart.models import CartItem, WishlistItem
@@ -42,9 +44,57 @@ def _free_llm_enabled() -> bool:
     return bool(getattr(settings, "AI_FREE_LLM_ENABLED", True)) and not _is_test_process()
 
 
-def _pollinations_reply(prompt: str) -> str | None:
+_PROVIDER_COOLDOWN_UNTIL: dict[str, float] = {}
+FAST_FALLBACK_INTENTS = {
+    "TOP_SELLING",
+    "ORDER_HELP",
+    "PRICE_STOCK_LOOKUP",
+    "BUDGET_SEARCH",
+    "FIT_HELP",
+    "RECOMMENDATION",
+    "HELP",
+}
+
+
+def _provider_base_timeout(provider: str) -> float:
+    fallback = float(getattr(settings, "AI_FREE_LLM_TIMEOUT_SECONDS", 8))
+    if provider == "ollama":
+        return float(getattr(settings, "AI_OLLAMA_TIMEOUT_SECONDS", min(fallback, 6)))
+    if provider == "pollinations":
+        return float(getattr(settings, "AI_POLLINATIONS_TIMEOUT_SECONDS", min(fallback, 4)))
+    if provider == "huggingface":
+        return float(getattr(settings, "AI_HUGGINGFACE_TIMEOUT_SECONDS", min(fallback, 4)))
+    return fallback
+
+
+def _provider_timeout(provider: str, remaining_budget: float) -> float:
+    base = max(_provider_base_timeout(provider), 0.5)
+    return max(0.5, min(base, remaining_budget))
+
+
+def _provider_failure_cooldown(provider: str) -> float:
+    if provider == "ollama":
+        return float(getattr(settings, "AI_OLLAMA_FAILURE_COOLDOWN_SECONDS", 8))
+    return float(getattr(settings, "AI_FREE_LLM_FAILURE_COOLDOWN_SECONDS", 45))
+
+
+def _provider_cooling_down(provider: str) -> bool:
+    until = float(_PROVIDER_COOLDOWN_UNTIL.get(provider, 0.0) or 0.0)
+    return monotonic() < until
+
+
+def _mark_provider_failure(provider: str) -> None:
+    _PROVIDER_COOLDOWN_UNTIL[provider] = monotonic() + max(0.0, _provider_failure_cooldown(provider))
+
+
+def _mark_provider_success(provider: str) -> None:
+    if provider in _PROVIDER_COOLDOWN_UNTIL:
+        _PROVIDER_COOLDOWN_UNTIL.pop(provider, None)
+
+
+def _pollinations_reply(prompt: str, timeout_override: float | None = None) -> str | None:
     base_url = str(getattr(settings, "AI_FREE_LLM_POLLINATIONS_URL", "https://text.pollinations.ai")).rstrip("/")
-    timeout = float(getattr(settings, "AI_FREE_LLM_TIMEOUT_SECONDS", 8))
+    timeout = float(timeout_override if timeout_override is not None else _provider_base_timeout("pollinations"))
     endpoint = f"{base_url}/{quote(prompt)}"
 
     try:
@@ -57,12 +107,12 @@ def _pollinations_reply(prompt: str) -> str | None:
         return None
 
 
-def _huggingface_reply(prompt: str) -> str | None:
+def _huggingface_reply(prompt: str, timeout_override: float | None = None) -> str | None:
     url = str(getattr(settings, "AI_FREE_LLM_HUGGINGFACE_URL", "")).strip()
     if not url:
         return None
 
-    timeout = float(getattr(settings, "AI_FREE_LLM_TIMEOUT_SECONDS", 8))
+    timeout = float(timeout_override if timeout_override is not None else _provider_base_timeout("huggingface"))
     token = str(getattr(settings, "AI_FREE_LLM_HUGGINGFACE_TOKEN", "")).strip()
     headers = {"Content-Type": "application/json"}
     if token:
@@ -98,11 +148,11 @@ def _huggingface_reply(prompt: str) -> str | None:
         return None
 
 
-def _ollama_reply(prompt: str) -> str | None:
+def _ollama_reply(prompt: str, timeout_override: float | None = None) -> str | None:
     """Call local Ollama instance running Phi-3 Mini or similar model."""
     ollama_url = str(getattr(settings, "AI_OLLAMA_API_URL", "http://127.0.0.1:11434")).rstrip("/")
     model = str(getattr(settings, "AI_OLLAMA_MODEL", "phi")).strip().lower()
-    timeout = float(getattr(settings, "AI_FREE_LLM_TIMEOUT_SECONDS", 20))
+    timeout = float(timeout_override if timeout_override is not None else _provider_base_timeout("ollama"))
 
     if not ollama_url:
         return None
@@ -420,13 +470,41 @@ def _user_category_weights(user) -> dict[int, float]:
 
 def _rank_products_with_user_signal(products: list[Product], user) -> list[Product]:
     weights = _user_category_weights(user)
-    if not weights:
-        return products
+    now = timezone.now()
 
     scored: list[tuple[float, int, Product]] = []
     for index, product in enumerate(products):
         category_weight = float(weights.get(int(product.category_id or 0), 0.0))
-        scored.append((category_weight, -index, product))
+        score = category_weight * 10.0
+
+        if getattr(product, "created_at", None):
+            age_days = max((now - product.created_at).days, 0)
+            score += max(0.0, 3.0 - min(age_days, 30) / 10.0)
+
+        available_stock = int(get_available_stock(product))
+        if available_stock <= 0:
+            score -= 100.0
+        elif available_stock <= 2:
+            score -= 3.0
+        elif available_stock <= 5:
+            score -= 1.0
+
+        score += max(0.0, (len(products) - index)) * 0.01
+        scored.append((score, -index, product))
+
+    scored.sort(reverse=True)
+    return [product for _, _, product in scored]
+
+
+def _apply_recent_history_boost(products: list[Product], history_terms: set[str]) -> list[Product]:
+    if not history_terms:
+        return products
+
+    scored: list[tuple[float, int, Product]] = []
+    for index, product in enumerate(products):
+        text = f"{product.name} {product.category.name} {product.description or ''}".lower()
+        matches = float(sum(1 for term in history_terms if term in text))
+        scored.append((matches, -index, product))
 
     scored.sort(reverse=True)
     return [product for _, _, product in scored]
@@ -461,6 +539,19 @@ def _query_terms(normalized_message: str) -> list[str]:
     return [term for term in terms if len(term) >= 3 and term not in TERM_STOPWORDS]
 
 
+def _recent_history_terms(history: list[dict] | None) -> set[str]:
+    if not history:
+        return set()
+
+    terms: set[str] = set()
+    for message in history[-8:]:
+        if str(message.get("role") or "") != "user":
+            continue
+        text = str(message.get("text") or "").lower()
+        terms.update(_query_terms(text))
+    return terms
+
+
 def _filter_relevant_products(products: list[Product], normalized_message: str, limit: int = 4) -> list[Product]:
     terms = _query_terms(normalized_message)
     if not terms:
@@ -486,6 +577,12 @@ def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Produ
     if not _free_llm_enabled():
         return fallback_reply, "local", False, ["local"]
 
+    if bool(getattr(settings, "AI_FREE_LLM_SKIP_FOR_FAST_INTENTS", True)) and intent in FAST_FALLBACK_INTENTS:
+        return fallback_reply, "local", False, []
+
+    budget_seconds = float(getattr(settings, "AI_FREE_LLM_MAX_BUDGET_SECONDS", 4.5))
+    started_at = monotonic()
+
     prompt = _build_llm_prompt(
         intent=intent,
         message=message,
@@ -504,19 +601,30 @@ def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Produ
 
     attempts: list[str] = []
     for provider in _configured_provider_chain():
+        if _provider_cooling_down(provider):
+            continue
+
+        elapsed = monotonic() - started_at
+        remaining_budget = budget_seconds - elapsed
+        if remaining_budget <= 0:
+            break
+
+        timeout_override = _provider_timeout(provider, remaining_budget)
         llm_reply: str | None = None
         if provider == "pollinations":
-            llm_reply = _pollinations_reply(prompt)
+            llm_reply = _pollinations_reply(prompt, timeout_override=timeout_override)
         elif provider == "huggingface":
-            llm_reply = _huggingface_reply(prompt)
+            llm_reply = _huggingface_reply(prompt, timeout_override=timeout_override)
         elif provider == "ollama":
-            llm_reply = _ollama_reply(ollama_prompt)
+            llm_reply = _ollama_reply(ollama_prompt, timeout_override=timeout_override)
         else:
             continue
 
         attempts.append(provider)
         if llm_reply and len(llm_reply) >= 20:
+            _mark_provider_success(provider)
             return llm_reply, provider, True, attempts
+        _mark_provider_failure(provider)
 
     attempts.append("local")
     return fallback_reply, "local", False, attempts
@@ -662,9 +770,10 @@ def _serialize_products(products: list[Product], request) -> list[dict]:
     return result
 
 
-def _recommend_products_for_message(user, normalized_message: str) -> list[Product]:
+def _recommend_products_for_message(user, normalized_message: str, history: list[dict] | None = None) -> list[Product]:
     # Pull a wider candidate pool, then rerank/diversify.
     semantic_results = _filter_real_catalog_products(semantic_product_search(normalized_message, limit=12))
+    history_terms = _recent_history_terms(history)
 
     if _is_authenticated_user(user):
         personalized = _filter_real_catalog_products(get_personalized_recommendations_for_user(user, limit=12))
@@ -672,6 +781,7 @@ def _recommend_products_for_message(user, normalized_message: str) -> list[Produ
 
         merged = _dedupe_products(semantic_results + personalized + trending, limit=24)
         ranked = _rank_products_with_user_signal(merged, user)
+        ranked = _apply_recent_history_boost(ranked, history_terms)
         relevant = _filter_relevant_products(ranked, normalized_message, limit=12)
         diversified = _diversify_by_category(relevant, limit=8, per_category_cap=2)
         if diversified:
@@ -682,6 +792,7 @@ def _recommend_products_for_message(user, normalized_message: str) -> list[Produ
     # Guest: emphasize trending items with diversity while still honoring semantic hits.
     trending = _top_selling_products(limit=12)
     merged_guest = _dedupe_products(semantic_results + trending + _fallback_products(limit=10), limit=24)
+    merged_guest = _apply_recent_history_boost(merged_guest, history_terms)
     relevant_guest = _filter_relevant_products(merged_guest, normalized_message, limit=12)
     diversified_guest = _diversify_by_category(relevant_guest, limit=8, per_category_cap=2)
     if diversified_guest:
@@ -757,13 +868,28 @@ def _build_price_stock_reply(products: list[Product]) -> str:
     return "\n".join(lines)
 
 
-def list_chat_history(user, session_key: str | None = None, limit: int = 60) -> tuple[str, list[dict]]:
+def list_chat_history(
+    user,
+    session_key: str | None = None,
+    limit: int = 30,
+    before_id: int | None = None,
+) -> tuple[str, list[dict], bool, int | None]:
     session = get_or_create_chat_session(user=user, session_key=session_key)
-    messages = list(
-        session.messages.order_by("created_at", "id")
-        .values("role", "text", "intent", "created_at")[: max(1, min(limit, 200))]
+
+    bounded_limit = max(1, min(int(limit or 30), 100))
+    queryset = session.messages.order_by("-id")
+    if before_id:
+        queryset = queryset.filter(id__lt=before_id)
+
+    rows = list(
+        queryset.values("id", "role", "text", "intent", "created_at")[: bounded_limit + 1]
     )
-    return session.session_key, messages
+    has_more = len(rows) > bounded_limit
+    rows = rows[:bounded_limit]
+    next_before_id = int(rows[-1]["id"]) if has_more and rows else None
+
+    rows.reverse()
+    return session.session_key, rows, has_more, next_before_id
 
 
 def clear_chat_history(user, session_key: str | None = None) -> str:
@@ -792,7 +918,7 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
     # Fetch history if session_key is provided
     history = None
     if session_key:
-        _, history = list_chat_history(user=user, session_key=session_key, limit=10)
+        _, history, _, _ = list_chat_history(user=user, session_key=session_key, limit=10)
 
     if not normalized_message:
         products = (
@@ -815,7 +941,7 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
             ],
             normalized_message,
         )
-        products = _recommend_products_for_message(user, normalized_message)
+        products = _recommend_products_for_message(user, normalized_message, history=history)
         return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
     if _is_help_query(normalized_message):
@@ -872,13 +998,13 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "FIT_HELP":
-        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=8)
+        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message, history=history), budget_cap, limit=8)
         products = _filter_relevant_products(products, normalized_message, limit=4)
         reply = "Finding the perfect fit is key! I recommend checking our detailed size guides on the product pages. "
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent in {"BUDGET_SEARCH", "RECOMMENDATION"}:
-        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=10)
+        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message, history=history), budget_cap, limit=10)
         products = _filter_relevant_products(products, normalized_message, limit=5)
         if products:
             reply = "found some solid matches for you."
@@ -892,7 +1018,7 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     # General catch-all: proactive product search
-    products = _recommend_products_for_message(user, normalized_message)
+    products = _recommend_products_for_message(user, normalized_message, history=history)
     guest_hint = " (logged in members get tailored picks.)" if not _is_authenticated_user(user) else ""
     reply = f"help me narrow that down. what's your budget or style?{guest_hint}"
     if not products:

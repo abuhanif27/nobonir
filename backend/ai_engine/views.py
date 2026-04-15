@@ -233,15 +233,19 @@ class AssistantHistoryAPIView(APIView):
 		query_serializer = AssistantHistoryQuerySerializer(data=request.query_params)
 		query_serializer.is_valid(raise_exception=True)
 
-		session_key, messages = list_chat_history(
+		session_key, messages, has_more, next_before_id = list_chat_history(
 			user=request.user,
 			session_key=query_serializer.validated_data.get("session_key"),
+			before_id=query_serializer.validated_data.get("before_id"),
+			limit=query_serializer.validated_data.get("limit") or 30,
 		)
 
 		response_serializer = AssistantHistoryResponseSerializer(
 			data={
 				"session_key": session_key,
 				"messages": messages,
+				"has_more": has_more,
+				"next_before_id": next_before_id,
 			}
 		)
 		response_serializer.is_valid(raise_exception=True)

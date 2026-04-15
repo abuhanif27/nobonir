@@ -48,9 +48,12 @@ class AssistantChatResponseSerializer(serializers.Serializer):
 
 class AssistantHistoryQuerySerializer(serializers.Serializer):
     session_key = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    before_id = serializers.IntegerField(required=False, min_value=1)
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=100, default=30)
 
 
 class AssistantHistoryMessageSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
     role = serializers.ChoiceField(choices=["user", "assistant"])
     text = serializers.CharField()
     intent = serializers.CharField(allow_blank=True)
@@ -60,6 +63,8 @@ class AssistantHistoryMessageSerializer(serializers.Serializer):
 class AssistantHistoryResponseSerializer(serializers.Serializer):
     session_key = serializers.CharField()
     messages = AssistantHistoryMessageSerializer(many=True)
+    has_more = serializers.BooleanField()
+    next_before_id = serializers.IntegerField(required=False, allow_null=True)
 
 
 class AssistantHistoryClearResponseSerializer(serializers.Serializer):
