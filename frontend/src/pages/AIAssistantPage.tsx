@@ -2,13 +2,13 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bot, RotateCcw, Send } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
+import { useCurrency } from "@/lib/currency";
 import {
   askAssistant,
   AssistantMessage,
   clearAssistantHistory,
   clearAssistantSessionKey,
   getAssistantHistory,
-  getAssistantRuntimeStatus,
   getAssistantSessionKey,
   setAssistantSessionKey,
 } from "@/lib/assistant";
@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export function AIAssistantPage() {
   const { isAuthenticated, user } = useAuthStore();
+  const { formatPrice } = useCurrency();
   const location = useLocation();
   const focusContext = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -27,7 +28,6 @@ export function AIAssistantPage() {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionKey, setSessionKey] = useState("");
-  const [runtimeProviderLabel, setRuntimeProviderLabel] = useState("");
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "assistant_welcome",
@@ -84,18 +84,6 @@ export function AIAssistantPage() {
     };
 
     void loadHistory();
-
-    void getAssistantRuntimeStatus()
-      .then((status) => {
-        setRuntimeProviderLabel(
-          status.enabled
-            ? `Live LLM chain: ${status.providers.join(" → ")} → local`
-            : "Live LLM disabled, using local assistant",
-        );
-      })
-      .catch(() => {
-        setRuntimeProviderLabel("Runtime status unavailable");
-      });
 
     return () => {
       cancelled = true;
@@ -199,11 +187,6 @@ export function AIAssistantPage() {
                 Focus context: {focusContext}
               </p>
             ) : null}
-            {runtimeProviderLabel ? (
-              <p className="text-xs text-muted-foreground">
-                {runtimeProviderLabel}
-              </p>
-            ) : null}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
@@ -222,17 +205,6 @@ export function AIAssistantPage() {
                   <p className="mt-1 whitespace-pre-line text-sm text-foreground">
                     {message.text}
                   </p>
-                  {message.role === "assistant" && message.llmProvider ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Provider: {message.llmProvider}
-                      {message.llmEnhanced
-                        ? " (enhanced)"
-                        : " (local fallback)"}
-                      {message.llmAttempts && message.llmAttempts.length > 0
-                        ? ` · tried: ${message.llmAttempts.join(" → ")}`
-                        : ""}
-                    </p>
-                  ) : null}
                   {message.products && message.products.length > 0 ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {message.products.map((product) => (
@@ -245,8 +217,7 @@ export function AIAssistantPage() {
                             {product.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {product.category} · ৳
-                            {Number(product.price || 0).toFixed(2)}
+                            {product.category} · {formatPrice(product.price || 0)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {product.availability_status}

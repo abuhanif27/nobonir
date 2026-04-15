@@ -2,13 +2,13 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bot, RotateCcw, Send, X } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
+import { useCurrency } from "@/lib/currency";
 import {
   askAssistant,
   AssistantMessage,
   clearAssistantHistory,
   clearAssistantSessionKey,
   getAssistantHistory,
-  getAssistantRuntimeStatus,
   getAssistantSessionKey,
   setAssistantSessionKey,
 } from "@/lib/assistant";
@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export function FloatingAssistantWidget() {
   const { isAuthenticated, user } = useAuthStore();
+  const { formatPrice } = useCurrency();
 
   const sessionScope = useMemo(
     () => (isAuthenticated && user?.id ? `user_${user.id}` : "guest"),
@@ -28,7 +29,6 @@ export function FloatingAssistantWidget() {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionKey, setSessionKey] = useState("");
-  const [runtimeProviderLabel, setRuntimeProviderLabel] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
@@ -87,18 +87,6 @@ export function FloatingAssistantWidget() {
     };
 
     void loadHistory();
-
-    void getAssistantRuntimeStatus()
-      .then((status) => {
-        setRuntimeProviderLabel(
-          status.enabled
-            ? `Live LLM chain: ${status.providers.join(" → ")} → local`
-            : "Live LLM disabled, using local assistant",
-        );
-      })
-      .catch(() => {
-        setRuntimeProviderLabel("Runtime status unavailable");
-      });
 
     return () => {
       cancelled = true;
@@ -217,12 +205,6 @@ export function FloatingAssistantWidget() {
                     Guest mode: Sign in for personalized help.
                   </p>
                 ) : null}
-                {runtimeProviderLabel ? (
-                  <p className="text-[9px] text-center text-muted-foreground/60 mb-4 italic">
-                    {runtimeProviderLabel}
-                  </p>
-                ) : null}
-
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -247,21 +229,6 @@ export function FloatingAssistantWidget() {
                       }`}
                     >
                       <span className="whitespace-pre-line">{message.text}</span>
-                      {message.role === "assistant" && message.llmProvider ? (
-                        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[10px] text-muted-foreground/80 flex flex-wrap gap-x-2">
-                          <span>{message.llmProvider}</span>
-                          {message.llmEnhanced && (
-                            <span className="text-teal-600 dark:text-teal-400">
-                              (enhanced)
-                            </span>
-                          )}
-                          {message.llmAttempts && message.llmAttempts.length > 0 && (
-                            <span className="opacity-60">
-                              {message.llmAttempts.join(" → ")}
-                            </span>
-                          )}
-                        </div>
-                      ) : null}
                     </div>
                     {message.products && message.products.length > 0 ? (
                       <div className="mt-2 w-full max-w-[85%] space-y-1.5">
@@ -275,7 +242,7 @@ export function FloatingAssistantWidget() {
                               {product.name}
                             </span>
                             <div className="mt-0.5 flex items-center justify-between text-teal-700 dark:text-teal-400 font-medium">
-                              <span>৳{Number(product.price || 0).toLocaleString()}</span>
+                              <span>{formatPrice(product.price || 0)}</span>
                               <span className="text-[10px] opacity-70">
                                 Stock: {product.available_stock}
                               </span>

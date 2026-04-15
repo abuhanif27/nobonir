@@ -64,7 +64,7 @@ export const askAssistant = async (message: string, sessionKey?: string) => {
     llm_enhanced: Boolean(body.llm_enhanced),
     llm_attempts: Array.isArray(body.llm_attempts)
       ? body.llm_attempts.map((item: unknown) => String(item))
-      : ["local"],
+      : [],
     suggested_products: Array.isArray(body.suggested_products)
       ? body.suggested_products
       : [],

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 from urllib.parse import quote
@@ -14,7 +15,7 @@ import requests
 
 from cart.models import CartItem, WishlistItem
 from ai_engine.models import AssistantChatMessage, AssistantChatSession
-from orders.models import Order
+from orders.models import Order, OrderItem
 from products.models import Product
 from products.serializers import ProductSerializer
 from products.services import get_available_stock
@@ -138,10 +139,10 @@ def _build_ollama_prompt(intent: str, message: str, products: list[Product], fal
         stock = get_available_stock(product)
         if is_authenticated:
             stock_info = f"Stock {stock}"
-            price_info = f"৳{product.price}"
+            price_info = f"Price {product.price}"
         else:
             stock_info = "In Stock" if stock > 0 else "Out of Stock"
-            price_info = f"৳{product.price}"
+            price_info = f"Price {product.price}"
         product_lines.append(f"{product.name} | {price_info} | {stock_info}")
 
     product_context = "\n".join(product_lines) if product_lines else "No product matches found."
@@ -201,10 +202,10 @@ def _build_llm_prompt(intent: str, message: str, products: list[Product], fallba
         # Information Disclosure Limit for Guest vs Member
         if is_authenticated:
             stock_info = f"Exact Stock: {stock}"
-            price_info = f"Member Price: ৳{product.price}"
+            price_info = f"Member Price: {product.price}"
         else:
             stock_info = "Status: In Stock" if stock > 0 else "Status: Out of Stock"
-            price_info = f"Price: ৳{product.price}"
+            price_info = f"Price: {product.price}"
             
         desc = (product.description or "").strip()
         if len(desc) > 100:
@@ -285,6 +286,12 @@ SMALL_TALK_KEYWORDS = {
 
 
 TERM_STOPWORDS = {
+    "what",
+    "your",
+    "today",
+    "personal",
+    "recommendation",
+    "recommendations",
     "the",
     "and",
     "for",
@@ -303,6 +310,126 @@ TERM_STOPWORDS = {
     "under",
     "below",
 }
+
+
+ASSISTANT_ARTIFACT_PREFIXES = (
+    "test",
+    "tmp",
+    "perf",
+    "demo",
+    "sample",
+    "dummy",
+)
+
+
+def _is_catalog_artifact(product: Product) -> bool:
+    name = (product.name or "").strip().lower()
+    slug = (product.slug or "").strip().lower()
+    return any(name.startswith(prefix) or slug.startswith(prefix) for prefix in ASSISTANT_ARTIFACT_PREFIXES)
+
+
+def _filter_real_catalog_products(products: list[Product], limit: int | None = None) -> list[Product]:
+    filtered = [product for product in products if not _is_catalog_artifact(product)]
+    if limit is None:
+        return filtered
+    return filtered[:limit]
+
+
+def _dedupe_products(products: list[Product], limit: int | None = None) -> list[Product]:
+    seen_ids: set[int] = set()
+    deduped: list[Product] = []
+    for product in products:
+        if product.id in seen_ids:
+            continue
+        seen_ids.add(product.id)
+        deduped.append(product)
+        if limit is not None and len(deduped) >= limit:
+            break
+    return deduped
+
+
+def _diversify_by_category(products: list[Product], limit: int = 8, per_category_cap: int = 2) -> list[Product]:
+    if not products:
+        return []
+
+    # First pass: maximize category coverage.
+    used_categories: set[int] = set()
+    category_counts: dict[int, int] = defaultdict(int)
+    picked: list[Product] = []
+    remaining: list[Product] = []
+
+    for product in products:
+        category_id = int(product.category_id or 0)
+        if category_id not in used_categories:
+            used_categories.add(category_id)
+            category_counts[category_id] += 1
+            picked.append(product)
+            if len(picked) >= limit:
+                return picked
+        else:
+            remaining.append(product)
+
+    # Second pass: fill while limiting dominance of one category.
+    for product in remaining:
+        category_id = int(product.category_id or 0)
+        if category_counts[category_id] >= per_category_cap:
+            continue
+        category_counts[category_id] += 1
+        picked.append(product)
+        if len(picked) >= limit:
+            break
+
+    return picked[:limit]
+
+
+def _user_category_weights(user) -> dict[int, float]:
+    if not _is_authenticated_user(user):
+        return {}
+
+    weights: dict[int, float] = defaultdict(float)
+
+    for item in (
+        OrderItem.objects.filter(order__user=user)
+        .select_related("product")
+        .only("product__category_id", "quantity")[:120]
+    ):
+        category_id = int(getattr(item.product, "category_id", 0) or 0)
+        if category_id:
+            weights[category_id] += float(item.quantity or 1) * 4.0
+
+    for item in (
+        WishlistItem.objects.filter(user=user)
+        .select_related("product")
+        .only("product__category_id")[:80]
+    ):
+        category_id = int(getattr(item.product, "category_id", 0) or 0)
+        if category_id:
+            weights[category_id] += 2.0
+
+    for item in (
+        CartItem.objects.filter(cart__user=user)
+        .select_related("product")
+        .only("product__category_id", "quantity")[:80]
+    ):
+        category_id = int(getattr(item.product, "category_id", 0) or 0)
+        if category_id:
+            weights[category_id] += float(item.quantity or 1) * 1.5
+
+    return dict(weights)
+
+
+def _rank_products_with_user_signal(products: list[Product], user) -> list[Product]:
+    weights = _user_category_weights(user)
+    if not weights:
+        return products
+
+    scored: list[tuple[float, int, Product]] = []
+    for index, product in enumerate(products):
+        category_weight = float(weights.get(int(product.category_id or 0), 0.0))
+        scored.append((category_weight, -index, product))
+
+    scored.sort(reverse=True)
+    return [product for _, _, product in scored]
 
 
 def _is_small_talk(normalized_message: str) -> bool:
@@ -345,6 +472,11 @@ def _filter_relevant_products(products: list[Product], normalized_message: str, 
         score = sum(1 for term in terms if term in text)
         if score > 0:
             scored.append((score, product))
+
+    # For broad asks (e.g., "personal recommendation"), keep curated candidates
+    # instead of returning an empty list and a "no matches" reply.
+    if not scored:
+        return products[:limit]
 
     scored.sort(key=lambda item: item[0], reverse=True)
     return [product for _, product in scored[:limit]]
@@ -462,6 +594,18 @@ def get_or_create_chat_session(user, session_key: str | None = None) -> Assistan
 def _fallback_products(limit: int = 4) -> list[Product]:
     return list(
         Product.objects.filter(is_active=True, stock__gt=0)
+        .exclude(name__istartswith="test")
+        .exclude(name__istartswith="tmp")
+        .exclude(name__istartswith="perf")
+        .exclude(name__istartswith="demo")
+        .exclude(name__istartswith="sample")
+        .exclude(name__istartswith="dummy")
+        .exclude(slug__istartswith="test")
+        .exclude(slug__istartswith="tmp")
+        .exclude(slug__istartswith="perf")
+        .exclude(slug__istartswith="demo")
+        .exclude(slug__istartswith="sample")
+        .exclude(slug__istartswith="dummy")
         .select_related("category")
         .order_by("-updated_at")[:limit]
     )
@@ -499,10 +643,8 @@ def _detect_intent(normalized_message: str) -> str:
 def _serialize_products(products: list[Product], request) -> list[dict]:
     serialized = ProductSerializer(products, many=True, context={"request": request}).data
     result = []
-    is_auth = getattr(request.user, "is_authenticated", False)
     
     for item in serialized:
-        # Information Disclosure Limit in serialized data
         stock_val = int(item.get("available_stock") or 0)
         
         product_data = {
@@ -513,28 +655,39 @@ def _serialize_products(products: list[Product], request) -> list[dict]:
             "image": str(item.get("primary_image") or item.get("image_url") or ""),
             "category": str((item.get("category") or {}).get("name") or ""),
             "availability_status": str(item.get("availability_status") or "IN_STOCK"),
+            "available_stock": stock_val,
         }
-        
-        if is_auth:
-            # Full details for members
-            product_data["available_stock"] = stock_val
-        else:
-            # Obfuscated stock for guests
-            product_data["available_stock"] = 1 if stock_val > 0 else 0
-            # You could add more guest-specific logic here (e.g., hiding wholesale prices if they existed)
 
         result.append(product_data)
     return result
 
 
 def _recommend_products_for_message(user, normalized_message: str) -> list[Product]:
-    # Increased limit to 8 for better LLM context
-    search_results = semantic_product_search(normalized_message, limit=8)
-    if search_results:
-        return search_results
+    # Pull a wider candidate pool, then rerank/diversify.
+    semantic_results = _filter_real_catalog_products(semantic_product_search(normalized_message, limit=12))
+
     if _is_authenticated_user(user):
-        return get_personalized_recommendations_for_user(user, limit=8)
-    return _fallback_products(limit=8)
+        personalized = _filter_real_catalog_products(get_personalized_recommendations_for_user(user, limit=12))
+        trending = _top_selling_products(limit=10)
+
+        merged = _dedupe_products(semantic_results + personalized + trending, limit=24)
+        ranked = _rank_products_with_user_signal(merged, user)
+        relevant = _filter_relevant_products(ranked, normalized_message, limit=12)
+        diversified = _diversify_by_category(relevant, limit=8, per_category_cap=2)
+        if diversified:
+            return diversified
+
+        return _diversify_by_category(ranked, limit=8, per_category_cap=2)
+
+    # Guest: emphasize trending items with diversity while still honoring semantic hits.
+    trending = _top_selling_products(limit=12)
+    merged_guest = _dedupe_products(semantic_results + trending + _fallback_products(limit=10), limit=24)
+    relevant_guest = _filter_relevant_products(merged_guest, normalized_message, limit=12)
+    diversified_guest = _diversify_by_category(relevant_guest, limit=8, per_category_cap=2)
+    if diversified_guest:
+        return diversified_guest
+
+    return _diversify_by_category(merged_guest, limit=8, per_category_cap=2)
 
 
 def _top_selling_products(limit: int = 4) -> list[Product]:
@@ -557,7 +710,11 @@ def _top_selling_products(limit: int = 4) -> list[Product]:
         .order_by("-total_sold", "-updated_at")
     )
 
-    products = [item for item in queryset[: max(1, min(limit, 12))] if int(get_available_stock(item)) > 0]
+    products = [
+        item
+        for item in queryset[: max(1, min(limit, 12))]
+        if int(get_available_stock(item)) > 0 and not _is_catalog_artifact(item)
+    ]
     if products:
         return products[:limit]
     return _fallback_products(limit=limit)
@@ -596,7 +753,7 @@ def _build_price_stock_reply(products: list[Product]) -> str:
     for product in products[:3]:
         available_stock = get_available_stock(product)
         stock_label = "Out of stock" if available_stock <= 0 else f"Stock: {available_stock}"
-        lines.append(f"- {product.name}: ৳{product.price} ({stock_label})")
+        lines.append(f"- {product.name}: {product.price} ({stock_label})")
     return "\n".join(lines)
 
 
@@ -675,7 +832,7 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
         products = _apply_budget_filter(_top_selling_products(limit=8), budget_cap, limit=6)
         reply = "here are the bestsellers right now."
         if budget_cap is not None:
-            reply += f" all under ৳{budget_cap}."
+            reply += f" all under {budget_cap} in your local currency."
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "ORDER_HELP":
@@ -726,7 +883,7 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
         if products:
             reply = "found some solid matches for you."
             if budget_cap is not None:
-                reply += f" all within ৳{budget_cap}."
+                reply += f" all within {budget_cap} in your local currency."
         else:
             reply = (
                 "couldn't find exact matches on that. try a different term or be more specific?"
@@ -805,6 +962,5 @@ def build_assistant_response_payload(user, message: str, request) -> dict:
         "session_key": session.session_key,
         "llm_provider": assistant_result.llm_provider,
         "llm_enhanced": assistant_result.llm_enhanced,
-        "llm_attempts": assistant_result.llm_attempts,
         "suggested_products": _serialize_products(assistant_result.products, request=request),
     }

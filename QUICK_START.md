@@ -1,252 +1,94 @@
-# 🚀 COMPLETE OLLAMA + PHI-3 MINI INSTALLATION GUIDE
+# Ollama + Phi-3 Mini Quick Start
 
-Follow these steps exactly to get 100% free local AI working on your Nobonir chatbot.
+Free local AI for Nobonir. Zero cloud costs. 5-minute setup.
 
 ---
 
-## STEP 1: Download Ollama (3 minutes)
+## Step 1: Install Ollama
 
-### Windows
+Download from [ollama.ai](https://ollama.ai) for your OS and run the installer.
 
-1. **Open this link in your browser:**
-   ```
-   https://ollama.ai/download
-   ```
-
-2. **Click "Download for Windows"** - This downloads `OllamaSetup.exe` (~200MB)
-
-3. **Run the installer:**
-   - Double-click `OllamaSetup.exe`
-   - Click "Install"
-   - Wait for installation to complete (~1-2 minutes)
-   - Ollama will start automatically
-
-4. **Verify installation:**
-   - Open PowerShell
-   - Type: `ollama --version`
-   - You should see: `ollama version X.X.X`
-
-### Mac
-
-```bash
-# Download and install (or use the GUI installer from https://ollama.ai)
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama --version
-```
-
-### Linux
-
-```bash
-curl -fsSL https://ollama.ai/install.sh | sh
+Verify:
+```powershell
 ollama --version
 ```
 
 ---
 
-## STEP 2: Download Phi-3 Mini Model (5-10 minutes)
-
-**This only needs to be done ONCE** - downloads ~2.1GB
-
-### Windows PowerShell
+## Step 2: Pull Phi-3 Mini Model
 
 ```powershell
-# Open PowerShell and run:
 ollama pull phi
-
-# Output will show:
-# pulling manifest
-# pulling 4e4bef180305... 100% ▓▓▓▓▓▓▓▓▓▓ 2.0GB
-# ✓ Done
 ```
 
-### Mac/Linux
-
-```bash
-ollama pull phi
-# Same output as above
+First-time: ~1.6GB download (2-5 min). Verify with:
+```powershell
+ollama list  # Shows: phi:latest  1.6 GB
 ```
-
-**First run takes 2-5 minutes (downloading model)**  
-**Subsequent runs are instant**
 
 ---
 
-## STEP 3: Start Ollama Server
+## Step 3: Open Two Terminals
 
-You need **two PowerShell windows open** from here on:
-
-### PowerShell Window #1: Run Ollama Server (Keep Running)
-
+**Terminal 1** - Start Ollama (keep running):
 ```powershell
 ollama serve
-
-# Output should show:
-# 2026/04/15 23:12:34 "Listening on 127.0.0.1:11434"
+# Should show: Listening on 127.0.0.1:11434
 ```
 
-**⚠️ IMPORTANT: Do NOT close this window!**  
-**The server must keep running for your chatbot to work.**
-
-### PowerShell Window #2: Run Django Backend (New Window)
-
+**Terminal 2** - Start Django backend:
 ```powershell
-cd F:\CODE\nobonir
-
-# Optional: Set environment (already configured, but you can customize)
-# $env:AI_OLLAMA_MODEL = "phi"
-# $env:AI_FREE_LLM_PROVIDERS = "ollama,pollinations,huggingface"
-
-# Start Django
-python backend/manage.py runserver 127.0.0.1:8000
-
-# Output should show:
-# Starting development server at http://127.0.0.1:8000/
+cd f:\CODE\nobonir
+python backend/manage.py runserver 127.0.0.1:8000 --noreload
+# Should show: Starting development server at http://127.0.0.1:8000/
 ```
 
 ---
 
-## STEP 4: Verify Everything Works
+## Step 4: Test the Integration
 
-### Test 1: Quick Ollama Connection Test
-
+**Terminal 3** - Test chat endpoint:
 ```powershell
-# In a new PowerShell window (Window #3):
-curl -X POST http://127.0.0.1:11434/api/generate `
-  -H "Content-Type: application/json" `
-  -d '{"model":"phi","prompt":"Hello, who are you?","stream":false}' | ConvertTo-Json
-
-# Should return a response from Phi-3 Mini
+$body = @{ message = 'Hello' } | ConvertTo-Json
+$r = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/ai/assistant/chat/' `
+  -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 120
+$r.llm_provider  # Should print: ollama ✓
+$r.reply         # AI response from Phi-3
 ```
 
-### Test 2: Test Through Django API
-
-```powershell
-# Still in Window #3:
-$body = @{ message = "hey" } | ConvertTo-Json
-$response = Invoke-RestMethod -Uri http://127.0.0.1:8000/api/ai/assistant/chat/ `
-  -Method Post -ContentType "application/json" -Body $body
-
-Write-Host "Reply: $($response.reply)"
-Write-Host "Provider: $($response.llm_provider)"
-# Should show: "llm_provider": "ollama" ✓
-```
-
-### Test 3: Open Your Chatbot UI
-
-```
-Browser: http://127.0.0.1:5173  (Frontend, if running)
-or open your deployed Nobonir app
-```
-
-Chat with the AI! You should see `"llm_provider": "ollama"` in the logs.
+**Expected metadata**:
+- `llm_provider`: `"ollama"` ✓
+- `llm_enhanced`: `true` ✓
+- `llm_attempts`: `["ollama"]` ✓
 
 ---
 
-## STEP 5: Test Different Queries
+## Performance
 
-Try these in the chatbot to test different intents:
-
-| Query | Expected Behavior |
-|-------|-------------------|
-| `"hey"` | Friendly greeting |
-| `"help"` | Explains what assistant can do |
-| `"top selling"` | Shows bestselling products |
-| `"under 500 taka"` | Budget search within price |
-| `"blue shirt"` | Product recommendation search |
-| `"check my order"` | Shows order status (guest: asks to login) |
-
----
-
-## STEP 6: Monitor Performance
-
-### Check Response Time
-
-```powershell
-# In Window #3:
-$measure = Measure-Command {
-    $body = @{ message = "what's your best selling product" } | ConvertTo-Json
-    $response = Invoke-RestMethod -Uri http://127.0.0.1:8000/api/ai/assistant/chat/ `
-      -Method Post -ContentType "application/json" -Body $body
-}
-Write-Host "Response time: $($measure.TotalSeconds) seconds"
-
-# Expected: 0.5-1.5 seconds
-```
-
-### View Django Logs
-
-Check Terminal Window #2 output for:
-```
-INFO nobonir.request {"llm_provider": "ollama", "llm_enhanced": true}
-```
-
----
-
-## Terminal Setup Summary
-
-You should have these running:
-
-| Window | Command | Keep Open |
-|--------|---------|-----------|
-| #1 | `ollama serve` | ✅ YES (Server) |
-| #2 | `python backend/manage.py runserver...` | ✅ YES (Django) |
-| #3 (New) | Testing/API calls | ✓ (Optional) |
-| Browser | http://127.0.0.1:8000 | ✓ (Your app) |
+| Metric | Performance |
+|--------|------------|
+| First call | 0.5-1.5s (model warmup) |
+| Subsequent calls | 0.2-0.5s |
+| Memory | ~2-4 GB RAM |
+| Cost | $0.00 |
 
 ---
 
 ## Troubleshooting
 
-### "ollama: command not found"
-→ Ollama not installed. Go back to STEP 1 and run the installer.
+| Issue | Solution |
+|-------|----------|
+| Connection refused to Ollama | Check if `ollama serve` is running (Terminal 1) |
+| Getting `llm_provider: local` | Restart Django (stale process issue) |
+| Model download stuck | Retry: `ollama pull phi` |
+| Slow responses | Check RAM available (need 2-4GB) |
 
-### "Connection refused 127.0.0.1:11434"
-→ Ollama server not running. Make sure Window #1 has `ollama serve` running.
+---
 
-### "Model not found: phi"
-→ You didn't pull the model. Run `ollama pull phi` in Window #2.
+## Alternative Models
 
-### "Slow response (>5 seconds)"
-→ First response loads model into memory. Subsequent responses should be <1s.
-→ If persistent, check available RAM (Phi needs ~2-4GB).
-
-### "High CPU/Memory usage"
-→ Normal - Phi-3 Mini uses ~2-4GB RAM while loaded.
-→ Ollama unloads after 5 minutes of inactivity.
-
-### Want to use a different model?
 ```powershell
-# Available models:
-ollama pull orca-mini        # Smaller, faster (~3.5B)
-ollama pull neural-chat      # Balanced (~7B)
-ollama pull mistral          # Excellent reasoning (~7B)
-ollama pull llama2           # Strong all-around (~7B)
-
-# Then update:
-$env:AI_OLLAMA_MODEL = "mistral"
-
-# Or change in Django settings
-```
-
----
-
-## Performance Baseline
-
-With **Phi-3 Mini on modern machine:**
-
-```
-First request:   1-3 seconds (model loads)
-Subsequent:      0.5-1 second (instant)
-Memory:          ~2-4 GB RAM
-Disk:            ~2.1 GB
-Cost:            $0.00 ✓
-```
-
----
-
-## Quick Restart Procedure
-
-If you need to restart everything:
+ollama pull mistral      # Larger, better reasoning (~7B)
 
 1. **Stop Ollama:** Close Window #1 (Ctrl+C)
 2. **Stop Django:** Close Window #2 (Ctrl+C)

@@ -42,7 +42,7 @@ class AssistantChatResponseSerializer(serializers.Serializer):
     session_key = serializers.CharField()
     llm_provider = serializers.CharField()
     llm_enhanced = serializers.BooleanField()
-    llm_attempts = serializers.ListField(child=serializers.CharField())
+    llm_attempts = serializers.ListField(child=serializers.CharField(), required=False, default=list)
     suggested_products = AssistantChatProductSerializer(many=True)
 
 
