@@ -113,11 +113,36 @@ export function CartPage() {
     setCartLoadError(null);
     try {
       const response = await api.get("/cart/");
-      const apiItems = response.data;
-      if (Array.isArray(apiItems) && apiItems.length > 0) {
-        setCartItems(apiItems);
+      const apiItems = Array.isArray(response.data) ? response.data : [];
+      const localItems = getLocalCartItems();
+
+      // Merge server and local items (for guests with split cart state)
+      const mergedItems: CartItem[] = [];
+      const seenKeys = new Set<string>();
+
+      // Add server items first (they are "official" if they exist)
+      for (const item of apiItems) {
+        const key = `${item.product?.id}:${item.variant_id || "null"}`;
+        mergedItems.push(item);
+        seenKeys.add(key);
+      }
+
+      // Add local items that are not already in server
+      for (const localItem of localItems) {
+        const key = `${localItem.product?.id}:${localItem.variant_id || "null"}`;
+        if (!seenKeys.has(key)) {
+          mergedItems.push(localItem);
+        }
+      }
+
+      if (mergedItems.length > 0) {
+        setCartItems(mergedItems);
       } else {
-        setCartItems(getLocalCartItems());
+        setCartItems([]);
+      }
+
+      if (apiItems.length === 0 && localItems.length > 0) {
+        setCartLoadError("Showing locally saved items (not synced to server yet).");
       }
     } catch (error) {
       console.error("Failed to load cart:", error);

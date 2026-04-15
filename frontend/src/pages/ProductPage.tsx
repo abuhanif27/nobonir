@@ -8,6 +8,7 @@ import {
   getErrorMessage,
   getErrorStatus,
 } from "@/lib/apiError";
+import { useCartStore } from "@/lib/cart";
 import { trackEvent } from "@/lib/analytics";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
@@ -37,7 +38,6 @@ import {
 } from "@/hooks/useProducts";
 import { useQueryClient } from "@tanstack/react-query";
 
-type CartQuantityItem = { quantity?: number };
 type LocalCartItem = {
   variant_key?: string;
   variant_id?: number | null;
@@ -79,6 +79,7 @@ export function ProductPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuthStore();
+  const { cartCount, refreshCart } = useCartStore();
   const { formatPrice } = useCurrency();
   const { showError, showSuccess } = useFeedback();
   
@@ -108,7 +109,6 @@ export function ProductPage() {
     isLoading: checkingReviewEligibility
   } = useReviewEligibility(id, isAuthenticated);
 
-  const [cartCount, setCartCount] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -126,36 +126,6 @@ export function ProductPage() {
   
   const trackedProductViewRef = useRef<number | null>(null);
 
-  const getLocalCartCount = useCallback(() => {
-    const raw = localStorage.getItem("nobonir_demo_cart");
-    if (!raw) return 0;
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return 0;
-      return parsed.reduce((sum: number, item: CartQuantityItem) => sum + (item.quantity || 0), 0);
-    } catch {
-      return 0;
-    }
-  }, []);
-
-  const refreshCartCount = useCallback(async () => {
-    try {
-      const response = await api.get("/cart/");
-      const apiItems = Array.isArray(response.data)
-        ? response.data
-        : Array.isArray(response.data?.results)
-          ? response.data.results
-          : [];
-      const apiCount = apiItems.reduce((sum: number, item: CartQuantityItem) => sum + (item.quantity || 0), 0);
-      setCartCount(apiCount > 0 ? apiCount : getLocalCartCount());
-    } catch {
-      setCartCount(getLocalCartCount());
-    }
-  }, [getLocalCartCount]);
-
-  useEffect(() => {
-    void refreshCartCount();
-  }, [refreshCartCount]);
 
   const currentProductId = Number(product?.id || 0);
   const currentUserReview = myReviews.find((review: ProductReview) => Number(review.product) === currentProductId);
@@ -356,12 +326,14 @@ export function ProductPage() {
         variant_id: selectedVariantId,
         quantity,
       });
-    } catch {
+    } catch (error: unknown) {
+      console.warn("Failed to add to server cart, using local backup", error);
       cartMode = "local";
-      addToLocalDemoCart();
     }
 
-    await refreshCartCount();
+    // Always ensure item is in local cache as backup
+    addToLocalDemoCart();
+    await refreshCart();
     void trackEvent("add_to_cart", {
       product_id: product.id,
       variant_id: selectedVariantId,

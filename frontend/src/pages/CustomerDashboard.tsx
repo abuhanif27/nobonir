@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
+import { useCartStore } from "@/lib/cart";
 import api, { MEDIA_BASE_URL } from "@/lib/api";
 import { getErrorData, getErrorStatus } from "@/lib/apiError";
 import { useCurrency } from "@/lib/currency";
@@ -169,6 +170,7 @@ const formatRelativeTime = (isoDate: string) => {
 
 export function CustomerDashboard() {
   const { user, isAuthenticated, accessToken, logout } = useAuthStore();
+  const { cartCount, refreshCart } = useCartStore();
   const { formatPrice } = useCurrency();
   const { showError, showSuccess } = useFeedback();
   const { resolvedTheme } = useTheme();
@@ -185,7 +187,6 @@ export function CustomerDashboard() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
-  const [cartCount, setCartCount] = useState(0);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isTopSellingView, setIsTopSellingView] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -824,46 +825,6 @@ export function CustomerDashboard() {
     return () => document.removeEventListener("keydown", handleEscapeKey);
   }, []);
 
-  const getLocalCartCount = useCallback(() => {
-    const raw = localStorage.getItem("nobonir_demo_cart");
-    if (!raw) {
-      return 0;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) {
-        return 0;
-      }
-
-      return parsed.reduce(
-        (sum: number, item: QuantityPayload) => sum + (item.quantity || 0),
-        0,
-      );
-    } catch {
-      return 0;
-    }
-  }, []);
-
-  const refreshCartCount = useCallback(async () => {
-    try {
-      const response = await api.get("/cart/");
-      const apiItems = Array.isArray(response.data)
-        ? response.data
-        : Array.isArray(response.data?.results)
-          ? response.data.results
-          : [];
-      const apiCount = apiItems.reduce(
-        (sum: number, item: QuantityPayload) => sum + (item.quantity || 0),
-        0,
-      );
-
-      setCartCount(apiCount > 0 ? apiCount : getLocalCartCount());
-    } catch {
-      setCartCount(getLocalCartCount());
-    }
-  }, [getLocalCartCount]);
-
   const loadPreferenceData = useCallback(async () => {
     try {
       const [preferenceResult, recommendationsResult] =
@@ -1320,9 +1281,9 @@ export function CustomerDashboard() {
 
   useEffect(() => {
     void loadProducts();
-    void refreshCartCount();
+    void refreshCart();
     setIsInitialLoad(false);
-  }, [loadProducts, refreshCartCount]);
+  }, [loadProducts, refreshCart]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -1391,13 +1352,14 @@ export function CustomerDashboard() {
         product_id: product.id,
         quantity: 1,
       });
-      await refreshCartCount();
-      return true;
     } catch (error: unknown) {
-      addToLocalDemoCart();
-      await refreshCartCount();
-      return false;
+      console.warn("Failed to add to server cart, using local backup", error);
     }
+
+    // Always ensure item is in local cache as backup
+    addToLocalDemoCart();
+    await refreshCart();
+    return true;
   };
 
   const viewProduct = (product: Product) => {
