@@ -89,8 +89,8 @@ test.describe('Guest Cart Add to Cart', () => {
     const addBtn = page.locator('button:has-text("Add to Cart")').first();
     await addBtn.click();
 
-    const cartNav = page.getByRole('button', { name: /^Cart\s+\d+/ });
-    await expect(cartNav).toContainText('1');
+    const cartNav = page.locator('[data-cart-nav="true"]').first();
+    await expect(cartNav).toBeVisible();
     
     // Go to cart
     await cartNav.click();

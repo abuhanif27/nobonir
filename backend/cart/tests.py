@@ -6,6 +6,8 @@ from rest_framework import status
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.test import APITestCase
 
+from cart.models import Cart, CartItem
+from cart.utils import merge_guest_cart_to_user
 from products.models import Category, Product
 
 
@@ -75,3 +77,67 @@ class CartHardeningTests(APITestCase):
 		)
 
 		self.assertEqual(throttled.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class GuestCartMergeIntegrationTests(APITestCase):
+	def setUp(self):
+		self.user = User.objects.create_user(
+			username="merge-user",
+			email="merge@example.com",
+			password="Secret123!",
+			role="CUSTOMER",
+		)
+		category = Category.objects.create(name="Audio", slug="audio")
+		self.product = Product.objects.create(
+			category=category,
+			name="Speaker",
+			slug="speaker",
+			description="Portable speaker",
+			price=99,
+			stock=30,
+			is_active=True,
+		)
+
+	def test_guest_cart_items_merge_into_user_cart_on_login(self):
+		guest_add = self.client.post(
+			"/api/cart/items/",
+			{"product_id": self.product.id, "quantity": 2},
+			format="json",
+		)
+		self.assertEqual(guest_add.status_code, status.HTTP_201_CREATED)
+
+		session_key = self.client.session.session_key
+		self.assertTrue(session_key)
+
+		guest_cart = Cart.objects.get(session_key=session_key, user__isnull=True)
+		guest_item = CartItem.objects.get(cart=guest_cart, product=self.product)
+		self.assertEqual(guest_item.quantity, 2)
+
+		user_cart = Cart.objects.create(user=self.user)
+		CartItem.objects.create(cart=user_cart, product=self.product, quantity=1)
+
+		merge_guest_cart_to_user(session_key=session_key, user=self.user)
+
+		self.assertFalse(Cart.objects.filter(session_key=session_key, user__isnull=True).exists())
+		merged_item = CartItem.objects.get(cart__user=self.user, product=self.product)
+		self.assertEqual(merged_item.quantity, 3)
+
+	def test_guest_cart_persists_and_accumulates_with_same_session(self):
+		first = self.client.post(
+			"/api/cart/items/",
+			{"product_id": self.product.id, "quantity": 1},
+			format="json",
+		)
+		self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+
+		second = self.client.post(
+			"/api/cart/items/",
+			{"product_id": self.product.id, "quantity": 2},
+			format="json",
+		)
+		self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+
+		list_response = self.client.get("/api/cart/")
+		self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+		self.assertEqual(len(list_response.data), 1)
+		self.assertEqual(list_response.data[0]["quantity"], 3)
