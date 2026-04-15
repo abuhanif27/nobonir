@@ -24,6 +24,8 @@ export function RegisterPage() {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState<"MALE" | "FEMALE" | "OTHER">("MALE");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,12 +33,19 @@ export function RegisterPage() {
     setLoading(true);
 
     try {
-      await register(email, password, firstName, lastName);
+      await register(email, password, firstName, lastName, dateOfBirth, gender);
       showSuccess("Account created successfully");
       navigate("/");
     } catch (err: unknown) {
       const emailError = getErrorFieldMessages(err, "email")[0];
-      showError(emailError || getErrorMessage(err, "Registration failed"));
+      const dobError = getErrorFieldMessages(err, "date_of_birth")[0];
+      const genderError = getErrorFieldMessages(err, "gender")[0];
+      showError(
+        emailError ||
+          dobError ||
+          genderError ||
+          getErrorMessage(err, "Registration failed"),
+      );
     } finally {
       setLoading(false);
     }
@@ -98,6 +107,34 @@ export function RegisterPage() {
               <p className="text-xs text-muted-foreground">
                 At least 8 characters
               </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="dob">Date of Birth</Label>
+                <Input
+                  id="dob"
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gender">Gender</Label>
+                <select
+                  id="gender"
+                  value={gender}
+                  onChange={(e) =>
+                    setGender(e.target.value as "MALE" | "FEMALE" | "OTHER")
+                  }
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  required
+                >
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">

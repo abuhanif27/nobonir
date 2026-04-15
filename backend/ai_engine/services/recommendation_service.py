@@ -180,6 +180,14 @@ def train_user_preference_model(user):
         add_weight(item.product.category_id, 0.8 * float(item.quantity))
 
     inferred_segment, confidence = infer_profile_segment(user, preference)
+
+    user_gender = (getattr(user, "gender", "") or "").lower()
+    if user_gender == "male":
+        inferred_segment = "male"
+        confidence = max(confidence, 0.9)
+    elif user_gender == "female":
+        inferred_segment = "female"
+        confidence = max(confidence, 0.9)
     if inferred_segment in ("male", "female"):
         for category in Category.objects.all():
             segment_boost = _segment_category_boost(inferred_segment, category.name)

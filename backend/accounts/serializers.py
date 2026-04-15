@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from datetime import date
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -8,14 +9,35 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "role", "profile_picture", "phone_number", "address", "date_of_birth"]
-        read_only_fields = ["id", "role"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "profile_picture",
+            "phone_number",
+            "address",
+            "date_of_birth",
+            "gender",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "role", "date_joined"]
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "profile_picture", "phone_number", "address", "date_of_birth"]
+        fields = [
+            "first_name",
+            "last_name",
+            "profile_picture",
+            "phone_number",
+            "address",
+            "date_of_birth",
+            "gender",
+        ]
 
     def validate_profile_picture(self, value):
         if not value:
@@ -53,10 +75,31 @@ class PasswordChangeSerializer(serializers.Serializer):
 class RegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, min_length=8)
+    date_of_birth = serializers.DateField(required=True)
+    gender = serializers.ChoiceField(choices=User.Gender.choices, required=True)
 
     class Meta:
         model = User
-        fields = ["username", "email", "password", "first_name", "last_name"]
+        fields = [
+            "username",
+            "email",
+            "password",
+            "first_name",
+            "last_name",
+            "date_of_birth",
+            "gender",
+        ]
+
+    def validate_date_of_birth(self, value):
+        today = date.today()
+        if value > today:
+            raise serializers.ValidationError("Date of birth cannot be in the future")
+
+        age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
+        if age < 13:
+            raise serializers.ValidationError("You must be at least 13 years old to register")
+
+        return value
 
     def validate(self, attrs):
         username = (attrs.get("username") or "").strip()
@@ -82,6 +125,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data["email"],
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
+            date_of_birth=validated_data["date_of_birth"],
+            gender=validated_data["gender"],
             role=User.Role.CUSTOMER,
         )
         user.set_password(validated_data["password"])

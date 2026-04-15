@@ -97,6 +97,72 @@ def _huggingface_reply(prompt: str) -> str | None:
         return None
 
 
+def _ollama_reply(prompt: str) -> str | None:
+    """Call local Ollama instance running Phi-3 Mini or similar model."""
+    ollama_url = str(getattr(settings, "AI_OLLAMA_API_URL", "http://127.0.0.1:11434")).rstrip("/")
+    model = str(getattr(settings, "AI_OLLAMA_MODEL", "phi")).strip().lower()
+    timeout = float(getattr(settings, "AI_FREE_LLM_TIMEOUT_SECONDS", 20))
+
+    if not ollama_url:
+        return None
+
+    # Ollama API endpoint: POST /api/generate
+    generate_url = f"{ollama_url}/api/generate"
+    headers = {"Content-Type": "application/json"}
+    
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.3,
+            "num_predict": 200,  # max tokens
+        },
+    }
+
+    try:
+        response = requests.post(generate_url, headers=headers, json=payload, timeout=timeout)
+        if response.status_code != 200:
+            return None
+
+        data = response.json()
+        text = str(data.get("response") or "").strip()
+        return text or None
+    except (requests.RequestException, ValueError, TypeError, TimeoutError):
+        return None
+
+
+def _build_ollama_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool) -> str:
+    product_lines = []
+    for product in products[:3]:
+        stock = get_available_stock(product)
+        if is_authenticated:
+            stock_info = f"Stock {stock}"
+            price_info = f"৳{product.price}"
+        else:
+            stock_info = "In Stock" if stock > 0 else "Out of Stock"
+            price_info = f"৳{product.price}"
+        product_lines.append(f"{product.name} | {price_info} | {stock_info}")
+
+    product_context = "\n".join(product_lines) if product_lines else "No product matches found."
+    auth_rule = (
+        "If the user is signed in, you may mention exact stock numbers."
+        if is_authenticated
+        else "If the user is a guest, do not reveal exact stock numbers. Use only In Stock or Out of Stock."
+    )
+
+    return (
+        "You are Nobonir Assistant, a friendly shopping helper.\n"
+        f"Intent: {intent}\n"
+        f"User message: {message}\n"
+        f"Product context:\n{product_context}\n"
+        f"Draft reply: {fallback_reply}\n"
+        f"Rule: {auth_rule}\n"
+        "Write a natural reply in 1 to 2 short sentences. Keep it human, direct, and helpful. "
+        "Do not sound scripted."
+    )
+
+
 def _configured_provider_chain() -> list[str]:
     configured = list(getattr(settings, "AI_FREE_LLM_PROVIDERS", []))
     normalized = [str(item).strip().lower() for item in configured if str(item).strip()]
@@ -296,6 +362,13 @@ def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Produ
         is_authenticated=_is_authenticated_user(user),
         history=history,
     )
+    ollama_prompt = _build_ollama_prompt(
+        intent=intent,
+        message=message,
+        products=products,
+        fallback_reply=fallback_reply,
+        is_authenticated=_is_authenticated_user(user),
+    )
 
     attempts: list[str] = []
     for provider in _configured_provider_chain():
@@ -304,6 +377,8 @@ def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Produ
             llm_reply = _pollinations_reply(prompt)
         elif provider == "huggingface":
             llm_reply = _huggingface_reply(prompt)
+        elif provider == "ollama":
+            llm_reply = _ollama_reply(ollama_prompt)
         else:
             continue
 
@@ -343,6 +418,24 @@ def _safe_session_key(candidate: str | None) -> str:
 
 def _is_authenticated_user(user) -> bool:
     return bool(getattr(user, "is_authenticated", False))
+
+
+def _pick_variant(options: list[str], seed_text: str) -> str:
+    """Pick a variant from options based on seed text hash."""
+    if not options:
+        return ""
+    seed = sum(ord(ch) for ch in (seed_text or ""))
+    return options[seed % len(options)]
+
+
+def _user_prefix(user) -> str:
+    """Get personalized prefix with user first name if authenticated."""
+    if not _is_authenticated_user(user):
+        return ""
+    first_name = (getattr(user, "first_name", "") or "").strip()
+    if not first_name:
+        return ""
+    return f"{first_name}, "
 
 
 def get_or_create_chat_session(user, session_key: str | None = None) -> AssistantChatSession:
@@ -550,27 +643,27 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
             if _is_authenticated_user(user)
             else _fallback_products(limit=4)
         )
-        guest_hint = " Sign in for personalized picks and order support." if not _is_authenticated_user(user) else ""
-        reply = f"Hello! I am your Nobonir shopping assistant. Please share what you are looking for, and I'll help you find the perfect match.{guest_hint}"
+        guest_hint = " log in anytime for your order history and personalized picks." if not _is_authenticated_user(user) else ""
+        prefix = _user_prefix(user)
+        reply = f"{prefix}what are you looking for today?{guest_hint}"
         return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
     if _is_small_talk(normalized_message):
-        reply = (
-            "Hello there! I'm your dedicated Nobonir Assistant. "
-            "I can help you browse our premium collection, check product availability, or track your orders. "
-            "How can I help you today?"
+        prefix = _user_prefix(user)
+        reply = _pick_variant(
+            [
+                f"{prefix}hey! what can i help you find?",
+                f"{prefix}what's up? tell me what you're looking for.",
+                f"{prefix}hi there. what do you need today?",
+            ],
+            normalized_message,
         )
         products = _recommend_products_for_message(user, normalized_message)
         return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
     if _is_help_query(normalized_message):
         reply = (
-            "I'm here to make your shopping experience at Nobonir seamless! I can assist with:\n"
-            "• Finding products based on your preferences or budget\n"
-            "• Checking real-time price and stock availability\n"
-            "• Tracking your order status and shipping updates\n"
-            "• Providing personalized recommendations based on your style\n\n"
-            "How can I help you today?"
+            "i can help with product search, budget picks, stock checks, and order tracking. what do you need?"
         )
         products = _fallback_products(limit=4)
         return _result_with_enhancement("HELP", normalized_message, products, reply, user, history=history)
@@ -580,14 +673,14 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
 
     if intent == "TOP_SELLING":
         products = _apply_budget_filter(_top_selling_products(limit=8), budget_cap, limit=6)
-        reply = "I've curated a list of our top-selling and highly-rated products for you."
+        reply = "here are the bestsellers right now."
         if budget_cap is not None:
-            reply += f" I've specifically selected items within your budget of ৳{budget_cap}."
+            reply += f" all under ৳{budget_cap}."
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "ORDER_HELP":
         if not _is_authenticated_user(user):
-            guest_reply = "To provide secure order details, I'll need you to sign in to your Nobonir account. This allows me to access your private shipping and tracking information safely."
+            guest_reply = "you'd need to log in to see your orders. that keeps your info safe and lets me pull up shipping details fast."
             products = _fallback_products(limit=4)
             return _result_with_enhancement(intent, normalized_message, products, guest_reply, user, history=history)
 
@@ -600,11 +693,10 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
 
         if latest_order:
             reply = (
-                f"I've checked your account, and your most recent order #{latest_order.id} is currently in the '{latest_order.status}' stage. "
-                "I'll continue to monitor its progress for you. In the meantime, you might find these recommendations interesting."
+                f"your latest order #{latest_order.id} is {latest_order.status.lower()}. want suggestions while you wait?"
             )
         else:
-            reply = "I couldn't find any recent orders in your history yet, but I'm ready to help you find your first purchase! Here are some items that are popular right now."
+            reply = "no orders yet. let me help you find something great to start with."
 
         products = get_personalized_recommendations_for_user(user, limit=4)
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
@@ -632,26 +724,22 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
         products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message), budget_cap, limit=10)
         products = _filter_relevant_products(products, normalized_message, limit=5)
         if products:
-            reply = "Based on your specific interests, I've selected a few products that I think you'll really appreciate."
+            reply = "found some solid matches for you."
             if budget_cap is not None:
-                reply += f" I've ensured these options fit comfortably within your budget of ৳{budget_cap}."
+                reply += f" all within ৳{budget_cap}."
         else:
             reply = (
-                "I couldn't find an exact match for that specific request in our current catalog, "
-                "but I'd love to help you find something similar. Could you share a bit more about what you're looking for?"
+                "couldn't find exact matches on that. try a different term or be more specific?"
             )
             products = _fallback_products(limit=4)
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     # General catch-all: proactive product search
     products = _recommend_products_for_message(user, normalized_message)
-    guest_hint = " You might also consider signing in to receive more personalized suggestions." if not _is_authenticated_user(user) else ""
-    reply = (
-        "I'm here to help you navigate our collection. "
-        f"Could you tell me a bit more about what you're looking for?{guest_hint}"
-    )
+    guest_hint = " (logged in members get tailored picks.)" if not _is_authenticated_user(user) else ""
+    reply = f"help me narrow that down. what's your budget or style?{guest_hint}"
     if not products:
-        reply = "I'm sorry, I couldn't find anything matching your request in our catalog. Could you try a different search term?"
+        reply = "nothing on that one. try a different search term?"
     return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
 

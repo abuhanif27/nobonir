@@ -227,16 +227,20 @@ AI_FREE_LLM_ENABLED = _as_bool(os.getenv("AI_FREE_LLM_ENABLED", "1"), default=Tr
 AI_FREE_LLM_PROVIDER = os.getenv("AI_FREE_LLM_PROVIDER", "pollinations").strip().lower() or "pollinations"
 AI_FREE_LLM_PROVIDERS = [
     item.strip().lower()
-    for item in os.getenv("AI_FREE_LLM_PROVIDERS", "pollinations,huggingface").split(",")
+    for item in os.getenv("AI_FREE_LLM_PROVIDERS", "ollama,pollinations,huggingface").split(",")
     if item.strip()
 ]
-AI_FREE_LLM_TIMEOUT_SECONDS = float(os.getenv("AI_FREE_LLM_TIMEOUT_SECONDS", "8"))
+AI_FREE_LLM_TIMEOUT_SECONDS = float(os.getenv("AI_FREE_LLM_TIMEOUT_SECONDS", "12"))
 AI_FREE_LLM_POLLINATIONS_URL = os.getenv("AI_FREE_LLM_POLLINATIONS_URL", "https://text.pollinations.ai").strip()
 AI_FREE_LLM_HUGGINGFACE_URL = os.getenv(
     "AI_FREE_LLM_HUGGINGFACE_URL",
     "https://api-inference.huggingface.co/models/google/flan-t5-large",
 ).strip()
 AI_FREE_LLM_HUGGINGFACE_TOKEN = os.getenv("AI_FREE_LLM_HUGGINGFACE_TOKEN", "").strip()
+
+# Ollama local LLM settings (100% free, runs on your machine)
+AI_OLLAMA_API_URL = os.getenv("AI_OLLAMA_API_URL", "http://127.0.0.1:11434").strip()
+AI_OLLAMA_MODEL = os.getenv("AI_OLLAMA_MODEL", "phi").strip().lower() or "phi"
 
 invoice_rates_json = os.getenv("INVOICE_USD_TO_RATES_JSON", "").strip()
 if invoice_rates_json:

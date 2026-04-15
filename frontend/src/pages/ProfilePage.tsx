@@ -67,6 +67,7 @@ export function ProfilePage() {
     phone_number: user?.phone_number || "",
     address: user?.address || "",
     date_of_birth: user?.date_of_birth || "",
+    gender: user?.gender || "",
   });
 
   // Password change form state
@@ -84,6 +85,7 @@ export function ProfilePage() {
         phone_number: user.phone_number || "",
         address: user.address || "",
         date_of_birth: user.date_of_birth || "",
+        gender: user.gender || "",
       });
     }
   }, [user]);
@@ -204,6 +206,7 @@ export function ProfilePage() {
       formDataToSend.append("phone_number", formData.phone_number);
       formDataToSend.append("address", formData.address);
       formDataToSend.append("date_of_birth", formData.date_of_birth);
+      formDataToSend.append("gender", formData.gender);
 
       if (selectedImage) {
         formDataToSend.append("profile_picture", selectedImage);
@@ -233,6 +236,7 @@ export function ProfilePage() {
         phone_number: user.phone_number || "",
         address: user.address || "",
         date_of_birth: user.date_of_birth || "",
+        gender: user.gender || "",
       });
     }
     setSelectedImage(null);
@@ -281,9 +285,12 @@ export function ProfilePage() {
     return (first + last).toUpperCase() || user.email[0].toUpperCase();
   };
 
-  const memberSince = user?.id
-    ? new Date().getFullYear() - (user.id % 5)
-    : new Date().getFullYear();
+  const memberSince = user?.date_joined
+    ? new Date(user.date_joined).toLocaleDateString(undefined, {
+        month: "long",
+        year: "numeric",
+      })
+    : "Unknown";
 
   const profileImageSrc = user?.profile_picture
     ? user.profile_picture.startsWith("http")
@@ -578,6 +585,28 @@ export function ProfilePage() {
                     </div>
                   </div>
                   <div>
+                    <Label htmlFor="gender">Gender</Label>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <select
+                        id="gender"
+                        value={formData.gender}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            gender: e.target.value,
+                          })
+                        }
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                      >
+                        <option value="">Select gender</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
                     <Label htmlFor="address">Address</Label>
                     <div className="flex items-start gap-2">
                       <MapPin className="mt-2 h-4 w-4 text-muted-foreground" />
@@ -622,6 +651,17 @@ export function ProfilePage() {
                       <p className="font-medium text-foreground">
                         {user?.date_of_birth
                           ? new Date(user.date_of_birth).toLocaleDateString()
+                          : "Not provided"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
+                    <User className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Gender</p>
+                      <p className="font-medium text-foreground">
+                        {user?.gender
+                          ? user.gender.charAt(0) + user.gender.slice(1).toLowerCase()
                           : "Not provided"}
                       </p>
                     </div>

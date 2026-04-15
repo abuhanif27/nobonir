@@ -9,6 +9,8 @@ interface User {
   first_name: string;
   last_name: string;
   role: "ADMIN" | "CUSTOMER";
+  gender?: "MALE" | "FEMALE" | "OTHER";
+  date_joined?: string;
   profile_picture?: string;
   phone_number?: string;
   address?: string;
@@ -28,6 +30,8 @@ interface AuthState {
     password: string,
     firstName: string,
     lastName: string,
+    dateOfBirth: string,
+    gender: "MALE" | "FEMALE" | "OTHER",
   ) => Promise<void>;
   logout: () => void;
   refreshAccessToken: () => Promise<void>;
@@ -73,12 +77,16 @@ export const useAuthStore = create<AuthState>()(
         password: string,
         firstName: string,
         lastName: string,
+        dateOfBirth: string,
+        gender: "MALE" | "FEMALE" | "OTHER",
       ) => {
         await api.post("/accounts/register/", {
           email,
           password,
           first_name: firstName,
           last_name: lastName,
+          date_of_birth: dateOfBirth,
+          gender,
         });
 
         // Auto-login after registration

@@ -14,6 +14,8 @@ class RegisterAPITests(APITestCase):
 			"password": "StrongPass123!",
 			"first_name": "New",
 			"last_name": "User",
+			"date_of_birth": "2000-07-06",
+			"gender": "MALE",
 		}
 
 		response = self.client.post("/api/accounts/register/", payload, format="json")
@@ -23,6 +25,8 @@ class RegisterAPITests(APITestCase):
 		self.assertTrue(user.username.startswith("newuser"))
 		self.assertEqual(user.first_name, "New")
 		self.assertEqual(user.last_name, "User")
+		self.assertEqual(str(user.date_of_birth), "2000-07-06")
+		self.assertEqual(user.gender, "MALE")
 
 	def test_register_with_explicit_username_keeps_it(self):
 		payload = {
@@ -31,6 +35,8 @@ class RegisterAPITests(APITestCase):
 			"password": "StrongPass123!",
 			"first_name": "Named",
 			"last_name": "User",
+			"date_of_birth": "1998-12-31",
+			"gender": "FEMALE",
 		}
 
 		response = self.client.post("/api/accounts/register/", payload, format="json")
@@ -38,6 +44,20 @@ class RegisterAPITests(APITestCase):
 		self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 		user = User.objects.get(email="named@example.com")
 		self.assertEqual(user.username, "customname")
+
+	def test_register_requires_date_of_birth_and_gender(self):
+		payload = {
+			"email": "missing-fields@example.com",
+			"password": "StrongPass123!",
+			"first_name": "Missing",
+			"last_name": "Fields",
+		}
+
+		response = self.client.post("/api/accounts/register/", payload, format="json")
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertIn("date_of_birth", response.data)
+		self.assertIn("gender", response.data)
 
 	def test_login_with_email_returns_tokens_and_user(self):
 		User.objects.create_user(
