@@ -97,6 +97,11 @@ test("checkout form is keyboard operable and COD submit flow works", async ({
 }) => {
   await page.goto("/cart");
 
+  const codRadio = page.getByRole("radio", { name: /Cash on Delivery/i });
+  await codRadio.focus();
+  await page.keyboard.press("Enter");
+  await expect(codRadio).toHaveAttribute("aria-checked", "true");
+
   const shippingAddress = page.locator("#shipping-address");
   await shippingAddress.focus();
   await expect(shippingAddress).toBeFocused();
@@ -112,11 +117,6 @@ test("checkout form is keyboard operable and COD submit flow works", async ({
   await expect(billingAddress).toBeEnabled();
   await billingAddress.focus();
   await page.keyboard.type("10 Downing Street, Dhaka");
-
-  const codRadio = page.getByRole("radio", { name: /Cash on Delivery/i });
-  await codRadio.focus();
-  await page.keyboard.press("Enter");
-  await expect(codRadio).toHaveAttribute("aria-checked", "true");
 
   const submitButton = page.getByRole("button", { name: "Place COD Order" });
   await submitButton.focus();
@@ -159,7 +159,7 @@ test("checkout keyboard submit shows validation error when shipping is empty", a
   await expect.poll(() => checkoutCalls).toBe(0);
 });
 
-test("checkout keyboard submit shows validation error when billing is empty", async ({
+test("checkout keyboard submit does not require billing when paying by card", async ({
   page,
 }) => {
   let checkoutCalls = 0;
@@ -180,27 +180,16 @@ test("checkout keyboard submit shows validation error when billing is empty", as
   await shippingAddress.focus();
   await page.keyboard.type("221B Baker Street, Dhaka");
 
-  const sameAsShipping = page.locator("#same-as-shipping");
-  await sameAsShipping.focus();
-  await expect(sameAsShipping).toBeChecked();
-  await page.keyboard.press("Space");
-  await expect(sameAsShipping).not.toBeChecked();
-
-  const billingAddress = page.locator("#billing-address");
-  await expect(billingAddress).toBeEnabled();
-  await billingAddress.focus();
-  await page.keyboard.press("Control+A");
-  await page.keyboard.press("Backspace");
-  await expect(billingAddress).toHaveValue("");
-
   const submitButton = page.getByRole("button", { name: "Pay Securely" });
   await submitButton.focus();
   await page.keyboard.press("Enter");
 
+  await expect
+    .poll(() => checkoutCalls)
+    .toBeGreaterThan(0);
   await expect(
     page.getByText("Please enter your billing address.", { exact: true }),
-  ).toBeVisible();
-  await expect.poll(() => checkoutCalls).toBe(0);
+  ).toBeHidden();
 });
 
 test("authenticated coupon apply flow is keyboard reachable and shows validation feedback", async ({

@@ -1281,9 +1281,9 @@ export function CustomerDashboard() {
 
   useEffect(() => {
     void loadProducts();
-    void refreshCart();
+    void refreshCart(isAuthenticated);
     setIsInitialLoad(false);
-  }, [loadProducts, refreshCart]);
+  }, [isAuthenticated, loadProducts, refreshCart]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -1347,18 +1347,20 @@ export function CustomerDashboard() {
       imageSrc: product.image,
     });
 
-    try {
-      await api.post("/cart/items/", {
-        product_id: product.id,
-        quantity: 1,
-      });
-    } catch (error: unknown) {
-      console.warn("Failed to add to server cart, using local backup", error);
+    if (isAuthenticated) {
+      try {
+        await api.post("/cart/items/", {
+          product_id: product.id,
+          quantity: 1,
+        });
+      } catch (error: unknown) {
+        console.warn("Failed to add to server cart, using local backup", error);
+      }
     }
 
     // Always ensure item is in local cache as backup
     addToLocalDemoCart();
-    await refreshCart();
+    await refreshCart(isAuthenticated);
     return true;
   };
 

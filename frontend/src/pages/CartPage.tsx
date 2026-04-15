@@ -111,6 +111,13 @@ export function CartPage() {
 
   const loadCart = useCallback(async () => {
     setCartLoadError(null);
+
+    if (!isAuthenticated) {
+      setCartItems(getLocalCartItems());
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await api.get("/cart/");
       const apiItems = Array.isArray(response.data) ? response.data : [];
@@ -156,7 +163,7 @@ export function CartPage() {
     } finally {
       setLoading(false);
     }
-  }, [getLocalCartItems]);
+  }, [getLocalCartItems, isAuthenticated]);
 
   useEffect(() => {
     void loadCart();
@@ -215,6 +222,18 @@ export function CartPage() {
   }, [clearConfirmOpen]);
 
   const updateQuantity = async (itemId: number, quantity: number) => {
+    if (!isAuthenticated) {
+      const updated =
+        quantity <= 0
+          ? cartItems.filter((item) => item.id !== itemId)
+          : cartItems.map((item) =>
+              item.id === itemId ? { ...item, quantity } : item,
+            );
+      setCartItems(updated);
+      setLocalCartItems(updated);
+      return;
+    }
+
     const localItem = cartItems.find(
       (item) => item.id === itemId && item.isLocal,
     );
@@ -244,6 +263,13 @@ export function CartPage() {
   };
 
   const removeItem = async (itemId: number) => {
+    if (!isAuthenticated) {
+      const updated = cartItems.filter((item) => item.id !== itemId);
+      setCartItems(updated);
+      setLocalCartItems(updated);
+      return;
+    }
+
     const localItem = cartItems.find(
       (item) => item.id === itemId && item.isLocal,
     );
@@ -272,6 +298,14 @@ export function CartPage() {
 
   const clearAllCart = async () => {
     setClearingAll(true);
+
+    if (!isAuthenticated) {
+      setLocalCartItems([]);
+      setCartItems([]);
+      setClearingAll(false);
+      setClearConfirmOpen(false);
+      return;
+    }
 
     const hasLocalItems = cartItems.some((item) => item.isLocal);
     if (hasLocalItems) {
@@ -325,11 +359,14 @@ export function CartPage() {
       return;
     }
 
-    const resolvedBillingAddress = useShippingAsBilling
-      ? shippingAddress.trim()
-      : billingAddress.trim();
+    const resolvedBillingAddress =
+      paymentMethod === "COD"
+        ? useShippingAsBilling
+          ? shippingAddress.trim()
+          : billingAddress.trim()
+        : "";
 
-    if (!resolvedBillingAddress) {
+    if (paymentMethod === "COD" && !resolvedBillingAddress) {
       showError("Please enter your billing address");
       return;
     }
@@ -818,6 +855,11 @@ export function CartPage() {
                         className="text-sm font-medium"
                       >
                         Billing Address
+                        {paymentMethod === "COD" && (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            (required for COD)
+                          </span>
+                        )}
                       </label>
                       <label
                         htmlFor="same-as-shipping"
@@ -830,7 +872,7 @@ export function CartPage() {
                           onChange={(event) =>
                             setUseShippingAsBilling(event.target.checked)
                           }
-                          disabled={!isAuthenticated}
+                          disabled={!isAuthenticated || paymentMethod === "CARD"}
                         />
                         Same as shipping
                       </label>
@@ -840,7 +882,11 @@ export function CartPage() {
                       placeholder="Enter your billing address..."
                       value={billingAddress}
                       onChange={(e) => setBillingAddress(e.target.value)}
-                      disabled={!isAuthenticated || useShippingAsBilling}
+                      disabled={
+                        !isAuthenticated ||
+                        paymentMethod === "CARD" ||
+                        useShippingAsBilling
+                      }
                       rows={4}
                     />
                   </div>

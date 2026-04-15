@@ -13,7 +13,7 @@ interface CartState {
   cartItems: CartItem[];
   setCartCount: (count: number) => void;
   setCartItems: (items: CartItem[]) => void;
-  refreshCart: () => Promise<void>;
+  refreshCart: (isAuthenticated: boolean) => Promise<void>;
 }
 
 export const useCartStore = create<CartState>((set) => ({
@@ -29,7 +29,33 @@ export const useCartStore = create<CartState>((set) => ({
     set({ cartItems: items, cartCount: count });
   },
 
-  refreshCart: async () => {
+  refreshCart: async (isAuthenticated: boolean) => {
+    const loadLocalCart = () => {
+      const raw = localStorage.getItem("nobonir_demo_cart");
+      if (!raw) {
+        set({ cartItems: [], cartCount: 0 });
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        const items = Array.isArray(parsed) ? parsed : [];
+        const count = items.reduce(
+          (sum: number, item: CartItem) => sum + (item.quantity || 0),
+          0,
+        );
+        set({ cartItems: items, cartCount: count });
+      } catch {
+        set({ cartItems: [], cartCount: 0 });
+      }
+    };
+
+    // Guest cart is browser-only by design.
+    if (!isAuthenticated) {
+      loadLocalCart();
+      return;
+    }
+
     try {
       const response = await api.get("/cart/");
       const apiItems = Array.isArray(response.data)
@@ -37,23 +63,13 @@ export const useCartStore = create<CartState>((set) => ({
         : Array.isArray(response.data?.results)
           ? response.data.results
           : [];
-      const count = apiItems.reduce((sum: number, item: CartItem) => sum + (item.quantity || 0), 0);
+      const count = apiItems.reduce(
+        (sum: number, item: CartItem) => sum + (item.quantity || 0),
+        0,
+      );
       set({ cartItems: apiItems, cartCount: count });
-    } catch (error) {
-      // On error, try to get count from local storage
-      const localCart = localStorage.getItem("nobonir_demo_cart");
-      if (localCart) {
-        try {
-          const parsed = JSON.parse(localCart);
-          const items = Array.isArray(parsed) ? parsed : [];
-          const count = items.reduce((sum: number, item: CartItem) => sum + (item.quantity || 0), 0);
-          set({ cartItems: items, cartCount: count });
-        } catch {
-          set({ cartItems: [], cartCount: 0 });
-        }
-      } else {
-        set({ cartItems: [], cartCount: 0 });
-      }
+    } catch {
+      loadLocalCart();
     }
   },
 }));

@@ -126,6 +126,10 @@ export function ProductPage() {
   
   const trackedProductViewRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    void refreshCart(isAuthenticated);
+  }, [isAuthenticated, refreshCart]);
+
 
   const currentProductId = Number(product?.id || 0);
   const currentUserReview = myReviews.find((review: ProductReview) => Number(review.product) === currentProductId);
@@ -319,21 +323,23 @@ export function ProductPage() {
       localStorage.setItem(key, JSON.stringify(existing));
     };
 
-    let cartMode: "server" | "local" = "server";
-    try {
-      await api.post("/cart/items/", {
-        product_id: product.id,
-        variant_id: selectedVariantId,
-        quantity,
-      });
-    } catch (error: unknown) {
-      console.warn("Failed to add to server cart, using local backup", error);
-      cartMode = "local";
+    let cartMode: "server" | "local" = isAuthenticated ? "server" : "local";
+    if (isAuthenticated) {
+      try {
+        await api.post("/cart/items/", {
+          product_id: product.id,
+          variant_id: selectedVariantId,
+          quantity,
+        });
+      } catch (error: unknown) {
+        console.warn("Failed to add to server cart, using local backup", error);
+        cartMode = "local";
+      }
     }
 
     // Always ensure item is in local cache as backup
     addToLocalDemoCart();
-    await refreshCart();
+    await refreshCart(isAuthenticated);
     void trackEvent("add_to_cart", {
       product_id: product.id,
       variant_id: selectedVariantId,
