@@ -11,6 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from common.permissions import IsAdminRole
 from accounts.models import PasswordResetToken
+from accounts.services.email_service import EmailService
 from .serializers import (
 	AdminUserSerializer,
 	AdminUserUpdateSerializer,
@@ -62,6 +63,21 @@ class LoginAPIView(TokenObtainPairView):
 class RegisterAPIView(generics.CreateAPIView):
 	serializer_class = RegisterSerializer
 	permission_classes = [permissions.AllowAny]
+	
+	def create(self, request, *args, **kwargs):
+		response = super().create(request, *args, **kwargs)
+		
+		# Send welcome email to new user
+		if response.status_code == 201:
+			try:
+				email = response.data.get('email')
+				user = User.objects.get(email=email)
+				EmailService.send_welcome_email(user)
+			except Exception:
+				# Don't fail registration if welcome email fails
+				pass
+		
+		return response
 
 
 class MeAPIView(generics.RetrieveUpdateAPIView):
@@ -82,7 +98,11 @@ class PasswordChangeAPIView(APIView):
 	def post(self, request):
 		serializer = PasswordChangeSerializer(data=request.data, context={'request': request})
 		if serializer.is_valid():
-			serializer.save()
+			user = serializer.save()
+			
+			# Send password changed confirmation email
+			EmailService.send_password_changed_confirmation(user)
+			
 			return Response({"detail": "Password changed successfully"}, status=status.HTTP_200_OK)
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -109,40 +129,12 @@ class PasswordResetRequestAPIView(APIView):
 					expires_at=expires_at
 				)
 				
-				# Build reset URL
-				frontend_base_url = getattr(settings, 'FRONTEND_BASE_URL', 'http://localhost:5173')
-				reset_url = f"{frontend_base_url}/reset-password?token={token}"
-				
-				# Send email
-				subject = "Password Reset Request"
-				message = f"""
-Hi {user.first_name or user.username},
-
-We received a request to reset your password. Click the link below to set a new password:
-
-{reset_url}
-
-This link will expire in {expiry_hours} hours.
-
-If you didn't request this, please ignore this email.
-
-Best regards,
-Nobonir Team
-				"""
-				
-				try:
-					send_mail(
-						subject,
-						message,
-						getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@nobonir.com'),
-						[user.email],
-						fail_silently=False
-					)
-				except Exception as e:
-					return Response(
-						{"detail": "Failed to send reset email. Please try again later."},
-						status=status.HTTP_500_INTERNAL_SERVER_ERROR
-					)
+				# Send password reset email using EmailService
+				EmailService.send_password_reset_email(
+					user=user,
+					reset_token=token,
+					expiry_hours=expiry_hours
+				)
 			
 			# Always return success for security (don't reveal if email exists)
 			return Response(

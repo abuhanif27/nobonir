@@ -1,0 +1,40 @@
+WELCOME TO {{ app_name }}!
+=======================
+
+Hi {{ user.first_name|default:user.username }},
+
+Welcome to {{ app_name }}! We're excited to have you join our community. Your account has been successfully created.
+
+{% if verification_url %}
+VERIFY YOUR EMAIL
+-----------------
+{{ verification_url }}
+
+Please verify your email address to activate your account.
+
+{% endif %}
+
+WHAT YOU CAN DO
+---------------
+
+🛍️ SHOP WITH CONFIDENCE
+Browse our curated collection of products with secure checkout and multiple payment options.
+
+🤖 AI SHOPPING ASSISTANT
+Get personalized product recommendations powered by our advanced AI technology.
+
+⭐ REVIEW & RATE
+Share your experience and help other customers find the perfect products.
+
+🚀 SPECIAL OFFERS
+Get exclusive deals and early access to new products as a valued member.
+
+NEED HELP?
+----------
+If you have any questions or need help getting started, don't hesitate to reach out to our support team at {{ support_email }}.
+
+Happy shopping!
+The {{ app_name }} Team
+
+© 2026 {{ app_name }}. All rights reserved.
+You're receiving this email because you created an account on {{ app_name }}.
