@@ -1,6 +1,7 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bot, RotateCcw, Send, X } from "lucide-react";
+import { Virtuoso } from "react-virtuoso";
 import { useAuthStore } from "@/lib/auth";
 import { useCurrency } from "@/lib/currency";
 import {
@@ -32,7 +33,6 @@ export function FloatingAssistantWidget() {
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [nextBeforeId, setNextBeforeId] = useState<number | null>(null);
   const [sessionKey, setSessionKey] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "assistant_welcome_widget",
@@ -51,12 +51,6 @@ export function FloatingAssistantWidget() {
     ],
     [],
   );
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, open]);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,38 +223,55 @@ export function FloatingAssistantWidget() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col min-h-0 p-0 overflow-hidden">
-              <div
-                ref={scrollRef}
-                className="flex-1 overflow-y-auto px-4 py-4 space-y-6 scroll-smooth"
-                onScroll={(event) => {
-                  const element = event.currentTarget;
-                  if (element.scrollTop <= 24) {
-                    void loadOlderHistory();
-                  }
+              <Virtuoso
+                className="flex-1 px-4 py-4 scrollbar-hide [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                data={messages}
+                atTopThreshold={48}
+                startReached={() => {
+                  void loadOlderHistory();
                 }}
-              >
-                {hasMoreHistory ? (
-                  <div className="flex justify-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={loadOlderHistory}
-                      disabled={isHistoryLoading}
-                    >
-                      {isHistoryLoading ? "Loading..." : "Load older messages"}
-                    </Button>
-                  </div>
-                ) : null}
-                {!isAuthenticated ? (
-                  <p className="text-[10px] text-center text-muted-foreground bg-slate-100 dark:bg-slate-800/50 py-1 rounded-md mb-2">
-                    Guest mode: Sign in for personalized help.
-                  </p>
-                ) : null}
-                {messages.map((message) => (
+                followOutput={(isAtBottom) => (isAtBottom ? "smooth" : false)}
+                components={{
+                  Header: () => (
+                    <>
+                      {hasMoreHistory ? (
+                        <div className="flex justify-center pb-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={loadOlderHistory}
+                            disabled={isHistoryLoading}
+                          >
+                            {isHistoryLoading ? "Loading..." : "Load older messages"}
+                          </Button>
+                        </div>
+                      ) : null}
+                      {!isAuthenticated ? (
+                        <p className="text-[10px] text-center text-muted-foreground bg-slate-100 dark:bg-slate-800/50 py-1 rounded-md mb-4">
+                          Guest mode: Sign in for personalized help.
+                        </p>
+                      ) : null}
+                    </>
+                  ),
+                  Footer: () =>
+                    isLoading ? (
+                      <div className="flex flex-col items-start gap-1.5 pt-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-1">
+                          Assistant
+                        </span>
+                        <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl rounded-tl-none px-4 py-3 flex gap-1">
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                        </div>
+                      </div>
+                    ) : null,
+                }}
+                itemContent={(_, message) => (
                   <div
                     key={message.id}
-                    className={`flex flex-col gap-1.5 ${
+                    className={`pb-6 flex flex-col gap-1.5 ${
                       message.role === "user" ? "items-end" : "items-start"
                     }`}
                   >
@@ -274,16 +285,16 @@ export function FloatingAssistantWidget() {
                       {message.role === "user" ? "You" : "Assistant"}
                     </span>
                     <div
-                      className={`relative max-w-[85%] rounded-2xl px-3 py-2.5 shadow-sm text-[14px] leading-relaxed ${
+                      className={`relative max-w-[90%] rounded-2xl px-3 py-2.5 shadow-sm text-[14px] leading-relaxed ${
                         message.role === "user"
                           ? "bg-teal-600 text-white rounded-tr-none border border-teal-500"
                           : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-none border border-border/60"
                       }`}
                     >
-                      <span className="whitespace-pre-line">{message.text}</span>
+                      <span className="whitespace-pre-line break-words" style={{ overflowWrap: "break-word" }}>{message.text}</span>
                     </div>
                     {message.products && message.products.length > 0 ? (
-                      <div className="mt-2 w-full max-w-[85%] space-y-1.5">
+                      <div className="mt-2 w-full max-w-[90%] space-y-1.5">
                         {message.products.slice(0, 3).map((product) => (
                           <Link
                             key={`${message.id}_${product.id}`}
@@ -304,20 +315,8 @@ export function FloatingAssistantWidget() {
                       </div>
                     ) : null}
                   </div>
-                ))}
-                {isLoading && (
-                  <div className="flex flex-col items-start gap-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 ml-1">
-                      Assistant
-                    </span>
-                    <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl rounded-tl-none px-4 py-3 flex gap-1">
-                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
-                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-                    </div>
-                  </div>
                 )}
-              </div>
+              />
               <form
                 onSubmit={submit}
                 className="flex-none p-4 border-t bg-white dark:bg-slate-900 space-y-3"

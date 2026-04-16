@@ -156,6 +156,48 @@ class EmailTokenObtainSerializer(serializers.Serializer):
         }
 
 
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Request password reset via email."""
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        normalized_email = value.strip().lower()
+        if not User.objects.filter(email__iexact=normalized_email).exists():
+            # Don't reveal if email exists for security
+            pass
+        return normalized_email
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Reset password using token from email."""
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, attrs):
+        from accounts.models import PasswordResetToken
+        
+        token = attrs.get('token', '').strip()
+        try:
+            reset_token = PasswordResetToken.objects.get(token=token)
+            if not reset_token.is_valid():
+                raise serializers.ValidationError("This password reset link has expired or has already been used.")
+        except PasswordResetToken.DoesNotExist:
+            raise serializers.ValidationError("Invalid password reset token.")
+        
+        attrs['reset_token'] = reset_token
+        return attrs
+
+    def save(self):
+        user = self.validated_data['reset_token'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+        
+        # Mark token as used
+        self.validated_data['reset_token'].mark_used()
+        
+        return user
+
+
 class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

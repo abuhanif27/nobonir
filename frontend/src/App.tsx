@@ -10,6 +10,8 @@ import { FeedbackProvider } from "@/lib/feedback";
 
 const LoginPage = lazy(() => import("@/pages/LoginPage").then((m) => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage").then((m) => ({ default: m.RegisterPage })));
+const PasswordResetPage = lazy(() => import("@/pages/PasswordResetPage").then((m) => ({ default: m.PasswordResetPage })));
+const PasswordResetConfirmPage = lazy(() => import("@/pages/PasswordResetConfirmPage").then((m) => ({ default: m.PasswordResetConfirmPage })));
 const CustomerDashboard = lazy(() => import("@/pages/CustomerDashboard").then((m) => ({ default: m.CustomerDashboard })));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard").then((m) => ({ default: m.AdminDashboard })));
 const CartPage = lazy(() => import("@/pages/CartPage").then((m) => ({ default: m.CartPage })));
@@ -60,6 +62,26 @@ function App() {
                     <RegisterPage />
                   ) : (
                     <Navigate to="/" replace />
+                  )
+                }
+              />
+              <Route
+                path="/password-reset"
+                element={
+                  !isAuthenticated ? (
+                    <PasswordResetPage />
+                  ) : (
+                    <Navigate to="/profile" replace />
+                  )
+                }
+              />
+              <Route
+                path="/reset-password"
+                element={
+                  !isAuthenticated ? (
+                    <PasswordResetConfirmPage />
+                  ) : (
+                    <Navigate to="/profile" replace />
                   )
                 }
               />

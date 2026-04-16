@@ -1,6 +1,7 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bot, RotateCcw, Send } from "lucide-react";
+import { Virtuoso } from "react-virtuoso";
 import { useAuthStore } from "@/lib/auth";
 import { useCurrency } from "@/lib/currency";
 import {
@@ -31,7 +32,6 @@ export function AIAssistantPage() {
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [nextBeforeId, setNextBeforeId] = useState<number | null>(null);
   const [sessionKey, setSessionKey] = useState("");
-  const historyScrollRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "assistant_welcome",
@@ -223,33 +223,34 @@ export function AIAssistantPage() {
             ) : null}
           </CardHeader>
           <CardContent className="space-y-4">
-            <div
-              ref={historyScrollRef}
-              className="max-h-[65vh] overflow-y-auto space-y-3 pr-1"
-              onScroll={(event) => {
-                const element = event.currentTarget;
-                if (element.scrollTop <= 24) {
-                  void loadOlderHistory();
-                }
+            <Virtuoso
+              className="h-[65vh] pr-1 scrollbar-hide [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              data={messages}
+              atTopThreshold={48}
+              startReached={() => {
+                void loadOlderHistory();
               }}
-            >
-              {hasMoreHistory ? (
-                <div className="flex justify-center">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={loadOlderHistory}
-                    disabled={isHistoryLoading}
-                  >
-                    {isHistoryLoading ? "Loading..." : "Load older messages"}
-                  </Button>
-                </div>
-              ) : null}
-              {messages.map((message) => (
+              followOutput={(isAtBottom) => (isAtBottom ? "smooth" : false)}
+              components={{
+                Header: () =>
+                  hasMoreHistory ? (
+                    <div className="flex justify-center pb-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={loadOlderHistory}
+                        disabled={isHistoryLoading}
+                      >
+                        {isHistoryLoading ? "Loading..." : "Load older messages"}
+                      </Button>
+                    </div>
+                  ) : null,
+              }}
+              itemContent={(_, message) => (
                 <div
                   key={message.id}
-                  className={`rounded-lg border p-3 ${
+                  className={`pb-3 rounded-lg border p-3 ${
                     message.role === "user"
                       ? "border-teal-400/50 bg-teal-50/40 dark:bg-teal-900/10"
                       : "border-border/70 bg-card"
@@ -286,8 +287,8 @@ export function AIAssistantPage() {
                     </div>
                   ) : null}
                 </div>
-              ))}
-            </div>
+              )}
+            />
 
             <form onSubmit={submit} className="space-y-2">
               <Textarea

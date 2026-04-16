@@ -1,16 +1,23 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.utils import timezone
+from django.conf import settings
+from django.core.mail import send_mail
+from datetime import timedelta
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from common.permissions import IsAdminRole
+from accounts.models import PasswordResetToken
 from .serializers import (
 	AdminUserSerializer,
 	AdminUserUpdateSerializer,
 	EmailTokenObtainSerializer,
 	PasswordChangeSerializer,
+	PasswordResetRequestSerializer,
+	PasswordResetConfirmSerializer,
 	ProfileUpdateSerializer,
 	RegisterSerializer,
 	UserSerializer,
@@ -77,6 +84,94 @@ class PasswordChangeAPIView(APIView):
 		if serializer.is_valid():
 			serializer.save()
 			return Response({"detail": "Password changed successfully"}, status=status.HTTP_200_OK)
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetRequestAPIView(APIView):
+	"""Request a password reset link via email."""
+	permission_classes = [permissions.AllowAny]
+
+	def post(self, request):
+		serializer = PasswordResetRequestSerializer(data=request.data)
+		if serializer.is_valid():
+			email = serializer.validated_data['email']
+			user = User.objects.filter(email__iexact=email).first()
+			
+			if user:
+				# Create reset token
+				token = PasswordResetToken.generate_token()
+				expiry_hours = int(getattr(settings, 'PASSWORD_RESET_TOKEN_EXPIRY_HOURS', 24))
+				expires_at = timezone.now() + timedelta(hours=expiry_hours)
+				
+				reset_token = PasswordResetToken.objects.create(
+					user=user,
+					token=token,
+					expires_at=expires_at
+				)
+				
+				# Build reset URL
+				frontend_base_url = getattr(settings, 'FRONTEND_BASE_URL', 'http://localhost:5173')
+				reset_url = f"{frontend_base_url}/reset-password?token={token}"
+				
+				# Send email
+				subject = "Password Reset Request"
+				message = f"""
+Hi {user.first_name or user.username},
+
+We received a request to reset your password. Click the link below to set a new password:
+
+{reset_url}
+
+This link will expire in {expiry_hours} hours.
+
+If you didn't request this, please ignore this email.
+
+Best regards,
+Nobonir Team
+				"""
+				
+				try:
+					send_mail(
+						subject,
+						message,
+						getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@nobonir.com'),
+						[user.email],
+						fail_silently=False
+					)
+				except Exception as e:
+					return Response(
+						{"detail": "Failed to send reset email. Please try again later."},
+						status=status.HTTP_500_INTERNAL_SERVER_ERROR
+					)
+			
+			# Always return success for security (don't reveal if email exists)
+			return Response(
+				{"detail": "If an account exists with this email, you will receive a password reset link."},
+				status=status.HTTP_200_OK
+			)
+		
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetConfirmAPIView(APIView):
+	"""Confirm password reset with token and new password."""
+	permission_classes = [permissions.AllowAny]
+
+	def post(self, request):
+		serializer = PasswordResetConfirmSerializer(data=request.data)
+		if serializer.is_valid():
+			user = serializer.save()
+			return Response(
+				{
+					"detail": "Password has been reset successfully. You can now login with your new password.",
+					"user": {
+						"id": user.id,
+						"email": user.email,
+						"username": user.username
+					}
+				},
+				status=status.HTTP_200_OK
+			)
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
