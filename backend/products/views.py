@@ -217,15 +217,54 @@ class ProductViewSet(viewsets.ModelViewSet):
 	def merchandising(self, request):
 		base = self._with_available_stock(super().get_queryset().filter(is_active=True))
 		now = timezone.now()
+		used_ids: set[int] = set()
 
-		trending = self._top_selling_last_30_days_queryset().filter(total_sold_30d__gt=0)[:12]
-		almost_gone = base.filter(available_stock__gt=0, available_stock__lte=5).order_by("available_stock", "-updated_at")[:12]
-		just_restocked = base.filter(available_stock__gt=0, last_restocked_at__gte=now - timezone.timedelta(days=7)).order_by("-last_restocked_at")[:12]
-		back_in_stock = base.filter(
+		# Trending: Top selling products (not yet used)
+		trending_raw = self._top_selling_last_30_days_queryset().filter(total_sold_30d__gt=0)[:24]
+		trending = []
+		for product in trending_raw:
+			if product.id not in used_ids:
+				trending.append(product)
+				used_ids.add(product.id)
+				if len(trending) >= 8:
+					break
+
+		# Almost Gone: Low stock items (not yet used, not in trending)
+		almost_gone_raw = base.filter(available_stock__gt=0, available_stock__lte=5).order_by("available_stock", "-updated_at")[:24]
+		almost_gone = []
+		for product in almost_gone_raw:
+			if product.id not in used_ids:
+				almost_gone.append(product)
+				used_ids.add(product.id)
+				if len(almost_gone) >= 8:
+					break
+
+		# Just Restocked: Recently restocked items (not yet used)
+		just_restocked_raw = base.filter(
+			available_stock__gt=0,
+			last_restocked_at__gte=now - timezone.timedelta(days=14),
+		).order_by("-last_restocked_at")[:24]
+		just_restocked = []
+		for product in just_restocked_raw:
+			if product.id not in used_ids:
+				just_restocked.append(product)
+				used_ids.add(product.id)
+				if len(just_restocked) >= 8:
+					break
+
+		# Back in Stock: Items back from being out of stock (not yet used)
+		back_in_stock_raw = base.filter(
 			available_stock__gt=0,
 			last_out_of_stock_at__isnull=False,
 			last_restocked_at__gt=F("last_out_of_stock_at"),
-		).order_by("-last_restocked_at")[:12]
+		).order_by("-last_restocked_at")[:24]
+		back_in_stock = []
+		for product in back_in_stock_raw:
+			if product.id not in used_ids:
+				back_in_stock.append(product)
+				used_ids.add(product.id)
+				if len(back_in_stock) >= 8:
+					break
 
 		return Response(
 			{

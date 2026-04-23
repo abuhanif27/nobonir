@@ -1,0 +1,218 @@
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============1108977745599732700=="
+Subject: Reset Your Nobonir Password
+From: noreply@nobonir.com
+To: hanifgp2500@gmail.com
+Date: Thu, 16 Apr 2026 11:38:46 +0000
+Message-ID: <177633952691.12012.7277994285072865194@DESKTOP-C9IGLTL>
+
+--===============1108977745599732700==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+RESET YOUR PASSWORD
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+Hi Abu,
+
+We received a request to reset your password. If you didn't make this request=
+, you can safely ignore this email.
+
+RESET LINK
+----------
+http://localhost:5173/reset-password?token=3DIlUUYOa5AB5MyO4ldUmuq3JLRITxZPz4=
+kqBgEcAuoHU
+
+This link expires in 24 hours.
+
+For security reasons, this link will expire after 24 hours. If you're reading=
+ this email after that time, you'll need to request a new password reset link.
+
+DIDN'T REQUEST THIS?
+-------------------
+If you didn't request a password reset, someone may have entered your email a=
+ddress by mistake. Please disregard this message and your account remains sec=
+ure.
+
+NEED HELP?
+---------
+If you have any questions or concerns, please contact our support team at nor=
+eply@nobonir.com
+
+=C2=A9 2026 Nobonir. All rights reserved.
+
+--===============1108977745599732700==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<!DOCTYPE html>
+<html lang=3D"en">
+<head>
+    <meta charset=3D"UTF-8">
+    <meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=3D=
+1.0">
+    <title>Password Reset</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Robot=
+o, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .message {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 20px;
+            line-height: 1.8;
+        }
+        .cta-button {
+            display: inline-block;
+            padding: 12px 30px;
+            margin: 20px 0;
+            background-color: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .cta-button:hover {
+            background-color: #5568d3;
+        }
+        .link-text {
+            font-size: 12px;
+            color: #999;
+            margin-top: 15px;
+            word-break: break-all;
+        }
+        .security-notice {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #856404;
+        }
+        .security-notice strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .footer {
+            background-color: #f9f9f9;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #999;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .divider {
+            height: 1px;
+            background-color: #eee;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class=3D"email-container">
+        <div class=3D"header">
+            <h1>=F0=9F=94=90 Reset Your Password</h1>
+        </div>
+       =20
+        <div class=3D"content">
+            <p class=3D"greeting">Hi Abu,</p>
+           =20
+            <p class=3D"message">
+                We received a request to reset your password. If you didn't m=
+ake this request, you can safely ignore this email.
+            </p>
+           =20
+            <p class=3D"message" style=3D"margin-top: 25px;">
+                To reset your password, click the button below:
+            </p>
+           =20
+            <center>
+                <a href=3D"http://localhost:5173/reset-password?token=3DIlUUY=
+Oa5AB5MyO4ldUmuq3JLRITxZPz4kqBgEcAuoHU" class=3D"cta-button">Reset My Passwor=
+d</a>
+            </center>
+           =20
+            <p class=3D"link-text">
+                Or copy and paste this link in your browser:<br>
+                <a href=3D"http://localhost:5173/reset-password?token=3DIlUUY=
+Oa5AB5MyO4ldUmuq3JLRITxZPz4kqBgEcAuoHU" style=3D"color: #667eea;">http://loca=
+lhost:5173/reset-password?token=3DIlUUYOa5AB5MyO4ldUmuq3JLRITxZPz4kqBgEcAuoHU=
+</a>
+            </p>
+           =20
+            <div class=3D"security-notice">
+                <strong>=E2=8F=B0 This link expires in 24 hours</strong>
+                For security reasons, password reset links expire after 24 ho=
+urs. If this link has expired, you'll need to request a new one.
+            </div>
+           =20
+            <div class=3D"divider"></div>
+           =20
+            <p class=3D"message" style=3D"font-size: 13px; color: #999;">
+                <strong>Didn't request this?</strong><br>
+                If you didn't request a password reset, someone may have ente=
+red your email address by mistake. Please disregard this message and your acc=
+ount remains secure.
+            </p>
+        </div>
+       =20
+        <div class=3D"footer">
+            <p>
+                =C2=A9 2026 Nobonir. All rights reserved.<br>
+                <a href=3D"https://nobonir.com">Visit Our Website</a> |=20
+                <a href=3D"mailto:noreply@nobonir.com">Contact Support</a>
+            </p>
+            <p style=3D"margin-top: 10px; color: #ccc;">
+                If you have any questions, please don't hesitate to contact u=
+s at noreply@nobonir.com
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+--===============1108977745599732700==--
+
+-------------------------------------------------------------------------------

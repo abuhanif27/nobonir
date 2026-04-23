@@ -748,12 +748,17 @@ def _detect_intent(normalized_message: str) -> str:
     return "GENERAL"
 
 
-def _serialize_products(products: list[Product], request) -> list[dict]:
+def _serialize_products(products: list[Product], user, request) -> list[dict]:
     serialized = ProductSerializer(products, many=True, context={"request": request}).data
     result = []
+    is_guest = not _is_authenticated_user(user)
     
     for item in serialized:
         stock_val = int(item.get("available_stock") or 0)
+        
+        # Guest users see obfuscated stock (either 0 or 1)
+        if is_guest:
+            stock_val = 1 if stock_val > 0 else 0
         
         product_data = {
             "id": int(item.get("id") or 0),
@@ -956,14 +961,14 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
 
     if intent == "TOP_SELLING":
         products = _apply_budget_filter(_top_selling_products(limit=8), budget_cap, limit=6)
-        reply = "here are the bestsellers right now."
+        reply = "here are our top-selling products right now."
         if budget_cap is not None:
             reply += f" all under {budget_cap} in your local currency."
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "ORDER_HELP":
         if not _is_authenticated_user(user):
-            guest_reply = "you'd need to log in to see your orders. that keeps your info safe and lets me pull up shipping details fast."
+            guest_reply = "you'd need to sign in to see your orders. that keeps your info safe and lets me pull up shipping details fast."
             products = _fallback_products(limit=4)
             return _result_with_enhancement(intent, normalized_message, products, guest_reply, user, history=history)
 
@@ -1088,5 +1093,5 @@ def build_assistant_response_payload(user, message: str, request) -> dict:
         "session_key": session.session_key,
         "llm_provider": assistant_result.llm_provider,
         "llm_enhanced": assistant_result.llm_enhanced,
-        "suggested_products": _serialize_products(assistant_result.products, request=request),
+        "suggested_products": _serialize_products(assistant_result.products, user=user, request=request),
     }

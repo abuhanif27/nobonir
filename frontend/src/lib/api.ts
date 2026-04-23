@@ -18,15 +18,32 @@ const api = axios.create({
   withCredentials: true,
 });
 
+console.log("🌐 API initialized with base URL:", API_BASE_URL);
+
 let authBridge: AuthBridge | null = null;
 
 export const registerApiAuthBridge = (bridge: AuthBridge) => {
   authBridge = bridge;
 };
 
+// Log all requests
+api.interceptors.request.use(
+  (config) => {
+    console.log(`📤 [${config.method?.toUpperCase()}] ${config.url}`, config.data);
+    return config;
+  },
+  (error) => {
+    console.error("📤 Request error:", error);
+    return Promise.reject(error);
+  }
+);
+
 // Intercept 401 errors to refresh token
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`📥 [${response.status}] ${response.config.url}`, response.data);
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 

@@ -3,8 +3,10 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from ai_engine.services.recommendation_service import (
+	_age_category_boost,
 	get_personalized_recommendations_for_user,
 	get_recommendations_for_user,
+	_location_category_boost,
 	train_user_preference_model,
 )
 from ai_engine.models import UserPreference
@@ -260,3 +262,92 @@ class AIAssistantEndpointTests(TestCase):
 		self.assertIn("providers", body)
 		self.assertIn("timeout_seconds", body)
 		self.assertIn("test_mode", body)
+
+
+class AIProfilePersonalizationTests(TestCase):
+	def setUp(self):
+		self.user_a = User.objects.create_user(
+			username="profile-a",
+			email="profile-a@example.com",
+			password="Secret123!",
+			gender="MALE",
+		)
+		self.user_b = User.objects.create_user(
+			username="profile-b",
+			email="profile-b@example.com",
+			password="Secret123!",
+			gender="FEMALE",
+		)
+
+		electronics = Category.objects.create(name="Electronics", slug="electronics")
+		groceries = Category.objects.create(name="Groceries", slug="groceries")
+		home = Category.objects.create(name="Home", slug="home")
+		fashion = Category.objects.create(name="Fashion", slug="fashion")
+
+		Product.objects.create(
+			category=electronics,
+			name="Wireless Headphones",
+			slug="wireless-headphones",
+			description="smart audio gear",
+			price=99,
+			stock=10,
+		)
+		Product.objects.create(
+			category=groceries,
+			name="Organic Rice",
+			slug="organic-rice",
+			description="daily essentials",
+			price=20,
+			stock=10,
+		)
+		Product.objects.create(
+			category=home,
+			name="Kitchen Set",
+			slug="kitchen-set",
+			description="home and kitchen items",
+			price=75,
+			stock=10,
+		)
+		Product.objects.create(
+			category=fashion,
+			name="Daily Outfit",
+			slug="daily-outfit",
+			description="modern wear",
+			price=55,
+			stock=10,
+		)
+
+		UserPreference.objects.update_or_create(
+			user=self.user_a,
+			defaults={"age": 22, "location": "Dhaka city", "continent": "Asia"},
+		)
+		UserPreference.objects.update_or_create(
+			user=self.user_b,
+			defaults={"age": 52, "location": "Rural district village", "continent": "Africa"},
+		)
+
+	def test_age_and_location_boost_helpers(self):
+		self.assertGreater(_age_category_boost(21, "Electronics"), 0)
+		self.assertGreater(_age_category_boost(52, "Home"), 0)
+		self.assertEqual(_age_category_boost(None, "Home"), 0)
+
+		self.assertGreater(_location_category_boost("dhaka city asia", "Electronics"), 0)
+		self.assertGreater(_location_category_boost("rural village africa", "Groceries"), 0)
+		self.assertEqual(_location_category_boost("", "Groceries"), 0)
+
+	def test_different_profiles_receive_different_rankings(self):
+		train_user_preference_model(self.user_a)
+		train_user_preference_model(self.user_b)
+
+		recs_a = get_personalized_recommendations_for_user(self.user_a, limit=4)
+		recs_b = get_personalized_recommendations_for_user(self.user_b, limit=4)
+
+		self.assertGreaterEqual(len(recs_a), 2)
+		self.assertGreaterEqual(len(recs_b), 2)
+
+		top_a_categories = [product.category.name.lower() for product in recs_a[:2]]
+		top_b_categories = [product.category.name.lower() for product in recs_b[:2]]
+
+		self.assertIn("electronics", top_a_categories)
+		self.assertTrue(any(category in top_b_categories for category in ("home", "groceries", "fashion")))
+		self.assertNotEqual([p.id for p in recs_a[:3]], [p.id for p in recs_b[:3]])

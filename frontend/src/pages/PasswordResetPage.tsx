@@ -56,16 +56,16 @@ export function PasswordResetPage() {
         <CardContent className="space-y-4">
           {message && (
             <div
-              className={`flex items-gap-2 rounded-lg p-3 text-sm ${
+              className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
                 message.type === "success"
                   ? "bg-green-50 text-green-700 border border-green-200"
                   : "bg-red-50 text-red-700 border border-red-200"
               }`}
             >
               {message.type === "success" ? (
-                <CheckCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <CheckCircle className="h-4 w-4 flex-shrink-0" />
               ) : (
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
               )}
               <span>{message.text}</span>
             </div>

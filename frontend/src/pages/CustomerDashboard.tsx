@@ -861,7 +861,9 @@ export function CustomerDashboard() {
 
   const loadMerchandising = useCallback(async () => {
     try {
-      const response = await api.get("/products/merchandising/");
+      // Add cache-busting timestamp to ensure fresh data on every load
+      const timestamp = Date.now();
+      const response = await api.get(`/products/merchandising/?t=${timestamp}`);
       const payload = (response.data || {}) as Record<string, unknown[]>;
       setMerchandising({
         trending_now: normalizeProducts(payload.trending_now || []),
@@ -869,7 +871,8 @@ export function CustomerDashboard() {
         just_restocked: normalizeProducts(payload.just_restocked || []),
         back_in_stock: normalizeProducts(payload.back_in_stock || []),
       });
-    } catch {
+    } catch (error) {
+      console.error("Failed to load merchandising:", error);
       setMerchandising({});
     }
   }, [normalizeProducts]);
@@ -1267,23 +1270,50 @@ export function CustomerDashboard() {
   );
 
   const jumpToPage = useCallback(() => {
-    const parsedPage = Number(jumpPageInput);
-    if (!Number.isFinite(parsedPage)) {
+    const trimmedInput = jumpPageInput.trim();
+    if (!trimmedInput) {
+      showError("Please enter a page number");
       return;
     }
 
-    const nextPage = Math.min(
-      Math.max(1, Math.floor(parsedPage)),
-      totalProductPages,
-    );
+    const parsedPage = Number(trimmedInput);
+    if (!Number.isFinite(parsedPage)) {
+      showError("Please enter a valid page number");
+      return;
+    }
+
+    const pageFloor = Math.floor(parsedPage);
+    if (pageFloor < 1) {
+      showError(`Page must be at least 1`);
+      return;
+    }
+
+    if (pageFloor > totalProductPages) {
+      showError(`Maximum page is ${totalProductPages}`);
+      setJumpPageInput(String(totalProductPages));
+      return;
+    }
+
+    const nextPage = pageFloor;
     navigateToPage(nextPage);
-  }, [jumpPageInput, navigateToPage, totalProductPages]);
+    // Reset input to current page after navigation
+    setJumpPageInput(String(nextPage));
+  }, [jumpPageInput, navigateToPage, totalProductPages, showError]);
 
   useEffect(() => {
     void loadProducts();
     void refreshCart(isAuthenticated);
     setIsInitialLoad(false);
   }, [isAuthenticated, loadProducts, refreshCart]);
+
+  useEffect(() => {
+    // Auto-refresh merchandising every 60 seconds to ensure fresh product data
+    const merchandisingRefreshInterval = window.setInterval(() => {
+      void loadMerchandising();
+    }, 60000);
+
+    return () => window.clearInterval(merchandisingRefreshInterval);
+  }, [loadMerchandising]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -2786,13 +2816,21 @@ export function CustomerDashboard() {
                   value={jumpPageInput}
                   onChange={(event) => {
                     const digitsOnly = event.target.value.replace(/\D/g, "");
-                    setJumpPageInput(digitsOnly);
+                    // Cap input at max page number to prevent massive entries
+                    const capped = digitsOnly ? String(Math.min(Number(digitsOnly), totalProductPages * 10)) : "";
+                    setJumpPageInput(capped);
                   }}
                   onFocus={(event) => {
                     event.currentTarget.select();
                     setIsJumpInputFocused(true);
                   }}
-                  onBlur={() => setIsJumpInputFocused(false)}
+                  onBlur={() => {
+                    setIsJumpInputFocused(false);
+                    // Reset to current page if input is empty on blur
+                    if (!jumpPageInput.trim()) {
+                      setJumpPageInput(String(productPage));
+                    }
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
@@ -2801,14 +2839,18 @@ export function CustomerDashboard() {
                   }}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  aria-label="Jump to page"
-                  className="h-9 w-20 text-center"
+                  placeholder={String(productPage)}
+                  maxLength="6"
+                  aria-label={`Jump to page (current: ${productPage}/${totalProductPages})`}
+                  title={`Enter page 1-${totalProductPages}`}
+                  className="h-9 w-24 text-center"
                 />
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={loading || totalProductPages <= 1}
-                  aria-label="Jump to selected page"
+                  disabled={loading || totalProductPages <= 1 || !jumpPageInput.trim()}
+                  aria-label={`Jump to page (max: ${totalProductPages})`}
+                  title={`Jump to page 1-${totalProductPages}`}
                   onClick={jumpToPage}
                 >
                   Go

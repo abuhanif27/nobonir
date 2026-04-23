@@ -54,22 +54,37 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (email: string, password: string) => {
-        const response = await api.post("/auth/token/", {
-          email,
-          password,
-        });
-        const { access, refresh, user } = response.data;
+        console.log("🔐 Login attempt with email:", email);
+        console.log("📍 API Base URL:", api.defaults.baseURL);
+        
+        try {
+          const response = await api.post("/auth/token/", {
+            email,
+            password,
+          });
+          
+          console.log("✓ Login response received:", response.status);
+          console.log("📦 Response data:", response.data);
+          
+          const { access, refresh, user } = response.data;
 
-        set({
-          user,
-          accessToken: access,
-          refreshToken: refresh,
-          isAuthenticated: true,
-          isAdmin: user.role === "ADMIN",
-        });
+          set({
+            user,
+            accessToken: access,
+            refreshToken: refresh,
+            isAuthenticated: true,
+            isAdmin: user.role === "ADMIN",
+          });
 
-        // Set default authorization header
-        api.defaults.headers.common["Authorization"] = `Bearer ${access}`;
+          // Set default authorization header
+          api.defaults.headers.common["Authorization"] = `Bearer ${access}`;
+          console.log("✓ Login successful");
+        } catch (error: any) {
+          console.error("✗ Login error:", error);
+          console.error("Error response:", error?.response?.data);
+          console.error("Error status:", error?.response?.status);
+          throw error;
+        }
       },
 
       register: async (

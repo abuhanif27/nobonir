@@ -47,6 +47,88 @@ SEGMENT_CATEGORY_HINTS = {
 }
 
 
+AGE_CATEGORY_HINTS = (
+    ((0, 24), {
+        "electronics": 0.45,
+        "gaming": 0.45,
+        "fashion": 0.35,
+        "sports": 0.35,
+        "beauty": 0.30,
+    }),
+    ((25, 39), {
+        "office": 0.35,
+        "home": 0.30,
+        "electronics": 0.30,
+        "automotive": 0.25,
+        "groceries": 0.20,
+    }),
+    ((40, 150), {
+        "home": 0.40,
+        "books": 0.35,
+        "groceries": 0.30,
+        "office": 0.25,
+        "beauty": 0.20,
+    }),
+)
+
+
+GEO_CONTEXT_HINTS = (
+    (("asia", "bangladesh", "india", "pakistan", "nepal", "sri lanka"), {
+        "electronics": 0.30,
+        "fashion": 0.30,
+        "beauty": 0.25,
+        "groceries": 0.20,
+    }),
+    (("europe", "germany", "france", "uk", "italy", "spain"), {
+        "home": 0.30,
+        "books": 0.30,
+        "fashion": 0.25,
+        "automotive": 0.20,
+    }),
+    (("north america", "usa", "canada", "united states"), {
+        "electronics": 0.35,
+        "sports": 0.30,
+        "automotive": 0.30,
+        "office": 0.25,
+    }),
+    (("south america", "brazil", "argentina", "chile", "peru"), {
+        "sports": 0.30,
+        "fashion": 0.25,
+        "groceries": 0.25,
+        "beauty": 0.20,
+    }),
+    (("africa", "nigeria", "kenya", "ghana", "egypt"), {
+        "electronics": 0.30,
+        "fashion": 0.25,
+        "home": 0.20,
+        "groceries": 0.20,
+    }),
+    (("oceania", "australia", "new zealand"), {
+        "sports": 0.30,
+        "home": 0.25,
+        "beauty": 0.20,
+        "automotive": 0.20,
+    }),
+    (("dhaka", "new york", "london", "tokyo", "dubai", "city", "urban"), {
+        "electronics": 0.25,
+        "office": 0.25,
+        "fashion": 0.20,
+        "beauty": 0.20,
+    }),
+    (("village", "rural", "farm", "district", "upazila"), {
+        "groceries": 0.30,
+        "home": 0.25,
+        "automotive": 0.20,
+        "tools": 0.20,
+    }),
+    (("coast", "beach", "coastal", "sea"), {
+        "sports": 0.25,
+        "beauty": 0.20,
+        "fashion": 0.20,
+    }),
+)
+
+
 def _product_text(product: Product) -> str:
     return f"{product.name} {product.category.name} {product.description}"
 
@@ -125,6 +207,62 @@ def _segment_category_boost(segment: str, category_name: str) -> float:
     return boost
 
 
+def _age_category_boost(age, category_name: str) -> float:
+    if age is None:
+        return 0.0
+
+    normalized = (category_name or "").lower()
+    if not normalized:
+        return 0.0
+
+    for (min_age, max_age), hints in AGE_CATEGORY_HINTS:
+        if min_age <= age <= max_age:
+            boost = 0.0
+            for keyword, value in hints.items():
+                if keyword in normalized:
+                    boost = max(boost, value)
+            return boost
+    return 0.0
+
+
+def _collect_location_context(user, preference: UserPreference) -> str:
+    location_parts = [
+        preference.location or "",
+        preference.continent or "",
+        getattr(user, "address", "") or "",
+    ]
+
+    latest_order = (
+        OrderItem.objects.filter(order__user=user)
+        .select_related("order")
+        .order_by("-order__created_at")
+        .first()
+    )
+    if latest_order and latest_order.order:
+        location_parts.append(latest_order.order.shipping_address or "")
+        location_parts.append(latest_order.order.billing_address or "")
+
+    return " ".join(part for part in location_parts if part).strip().lower()
+
+
+def _location_category_boost(location_context: str, category_name: str) -> float:
+    if not location_context:
+        return 0.0
+
+    normalized_category = (category_name or "").lower()
+    if not normalized_category:
+        return 0.0
+
+    boost = 0.0
+    for geo_keywords, category_hints in GEO_CONTEXT_HINTS:
+        if any(keyword in location_context for keyword in geo_keywords):
+            for keyword, value in category_hints.items():
+                if keyword in normalized_category:
+                    boost = max(boost, value)
+
+    return min(boost, 0.8)
+
+
 def get_recommendations_for_user(user, limit: int = 8):
     products = list(Product.objects.filter(is_active=True, stock__gt=0).select_related("category"))
     if not products:
@@ -194,14 +332,15 @@ def train_user_preference_model(user):
             if segment_boost > 0:
                 add_weight(category.id, segment_boost)
 
-    demographic_boost = 0.5
-    if preference.age is not None:
-        if preference.age < 24:
-            for category in preference.preferred_categories.all():
-                add_weight(category.id, demographic_boost)
-        elif preference.age >= 45:
-            for category in preference.preferred_categories.all():
-                add_weight(category.id, demographic_boost)
+    location_context = _collect_location_context(user, preference)
+    for category in Category.objects.all():
+        age_boost = _age_category_boost(preference.age, category.name)
+        if age_boost > 0:
+            add_weight(category.id, age_boost)
+
+        geo_boost = _location_category_boost(location_context, category.name)
+        if geo_boost > 0:
+            add_weight(category.id, geo_boost)
 
     preference.trained_category_weights = category_weights
     preference.inferred_segment = (
@@ -300,6 +439,25 @@ def _recommendation_cache_version(user_id: int) -> str:
         max_updated=Max("updated_at"),
         row_count=Count("id"),
     )
+    preference_info = UserPreference.objects.filter(user_id=user_id).aggregate(
+        max_updated=Max("updated_at"),
+        max_trained=Max("last_trained_at"),
+    )
+    preference_snapshot = UserPreference.objects.filter(user_id=user_id).values(
+        "age",
+        "location",
+        "continent",
+        "inferred_segment",
+        "trained_category_weights",
+    ).first() or {}
+    trained_weights = preference_snapshot.get("trained_category_weights") or {}
+    preference_fingerprint = "::".join([
+        str(preference_snapshot.get("age") or ""),
+        str(preference_snapshot.get("location") or "").lower(),
+        str(preference_snapshot.get("continent") or "").lower(),
+        str(preference_snapshot.get("inferred_segment") or ""),
+        str(len(trained_weights)),
+    ])
 
     parts = [
         _fmt_timestamp(order_info.get("max_created")),
@@ -308,6 +466,9 @@ def _recommendation_cache_version(user_id: int) -> str:
         str(wishlist_info.get("row_count") or 0),
         _fmt_timestamp(cart_info.get("max_updated")),
         str(cart_info.get("row_count") or 0),
+        _fmt_timestamp(preference_info.get("max_updated")),
+        _fmt_timestamp(preference_info.get("max_trained")),
+        preference_fingerprint,
     ]
     return "|".join(parts)
 
