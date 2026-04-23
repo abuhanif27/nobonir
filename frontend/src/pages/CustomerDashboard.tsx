@@ -1283,20 +1283,11 @@ export function CustomerDashboard() {
     }
 
     const pageFloor = Math.floor(parsedPage);
-    if (pageFloor < 1) {
-      showError(`Page must be at least 1`);
-      return;
-    }
-
-    if (pageFloor > totalProductPages) {
-      showError(`Maximum page is ${totalProductPages}`);
-      setJumpPageInput(String(totalProductPages));
-      return;
-    }
-
-    const nextPage = pageFloor;
+    // Clamp to valid range: at least 1, at most totalProductPages
+    const nextPage = Math.max(1, Math.min(pageFloor, totalProductPages));
+    
     navigateToPage(nextPage);
-    // Reset input to current page after navigation
+    // Reset input to navigated page
     setJumpPageInput(String(nextPage));
   }, [jumpPageInput, navigateToPage, totalProductPages, showError]);
 
