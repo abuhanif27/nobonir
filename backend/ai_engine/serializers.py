@@ -23,6 +23,8 @@ class SentimentSerializer(serializers.Serializer):
 class AssistantChatRequestSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=1000)
     session_key = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    currency_code = serializers.CharField(max_length=8, required=False, allow_blank=True)
+    currency_rate = serializers.DecimalField(max_digits=14, decimal_places=6, required=False)
 
 
 class AssistantChatProductSerializer(serializers.Serializer):
@@ -44,6 +46,7 @@ class AssistantChatResponseSerializer(serializers.Serializer):
     llm_enhanced = serializers.BooleanField()
     llm_attempts = serializers.ListField(child=serializers.CharField(), required=False, default=list)
     suggested_products = AssistantChatProductSerializer(many=True)
+    debug_budget_window_base = serializers.DictField(required=False, allow_null=True)
 
 
 class AssistantHistoryQuerySerializer(serializers.Serializer):

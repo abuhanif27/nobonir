@@ -751,14 +751,22 @@ def _detect_intent(normalized_message: str) -> str:
 def _serialize_products(products: list[Product], user, request) -> list[dict]:
     serialized = ProductSerializer(products, many=True, context={"request": request}).data
     result = []
-    is_guest = not _is_authenticated_user(user)
+    product_ids = [int(item.get("id") or 0) for item in serialized if int(item.get("id") or 0) > 0]
+    live_products = {
+        product.id: product
+        for product in Product.objects.filter(id__in=product_ids).select_related("category")
+    }
     
     for item in serialized:
-        stock_val = int(item.get("available_stock") or 0)
-        
-        # Guest users see obfuscated stock (either 0 or 1)
-        if is_guest:
-            stock_val = 1 if stock_val > 0 else 0
+        product_id = int(item.get("id") or 0)
+        live_product = live_products.get(product_id)
+        stock_val = int(get_available_stock(live_product)) if live_product else int(item.get("available_stock") or 0)
+        if stock_val <= 0:
+            availability_status = "OUT_OF_STOCK"
+        elif stock_val <= 5:
+            availability_status = "ALMOST_GONE"
+        else:
+            availability_status = "IN_STOCK"
         
         product_data = {
             "id": int(item.get("id") or 0),
@@ -767,7 +775,7 @@ def _serialize_products(products: list[Product], user, request) -> list[dict]:
             "price": Decimal(str(item.get("price") or "0")),
             "image": str(item.get("primary_image") or item.get("image_url") or ""),
             "category": str((item.get("category") or {}).get("name") or ""),
-            "availability_status": str(item.get("availability_status") or "IN_STOCK"),
+            "availability_status": availability_status,
             "available_stock": stock_val,
         }
 
@@ -836,26 +844,162 @@ def _top_selling_products(limit: int = 4) -> list[Product]:
     return _fallback_products(limit=limit)
 
 
-def _extract_budget_cap(normalized_message: str) -> Decimal | None:
-    pattern = re.compile(r"(?:under|below|less than|max|within)\s*(\d+(?:\.\d+)?)")
-    match = pattern.search(normalized_message)
-    if not match:
-        return None
-
+def _parse_budget_amount(value: str, suffix: str = "") -> Decimal | None:
     try:
-        return Decimal(match.group(1))
+        base = Decimal(value.replace(",", ""))
     except Exception:
         return None
 
+    multiplier = {
+        "k": Decimal("1000"),
+        "m": Decimal("1000000"),
+        "b": Decimal("1000000000"),
+    }.get((suffix or "").lower()[:1], Decimal("1"))
+    return base * multiplier
 
-def _apply_budget_filter(products: list[Product], budget_cap: Decimal | None, limit: int = 4) -> list[Product]:
-    if budget_cap is None:
+
+def _extract_budget_bounds(normalized_message: str) -> tuple[Decimal | None, Decimal | None]:
+    range_patterns = [
+        re.compile(
+            r"(?:between|from)\s*(?:[₦₹$€£]\s*)?(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*([kKmMbB]))?\s*(?:and|to|-)\s*(?:[₦₹$€£]\s*)?(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*([kKmMbB]))?"
+        ),
+        re.compile(
+            r"(?:[₦₹$€£]\s*)?(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*([kKmMbB]))\s*[-–]\s*(?:[₦₹$€£]\s*)?(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*([kKmMbB]))"
+        ),
+    ]
+
+    for pattern in range_patterns:
+        match = pattern.search(normalized_message)
+        if not match:
+            continue
+
+        left = _parse_budget_amount(match.group(1), match.group(2) or "")
+        right = _parse_budget_amount(match.group(3), match.group(4) or "")
+        if left is None or right is None:
+            continue
+        return (left, right) if left <= right else (right, left)
+
+    cap_patterns = [
+        re.compile(
+            r"(?:under|below|less than|max|within|budget(?:\s+is|\s+of|:)?)\s*(?:[₦₹$€£]\s*)?(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*([kKmMbB]))?"
+        ),
+        re.compile(r"(?:[₦₹$€£]\s*)?(\d+(?:,\d{3})*(?:\.\d+)?)(?:\s*([kKmMbB]))\b"),
+    ]
+
+    for pattern in cap_patterns:
+        match = pattern.search(normalized_message)
+        if not match:
+            continue
+        cap = _parse_budget_amount(match.group(1), match.group(2) or "")
+        if cap is not None:
+            return None, cap
+
+    return None, None
+
+
+def _extract_budget_cap(normalized_message: str) -> Decimal | None:
+    _, budget_cap = _extract_budget_bounds(normalized_message)
+    return budget_cap
+
+
+def _budget_bounds_in_base_currency(
+    budget_min: Decimal | None,
+    budget_cap: Decimal | None,
+    currency_code: str | None,
+    currency_rate: Decimal | None,
+) -> tuple[Decimal | None, Decimal | None]:
+    """
+    Convert user budget from local display currency back to DB/base currency.
+    Frontend displays local = base * currency_rate (rates fetched with USD base).
+    Therefore base = local / currency_rate.
+    """
+    normalized_code = str(currency_code or "").upper().strip()
+    if not normalized_code or normalized_code == "USD" or currency_rate is None:
+        return budget_min, budget_cap
+
+    try:
+        if currency_rate <= 0:
+            return budget_min, budget_cap
+        converted_min = (budget_min / currency_rate) if budget_min is not None else None
+        converted_cap = (budget_cap / currency_rate) if budget_cap is not None else None
+    except Exception:
+        return budget_min, budget_cap
+
+    return converted_min, converted_cap
+
+
+def _apply_budget_filter(
+    products: list[Product],
+    budget_cap: Decimal | None,
+    limit: int = 4,
+    budget_min: Decimal | None = None,
+) -> list[Product]:
+    if budget_cap is None and budget_min is None:
         return products[:limit]
 
-    filtered = [product for product in products if Decimal(product.price) <= budget_cap]
+    filtered = [
+        product
+        for product in products
+        if (budget_min is None or Decimal(product.price) >= budget_min)
+        and (budget_cap is None or Decimal(product.price) <= budget_cap)
+    ]
     if filtered:
         return filtered[:limit]
-    return products[:limit]
+    return []
+
+
+def _budget_friendly_products_for_message(
+    user,
+    normalized_message: str,
+    budget_cap: Decimal,
+    budget_min: Decimal | None = None,
+    history: list[dict] | None = None,
+    limit: int = 8,
+) -> list[Product]:
+    if budget_cap <= 0 or (budget_min is not None and budget_min > budget_cap):
+        return []
+
+    queryset = Product.objects.filter(is_active=True, stock__gt=0, price__lte=budget_cap)
+    if budget_min is not None:
+        queryset = queryset.filter(price__gte=budget_min)
+
+    candidates = _filter_real_catalog_products(
+        list(
+            queryset
+            .select_related("category")
+            .prefetch_related("media", "variants__media")
+            .order_by("price", "-updated_at")[:120]
+        )
+    )
+    if not candidates:
+        return []
+
+    query_terms = _query_terms(normalized_message)
+    history_terms = _recent_history_terms(history)
+    category_density: dict[int, int] = defaultdict(int)
+    for product in candidates:
+        category_density[int(product.category_id or 0)] += 1
+
+    user_weights = _user_category_weights(user)
+    scored: list[tuple[float, float, int, Product]] = []
+    for index, product in enumerate(candidates):
+        price_value = Decimal(product.price)
+        budget_span = budget_cap - (budget_min or Decimal("0"))
+        cheapness_score = float((budget_cap - price_value) / budget_span) if budget_span > 0 else 0.0
+        text = f"{product.name} {product.category.name} {product.description or ''}".lower()
+        term_score = float(sum(1 for term in query_terms if term in text))
+        density_score = float(category_density[int(product.category_id or 0)])
+        user_score = float(user_weights.get(int(product.category_id or 0), 0.0)) if _is_authenticated_user(user) else 0.0
+
+        score = (term_score * 3.0) + (density_score * 0.6) + (cheapness_score * 2.5) + (user_score * 0.2)
+        scored.append((score, -float(price_value), -index, product))
+
+    scored.sort(reverse=True)
+    ranked = [product for _, _, _, product in scored]
+    ranked = _apply_recent_history_boost(ranked, history_terms)
+    relevant = _filter_relevant_products(ranked, normalized_message, limit=max(limit, 8))
+    diversified = _diversify_by_category(relevant, limit=limit, per_category_cap=2)
+    return diversified or ranked[:limit]
 
 
 def _build_price_stock_reply(products: list[Product]) -> str:
@@ -917,7 +1061,13 @@ def clear_chat_history(user, session_key: str | None = None) -> str:
     return get_or_create_chat_session(user=user, session_key=None).session_key
 
 
-def generate_assistant_response(user, message: str, session_key: str | None = None) -> AssistantResult:
+def generate_assistant_response(
+    user,
+    message: str,
+    session_key: str | None = None,
+    currency_code: str | None = None,
+    currency_rate: Decimal | None = None,
+) -> AssistantResult:
     normalized_message = _normalize_message(message)
 
     # Fetch history if session_key is provided
@@ -957,13 +1107,45 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
         return _result_with_enhancement("HELP", normalized_message, products, reply, user, history=history)
 
     intent = _detect_intent(normalized_message)
-    budget_cap = _extract_budget_cap(normalized_message)
+    budget_min, budget_cap = _extract_budget_bounds(normalized_message)
+    budget_min, budget_cap = _budget_bounds_in_base_currency(
+        budget_min,
+        budget_cap,
+        currency_code,
+        currency_rate,
+    )
+
+    def _budget_window_text() -> str:
+        if budget_cap is None:
+            return ""
+        if budget_min is not None:
+            return f"{budget_min} to {budget_cap}"
+        return f"up to {budget_cap}"
 
     if intent == "TOP_SELLING":
-        products = _apply_budget_filter(_top_selling_products(limit=8), budget_cap, limit=6)
+        products = _apply_budget_filter(
+            _top_selling_products(limit=8),
+            budget_cap,
+            limit=6,
+            budget_min=budget_min,
+        )
+        if budget_cap is not None and not products:
+            products = _budget_friendly_products_for_message(
+                user,
+                normalized_message,
+                budget_cap,
+                budget_min=budget_min,
+                history=history,
+                limit=6,
+            )
         reply = "here are our top-selling products right now."
-        if budget_cap is not None:
-            reply += f" all under {budget_cap} in your local currency."
+        if budget_cap is not None and not products:
+            reply = f"i couldn't find products in your budget range ({_budget_window_text()}) right now."
+        elif budget_cap is not None:
+            if budget_min is not None:
+                reply += f" all within {budget_min} to {budget_cap} in your local currency."
+            else:
+                reply += f" all under {budget_cap} in your local currency."
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "ORDER_HELP":
@@ -991,7 +1173,12 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
 
     if intent == "PRICE_STOCK_LOOKUP":
         # Broaden search to give more context to LLM
-        products = _apply_budget_filter(semantic_product_search(normalized_message, limit=12), budget_cap, limit=8)
+        products = _apply_budget_filter(
+            semantic_product_search(normalized_message, limit=12),
+            budget_cap,
+            limit=8,
+            budget_min=budget_min,
+        )
         products = _filter_relevant_products(products, normalized_message, limit=5)
         reply = _build_price_stock_reply(products)
         if not products:
@@ -1003,23 +1190,50 @@ def generate_assistant_response(user, message: str, session_key: str | None = No
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent == "FIT_HELP":
-        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message, history=history), budget_cap, limit=8)
+        products = _apply_budget_filter(
+            _recommend_products_for_message(user, normalized_message, history=history),
+            budget_cap,
+            limit=8,
+            budget_min=budget_min,
+        )
         products = _filter_relevant_products(products, normalized_message, limit=4)
         reply = "Finding the perfect fit is key! I recommend checking our detailed size guides on the product pages. "
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     if intent in {"BUDGET_SEARCH", "RECOMMENDATION"}:
-        products = _apply_budget_filter(_recommend_products_for_message(user, normalized_message, history=history), budget_cap, limit=10)
+        products = _apply_budget_filter(
+            _recommend_products_for_message(user, normalized_message, history=history),
+            budget_cap,
+            limit=10,
+            budget_min=budget_min,
+        )
         products = _filter_relevant_products(products, normalized_message, limit=5)
+        if budget_cap is not None and not products:
+            products = _budget_friendly_products_for_message(
+                user,
+                normalized_message,
+                budget_cap,
+                budget_min=budget_min,
+                history=history,
+                limit=10,
+            )
+            products = _filter_relevant_products(products, normalized_message, limit=5)
         if products:
             reply = "found some solid matches for you."
             if budget_cap is not None:
-                reply += f" all within {budget_cap} in your local currency."
+                if budget_min is not None:
+                    reply += f" all within {budget_min} to {budget_cap} in your local currency."
+                else:
+                    reply += f" all within {budget_cap} in your local currency."
         else:
-            reply = (
-                "couldn't find exact matches on that. try a different term or be more specific?"
-            )
-            products = _fallback_products(limit=4)
+            if budget_cap is not None:
+                reply = f"i couldn't find products in your budget range ({_budget_window_text()}) right now."
+                products = []
+            else:
+                reply = (
+                    "couldn't find exact matches on that. try a different term or be more specific?"
+                )
+                products = _fallback_products(limit=4)
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
     # General catch-all: proactive product search
@@ -1079,7 +1293,41 @@ def build_assistant_response_payload(user, message: str, request) -> dict:
         text=message,
     )
 
-    assistant_result = generate_assistant_response(user=user, message=message, session_key=session.session_key)
+    raw_currency_code = str(request.data.get("currency_code") or "").strip().upper()
+    raw_currency_rate = request.data.get("currency_rate")
+    parsed_currency_rate: Decimal | None = None
+    if raw_currency_rate is not None:
+        try:
+            parsed_currency_rate = Decimal(str(raw_currency_rate))
+        except Exception:
+            parsed_currency_rate = None
+
+    normalized_message = _normalize_message(message)
+    original_budget_min, original_budget_cap = _extract_budget_bounds(normalized_message)
+    budget_min_base, budget_cap_base = _budget_bounds_in_base_currency(
+        original_budget_min,
+        original_budget_cap,
+        raw_currency_code,
+        parsed_currency_rate,
+    )
+
+    debug_budget_window_base = None
+    if budget_min_base is not None or budget_cap_base is not None:
+        debug_budget_window_base = {
+            "currency": "USD",
+            "min": str(budget_min_base) if budget_min_base is not None else None,
+            "max": str(budget_cap_base) if budget_cap_base is not None else None,
+            "source_currency": raw_currency_code or "USD",
+            "source_rate": str(parsed_currency_rate) if parsed_currency_rate is not None else None,
+        }
+
+    assistant_result = generate_assistant_response(
+        user=user,
+        message=message,
+        session_key=session.session_key,
+        currency_code=raw_currency_code,
+        currency_rate=parsed_currency_rate,
+    )
     AssistantChatMessage.objects.create(
         session=session,
         role=AssistantChatMessage.Role.ASSISTANT,
@@ -1087,7 +1335,7 @@ def build_assistant_response_payload(user, message: str, request) -> dict:
         intent=assistant_result.intent,
     )
 
-    return {
+    payload = {
         "reply": assistant_result.reply,
         "intent": assistant_result.intent,
         "session_key": session.session_key,
@@ -1095,3 +1343,8 @@ def build_assistant_response_payload(user, message: str, request) -> dict:
         "llm_enhanced": assistant_result.llm_enhanced,
         "suggested_products": _serialize_products(assistant_result.products, user=user, request=request),
     }
+
+    if debug_budget_window_base is not None:
+        payload["debug_budget_window_base"] = debug_budget_window_base
+
+    return payload

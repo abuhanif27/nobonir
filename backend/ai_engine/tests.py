@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from decimal import Decimal
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -84,12 +85,30 @@ class AIAssistantEndpointTests(TestCase):
 		)
 		self.client.force_authenticate(user=self.user)
 		category = Category.objects.create(name="Fashion", slug="fashion")
+		budget_category = Category.objects.create(name="Mobiles", slug="mobiles")
+		expensive_category = Category.objects.create(name="Laptops", slug="laptops")
 		self.product = Product.objects.create(
 			category=category,
 			name="Cotton Shirt",
 			slug="cotton-shirt",
 			description="Comfortable fit shirt",
 			price=25,
+			stock=10,
+		)
+		self.budget_product = Product.objects.create(
+			category=budget_category,
+			name="Budget Phone",
+			slug="budget-phone",
+			description="Affordable phone for everyday use",
+			price=9000,
+			stock=10,
+		)
+		self.expensive_product = Product.objects.create(
+			category=expensive_category,
+			name="Premium Laptop",
+			slug="premium-laptop",
+			description="High-end laptop for power users",
+			price=85000,
 			stock=10,
 		)
 
@@ -169,7 +188,7 @@ class AIAssistantEndpointTests(TestCase):
 		self.assertEqual(body["intent"], "ORDER_HELP")
 		self.assertIn("sign in", body["reply"].lower())
 
-	def test_guest_price_stock_obfuscates_exact_stock(self):
+	def test_guest_price_stock_returns_live_database_stock(self):
 		guest_client = APIClient()
 		response = guest_client.post(
 			"/api/ai/assistant/chat/",
@@ -180,7 +199,8 @@ class AIAssistantEndpointTests(TestCase):
 		body = response.json()
 		self.assertEqual(body["intent"], "PRICE_STOCK_LOOKUP")
 		for item in body.get("suggested_products", []):
-			self.assertLessEqual(int(item.get("available_stock") or 0), 1)
+			if item.get("id") == self.product.id:
+				self.assertEqual(int(item.get("available_stock") or 0), int(self.product.stock))
 
 	def test_budget_intent_returns_budget_search_or_recommendation(self):
 		response = self.client.post(
@@ -192,6 +212,74 @@ class AIAssistantEndpointTests(TestCase):
 		body = response.json()
 		self.assertIn(body["intent"], {"BUDGET_SEARCH", "RECOMMENDATION"})
 		self.assertIsInstance(body["suggested_products"], list)
+
+	def test_chat_endpoint_parses_k_budget_and_stays_within_limit(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "my budget is 10k"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "BUDGET_SEARCH")
+		self.assertTrue(body["suggested_products"])
+		self.assertTrue(
+			all(Decimal(str(item.get("price") or 0)) <= Decimal("10000") for item in body["suggested_products"])
+		)
+		self.assertTrue(
+			all(str(item.get("name") or "") != self.expensive_product.name for item in body["suggested_products"])
+		)
+
+	def test_chat_endpoint_matches_budget_range_from_database(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "suggest products between 8k and 10k"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertIn(body["intent"], {"BUDGET_SEARCH", "RECOMMENDATION"})
+		self.assertTrue(body["suggested_products"])
+		self.assertTrue(
+			all(
+				Decimal("8000") <= Decimal(str(item.get("price") or 0)) <= Decimal("10000")
+				for item in body["suggested_products"]
+			)
+		)
+
+	def test_chat_endpoint_budget_range_no_match_returns_clear_message(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "suggest products between 1 and 2"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertIn(body["intent"], {"BUDGET_SEARCH", "RECOMMENDATION"})
+		self.assertEqual(body["suggested_products"], [])
+		self.assertIn("couldn't find products in your budget range", body["reply"].lower())
+
+	def test_chat_endpoint_budget_converts_from_local_currency_rate(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{
+				"message": "my budget is 10000",
+				"currency_code": "BDT",
+				"currency_rate": "100",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "BUDGET_SEARCH")
+		self.assertTrue(body["suggested_products"])
+		self.assertTrue(
+			all(Decimal(str(item.get("price") or 0)) <= Decimal("100") for item in body["suggested_products"])
+		)
 
 	def test_history_endpoint_returns_persisted_messages_for_user(self):
 		chat_response = self.client.post(

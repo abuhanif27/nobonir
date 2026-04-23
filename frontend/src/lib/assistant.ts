@@ -50,10 +50,19 @@ export const clearAssistantSessionKey = (scope: string) => {
   localStorage.removeItem(storageKeyForScope(scope));
 };
 
-export const askAssistant = async (message: string, sessionKey?: string) => {
+export const askAssistant = async (
+  message: string,
+  sessionKey?: string,
+  options?: { currencyCode?: string; currencyRate?: number },
+) => {
   const response = await api.post("/ai/assistant/chat/", {
     message,
     session_key: sessionKey || undefined,
+    currency_code: options?.currencyCode || undefined,
+    currency_rate:
+      typeof options?.currencyRate === "number" && Number.isFinite(options.currencyRate)
+        ? options.currencyRate
+        : undefined,
   });
   const body = response.data || {};
 

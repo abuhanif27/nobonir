@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export function FloatingAssistantWidget() {
   const { isAuthenticated, user } = useAuthStore();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currencyCode, currencyRate } = useCurrency();
 
   const sessionScope = useMemo(
     () => (isAuthenticated && user?.id ? `user_${user.id}` : "guest"),
@@ -152,7 +152,10 @@ export function FloatingAssistantWidget() {
     setIsLoading(true);
 
     try {
-      const body = await askAssistant(trimmed, sessionKey);
+      const body = await askAssistant(trimmed, sessionKey, {
+        currencyCode,
+        currencyRate,
+      });
       if (body.session_key) {
         setSessionKey(body.session_key);
         setAssistantSessionKey(sessionScope, body.session_key);
@@ -192,39 +195,39 @@ export function FloatingAssistantWidget() {
   return (
     <>
       {open ? (
-        <div className="fixed bottom-20 right-4 z-50 w-[calc(100vw-2rem)] max-w-sm sm:right-6 sm:w-[22rem]">
-          <Card className="flex h-[32rem] max-h-[80vh] flex-col border border-border/80 shadow-2xl rounded-2xl bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 overflow-hidden">
-            <CardHeader className="flex-none pb-3 border-b bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2 text-base font-bold">
-                  <Bot className="h-5 w-5 text-teal-600 drop-shadow" />
+        <div className="fixed bottom-18 left-2 right-2 z-50 mx-auto w-[calc(100vw-1rem)] max-w-md sm:bottom-20 sm:left-auto sm:right-6 sm:w-[22rem]">
+          <Card className="flex h-[34rem] max-h-[82vh] flex-col overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/95 shadow-2xl shadow-slate-950/12 backdrop-blur-xl dark:bg-slate-900/95">
+            <CardHeader className="flex-none border-b border-border/70 bg-white/60 px-4 pb-3 pt-3 backdrop-blur-md dark:bg-slate-950/60 sm:px-4 sm:pb-3 sm:pt-4">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                <CardTitle className="flex items-center gap-2 text-[14px] font-semibold tracking-tight sm:text-base sm:font-bold sm:tracking-wide">
+                  <Bot className="h-4.5 w-4.5 text-teal-600 drop-shadow sm:h-5 sm:w-5" />
                   <span className="tracking-wide">AI Assistant</span>
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <Button
                     size="icon"
                     variant="outline"
-                    className="h-8 w-8 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/30 transition"
+                    className="h-7 w-7 rounded-full border-border/70 bg-background/70 transition hover:bg-teal-50 dark:hover:bg-teal-900/30 sm:h-8 sm:w-8"
                     onClick={clearConversation}
                     aria-label="Clear conversation"
                   >
-                    <RotateCcw className="h-4 w-4 text-teal-600" />
+                    <RotateCcw className="h-3.5 w-3.5 text-teal-600 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     size="icon"
                     variant="outline"
-                    className="h-8 w-8 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/30 transition"
+                    className="h-7 w-7 rounded-full border-border/70 bg-background/70 transition hover:bg-rose-50 dark:hover:bg-rose-900/30 sm:h-8 sm:w-8"
                     onClick={() => setOpen(false)}
                     aria-label="Close assistant"
                   >
-                    <X className="h-4 w-4 text-rose-600" />
+                    <X className="h-3.5 w-3.5 text-rose-600 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col min-h-0 p-0 overflow-hidden">
+            <CardContent className="flex-1 flex min-h-0 flex-col overflow-hidden p-0">
               <Virtuoso
-                className="flex-1 px-4 py-4 scrollbar-hide [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex-1 px-4 py-4 scrollbar-hide [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth overscroll-contain sm:px-4 sm:py-4"
                 data={messages}
                 atTopThreshold={48}
                 startReached={() => {
@@ -271,30 +274,34 @@ export function FloatingAssistantWidget() {
                 itemContent={(_, message) => (
                   <div
                     key={message.id}
-                    className={`pb-6 flex flex-col gap-1.5 ${
+                    className={`animate-in fade-in-0 slide-in-from-bottom-2 duration-300 w-full pb-5 flex flex-col gap-1.5 motion-reduce:animate-none ${
                       message.role === "user" ? "items-end" : "items-start"
                     }`}
                   >
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider ${
                         message.role === "user"
-                          ? "text-teal-600 mr-1"
-                          : "text-slate-500 ml-1"
+                          ? "self-end text-teal-600"
+                          : "self-start text-slate-500"
                       }`}
                     >
                       {message.role === "user" ? "You" : "Assistant"}
                     </span>
                     <div
-                      className={`relative max-w-[90%] rounded-2xl px-3 py-2.5 shadow-sm text-[14px] leading-relaxed ${
+                      className={`relative w-fit max-w-[82%] rounded-[1.25rem] px-3 py-2.5 shadow-sm text-[14px] leading-relaxed sm:max-w-[78%] ${
                         message.role === "user"
-                          ? "bg-teal-600 text-white rounded-tr-none border border-teal-500"
-                          : "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-none border border-border/60"
+                          ? "self-end mr-2 bg-teal-600/90 text-white rounded-tr-none border border-teal-500/60 shadow-teal-950/10 sm:mr-3"
+                          : "self-start bg-white/95 dark:bg-slate-800/95 text-slate-900 dark:text-slate-100 rounded-tl-none border border-border/60"
                       }`}
                     >
-                      <span className="whitespace-pre-line break-words" style={{ overflowWrap: "break-word" }}>{message.text}</span>
+                      <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.text}</span>
                     </div>
                     {message.products && message.products.length > 0 ? (
-                      <div className="mt-2 w-full max-w-[90%] space-y-1.5">
+                      <div
+                        className={`mt-2 w-full max-w-[82%] space-y-1.5 sm:max-w-[78%] ${
+                          message.role === "user" ? "self-end mr-2 sm:mr-3" : "self-start"
+                        }`}
+                      >
                         {message.products.slice(0, 3).map((product) => (
                           <Link
                             key={`${message.id}_${product.id}`}
@@ -319,7 +326,7 @@ export function FloatingAssistantWidget() {
               />
               <form
                 onSubmit={submit}
-                className="flex-none p-4 border-t bg-white dark:bg-slate-900 space-y-3"
+                className="flex-none space-y-3 border-t border-border/70 bg-white/95 p-3 backdrop-blur-md dark:bg-slate-900/95 sm:p-4"
               >
                 <Textarea
                   value={query}
@@ -331,13 +338,13 @@ export function FloatingAssistantWidget() {
                     }
                   }}
                   rows={2}
-                  className="min-h-[60px] max-h-[120px] rounded-xl border-2 border-teal-100 focus:border-teal-500 focus-visible:ring-0 focus-visible:ring-offset-0 bg-slate-50 dark:bg-slate-950 text-[14px] px-3 py-2 transition-all duration-200 resize-none"
+                  className="min-h-[72px] max-h-[160px] rounded-xl border-2 border-border/60 bg-slate-50 px-3 py-2 text-[14px] leading-6 transition-all duration-200 resize-none focus:border-teal-500 focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-slate-950"
                   placeholder="Type your message..."
                 />
                 <Button
                   type="submit"
                   size="sm"
-                  className="w-full h-10 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-md transition-all active:scale-[0.98] disabled:bg-teal-300 disabled:shadow-none"
+                  className="h-10 w-full rounded-xl bg-teal-600/95 font-semibold tracking-tight text-white shadow-sm transition-all duration-200 active:scale-[0.98] hover:bg-teal-700 disabled:bg-teal-300 disabled:shadow-none"
                   disabled={isLoading || !query.trim()}
                 >
                   <Send className="mr-2 h-4 w-4" />
@@ -352,11 +359,11 @@ export function FloatingAssistantWidget() {
       <Button
         type="button"
         size="icon"
-        className="fixed bottom-4 right-4 z-50 h-16 w-16 rounded-full shadow-2xl bg-gradient-to-br from-teal-500 via-teal-600 to-teal-700 hover:scale-105 transition sm:bottom-6 sm:right-6"
+        className="fixed bottom-4 right-4 z-50 h-16 w-16 rounded-full border border-border/70 bg-card/95 shadow-xl shadow-slate-950/15 transition hover:scale-105 hover:border-teal-300 hover:bg-card sm:bottom-6 sm:right-6"
         onClick={() => setOpen(true)}
         aria-label="Open AI assistant"
       >
-        <Bot className="h-7 w-7 text-white drop-shadow" />
+        <Bot className="h-7 w-7 text-teal-600 drop-shadow-sm" />
       </Button>
     </>
   );

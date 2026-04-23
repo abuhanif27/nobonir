@@ -11,6 +11,7 @@ import api from "@/lib/api";
 type CurrencyContextValue = {
   countryCode: string;
   currencyCode: string;
+  currencyRate: number;
   formatPrice: (amount: string | number) => string;
   isCurrencyLoading: boolean;
 };
@@ -416,9 +417,22 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     [currencyCode, rates],
   );
 
+  const currencyRate = useMemo(() => {
+    if (!currencyCode) {
+      return 1;
+    }
+    return rates[currencyCode] || 1;
+  }, [currencyCode, rates]);
+
   const value = useMemo(
-    () => ({ countryCode, currencyCode, formatPrice, isCurrencyLoading }),
-    [countryCode, currencyCode, formatPrice, isCurrencyLoading],
+    () => ({
+      countryCode,
+      currencyCode,
+      currencyRate,
+      formatPrice,
+      isCurrencyLoading,
+    }),
+    [countryCode, currencyCode, currencyRate, formatPrice, isCurrencyLoading],
   );
 
   return (
