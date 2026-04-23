@@ -2807,9 +2807,7 @@ export function CustomerDashboard() {
                   value={jumpPageInput}
                   onChange={(event) => {
                     const digitsOnly = event.target.value.replace(/\D/g, "");
-                    // Cap input at max page number to prevent massive entries
-                    const capped = digitsOnly ? String(Math.min(Number(digitsOnly), totalProductPages * 10)) : "";
-                    setJumpPageInput(capped);
+                    setJumpPageInput(digitsOnly);
                   }}
                   onFocus={(event) => {
                     event.currentTarget.select();
