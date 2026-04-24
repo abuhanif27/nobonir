@@ -99,6 +99,11 @@ type ProductPayload = {
   };
 };
 
+type ProductCatalogResponse = {
+  results?: ProductPayload[];
+  count?: number;
+};
+
 type QuantityPayload = { quantity?: number };
 
 type GeoPayload = {
@@ -175,6 +180,9 @@ export function CustomerDashboard() {
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [liveProductMap, setLiveProductMap] = useState<Record<number, Product>>(
+    {},
+  );
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
     null,
@@ -441,6 +449,18 @@ export function CustomerDashboard() {
 
   const isSuggestionAutoplayPaused =
     !isSuggestionAutoplayEnabled || isSuggestionInteracting;
+
+  const filterToLiveProducts = useCallback(
+    (rows: Product[]) => {
+      const liveEntries = Object.values(liveProductMap);
+      if (liveEntries.length === 0) {
+        return rows;
+      }
+
+      return rows.filter((row) => Boolean(liveProductMap[row.id]));
+    },
+    [liveProductMap],
+  );
 
   const getSuggestionStockLabel = (product: Product) => {
     const stockCount = Number(product.available_stock ?? product.stock ?? 0);
@@ -875,8 +895,10 @@ export function CustomerDashboard() {
 
       if (recommendationsResult.status === "fulfilled") {
         setPersonalizedProducts(
-          normalizeProducts(recommendationsResult.value.data || []).filter(
-            (product) => product.stock > 0,
+          filterToLiveProducts(
+            normalizeProducts(recommendationsResult.value.data || []).filter(
+              (product) => product.stock > 0,
+            ),
           ),
         );
       }
@@ -884,6 +906,50 @@ export function CustomerDashboard() {
       console.error("Failed to load preference data:", error);
     } finally {
       setIsPreferenceHydrated(true);
+    }
+  }, [filterToLiveProducts, normalizeProducts]);
+
+  const loadLiveProductCatalog = useCallback(async () => {
+    try {
+      const pageSize = 100;
+      const firstResponse = await api.get<ProductCatalogResponse>("/products/", {
+        params: { page: 1, page_size: pageSize },
+      });
+
+      const firstIsPaginated = Array.isArray(firstResponse.data?.results);
+      const firstRows = firstIsPaginated
+        ? firstResponse.data.results || []
+        : Array.isArray(firstResponse.data)
+          ? (firstResponse.data as unknown as ProductPayload[])
+          : [];
+
+      let allRows: ProductPayload[] = [...firstRows];
+
+      if (firstIsPaginated) {
+        const totalCount = Number(firstResponse.data?.count || firstRows.length);
+        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+        for (let page = 2; page <= totalPages; page += 1) {
+          const response = await api.get<ProductCatalogResponse>("/products/", {
+            params: { page, page_size: pageSize },
+          });
+          const pageRows = Array.isArray(response.data?.results)
+            ? response.data.results
+            : [];
+          allRows = allRows.concat(pageRows);
+        }
+      }
+
+      const normalized = normalizeProducts(allRows);
+      const nextMap: Record<number, Product> = {};
+      normalized.forEach((product) => {
+        nextMap[product.id] = product;
+      });
+
+      setLiveProductMap(nextMap);
+    } catch (error) {
+      console.error("Failed to load live product catalog:", error);
+      setLiveProductMap({});
     }
   }, [normalizeProducts]);
 
@@ -894,16 +960,24 @@ export function CustomerDashboard() {
       const response = await api.get(`/products/merchandising/?t=${timestamp}`);
       const payload = (response.data || {}) as Record<string, unknown[]>;
       setMerchandising({
-        trending_now: normalizeProducts(payload.trending_now || []),
-        almost_gone: normalizeProducts(payload.almost_gone || []),
-        just_restocked: normalizeProducts(payload.just_restocked || []),
-        back_in_stock: normalizeProducts(payload.back_in_stock || []),
+        trending_now: filterToLiveProducts(
+          normalizeProducts(payload.trending_now || []),
+        ),
+        almost_gone: filterToLiveProducts(
+          normalizeProducts(payload.almost_gone || []),
+        ),
+        just_restocked: filterToLiveProducts(
+          normalizeProducts(payload.just_restocked || []),
+        ),
+        back_in_stock: filterToLiveProducts(
+          normalizeProducts(payload.back_in_stock || []),
+        ),
       });
     } catch (error) {
       console.error("Failed to load merchandising:", error);
       setMerchandising({});
     }
-  }, [normalizeProducts]);
+  }, [filterToLiveProducts, normalizeProducts]);
 
   const detectGeoDetails = async () => {
     setIsDetectingGeo(true);
@@ -1140,7 +1214,7 @@ export function CustomerDashboard() {
         });
         const isPaginated = Array.isArray(response.data?.results);
         const rows = isPaginated ? response.data.results : response.data;
-        const apiProducts = normalizeProducts(rows || []);
+        const apiProducts = filterToLiveProducts(normalizeProducts(rows || []));
         setProducts(apiProducts);
         setProductPage(page);
         setProductTotalCount(
@@ -1164,6 +1238,7 @@ export function CustomerDashboard() {
     },
     [
       availabilityFilter,
+      filterToLiveProducts,
       loadMerchandising,
       normalizeProducts,
       selectedCategoryId,
@@ -1183,7 +1258,9 @@ export function CustomerDashboard() {
         });
         const isPaginated = Array.isArray(response.data?.results);
         const rows = isPaginated ? response.data.results : response.data;
-        const topSellingProducts = normalizeProducts(rows || []);
+        const topSellingProducts = filterToLiveProducts(
+          normalizeProducts(rows || []),
+        );
         setProducts(topSellingProducts);
         setProductPage(page);
         setProductTotalCount(
@@ -1204,7 +1281,7 @@ export function CustomerDashboard() {
         setLoading(false);
       }
     },
-    [normalizeProducts],
+    [filterToLiveProducts, normalizeProducts],
   );
 
   const loadSearchedProducts = useCallback(
@@ -1225,7 +1302,9 @@ export function CustomerDashboard() {
         });
         const isPaginated = Array.isArray(response.data?.results);
         const rows = isPaginated ? response.data.results : response.data;
-        const searchedProducts = normalizeProducts(rows || []);
+        const searchedProducts = filterToLiveProducts(
+          normalizeProducts(rows || []),
+        );
         setProducts(searchedProducts);
         setProductPage(page);
         setProductTotalCount(
@@ -1246,7 +1325,7 @@ export function CustomerDashboard() {
         setLoading(false);
       }
     },
-    [normalizeProducts, selectedCategoryId],
+    [filterToLiveProducts, normalizeProducts, selectedCategoryId],
   );
 
   const handleSearch = useCallback(async () => {
@@ -1371,6 +1450,21 @@ export function CustomerDashboard() {
     // Reset input to navigated page
     setJumpPageInput(String(nextPage));
   }, [jumpPageInput, navigateToPage, totalProductPages, showError]);
+
+  useEffect(() => {
+    void loadLiveProductCatalog();
+  }, [loadLiveProductCatalog]);
+
+  useEffect(() => {
+    setProducts((current) => filterToLiveProducts(current));
+    setPersonalizedProducts((current) => filterToLiveProducts(current));
+    setMerchandising((current) => ({
+      trending_now: filterToLiveProducts(current.trending_now || []),
+      almost_gone: filterToLiveProducts(current.almost_gone || []),
+      just_restocked: filterToLiveProducts(current.just_restocked || []),
+      back_in_stock: filterToLiveProducts(current.back_in_stock || []),
+    }));
+  }, [filterToLiveProducts, liveProductMap]);
 
   useEffect(() => {
     void loadCategoryOptions();
