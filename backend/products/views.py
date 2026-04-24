@@ -48,6 +48,7 @@
 
 import json
 from collections import Counter
+from decimal import Decimal
 
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
@@ -613,7 +614,8 @@ class ProductViewSet(viewsets.ModelViewSet):
 							order_items__order__created_at__gte=cutoff,
 						),
 					),
-					0,
+					Value(Decimal("0")),
+					output_field=DecimalField(max_digits=14, decimal_places=2),
 				),
 			)
 		)

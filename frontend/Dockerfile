@@ -1,17 +1,16 @@
-# Use official Node image
+# Frontend image (Vite dev server)
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Install deps first for cache-friendly layers
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# Copy source
+# Copy the entire project (no .dockerignore — everything ships)
 COPY . .
 
-# Expose port (Vite default)
 EXPOSE 5173
 
-# Start dev server
-CMD ["npm", "run", "dev", "--", "--host"]
+# --host 0.0.0.0 is required so the port is reachable outside the container
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
