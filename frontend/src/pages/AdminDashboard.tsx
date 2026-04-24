@@ -173,6 +173,7 @@ export function AdminDashboard() {
   const { formatPrice } = useCurrency();
   const { showError, showSuccess } = useFeedback();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productTotalCount, setProductTotalCount] = useState(0);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(true);
@@ -260,8 +261,14 @@ export function AdminDashboard() {
     setLoadingProducts(true);
     setProductsError(null);
     try {
-      const response = await api.get("/products/");
-      setProducts(response.data.results || response.data);
+      const response = await api.get("/products/", {
+        params: { page_size: 9999 },
+      });
+      const rows = response.data.results || response.data;
+      setProducts(rows);
+      setProductTotalCount(
+        response.data.count != null ? Number(response.data.count) : rows.length,
+      );
     } catch (error: unknown) {
       console.error("Failed to load products:", error);
       setProducts([]);
@@ -484,6 +491,7 @@ export function AdminDashboard() {
     try {
       await api.delete(`/products/${id}/`);
       setProducts(products.filter((p) => p.id !== id));
+      setProductTotalCount((prev) => Math.max(0, prev - 1));
       showSuccess("Product deleted successfully");
     } catch (error) {
       showError("Failed to delete product");
@@ -749,7 +757,7 @@ export function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{products.length}</p>
+              <p className="text-3xl font-bold">{productTotalCount}</p>
             </CardContent>
           </Card>
           <Card>

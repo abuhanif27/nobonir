@@ -46,6 +46,9 @@
 
 
 
+import json
+from collections import Counter
+
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
@@ -142,6 +145,97 @@ class ProductViewSet(viewsets.ModelViewSet):
 			return int(value)
 		except (TypeError, ValueError):
 			return None
+
+	def _build_event_count_map(self, event_name, cutoff):
+		"""Build {product_id: count} map from analytics events.
+
+		Uses JSON field lookup on PostgreSQL; falls back to Python-side
+		parsing on SQLite where metadata__product_id lookups are unsupported.
+		"""
+		qs = AnalyticsEvent.objects.filter(
+			created_at__gte=cutoff, event_name=event_name
+		)
+
+		try:
+			rows = qs.values("metadata__product_id").annotate(count=Count("id"))
+			result = {}
+			for row in rows:
+				pid = self._parse_product_id(row.get("metadata__product_id"))
+				if pid is not None:
+					result[pid] = int(row.get("count") or 0)
+			return result
+		except Exception:
+			pass
+
+		# Fallback: iterate events and parse metadata in Python
+		result: dict[int, int] = Counter()
+		for event in qs.only("metadata").iterator():
+			meta = event.metadata
+			if isinstance(meta, str):
+				try:
+					meta = json.loads(meta)
+				except (json.JSONDecodeError, TypeError):
+					continue
+			if not isinstance(meta, dict):
+				continue
+			pid = self._parse_product_id(meta.get("product_id"))
+			if pid is not None:
+				result[pid] += 1
+		return dict(result)
+
+	def _build_session_event_map(self, event_name, cutoff):
+		"""Build {product_id: {events, sessions}} map from analytics events.
+
+		Falls back to Python-side parsing on SQLite.
+		"""
+		qs = AnalyticsEvent.objects.filter(
+			created_at__gte=cutoff, event_name=event_name
+		).exclude(session_key="")
+
+		try:
+			rows = qs.values("metadata__product_id").annotate(
+				event_count=Count("id"),
+				session_count=Count("session_key", distinct=True),
+			)
+			result = {}
+			for row in rows:
+				pid = self._parse_product_id(row.get("metadata__product_id"))
+				if pid is not None:
+					result[pid] = {
+						"events": int(row.get("event_count") or 0),
+						"sessions": int(row.get("session_count") or 0),
+					}
+			return result
+		except Exception:
+			pass
+
+		# Fallback: iterate and aggregate in Python
+		events_counter: dict[int, int] = Counter()
+		sessions_map: dict[int, set] = {}
+		for event in qs.only("metadata", "session_key").iterator():
+			meta = event.metadata
+			if isinstance(meta, str):
+				try:
+					meta = json.loads(meta)
+				except (json.JSONDecodeError, TypeError):
+					continue
+			if not isinstance(meta, dict):
+				continue
+			pid = self._parse_product_id(meta.get("product_id"))
+			if pid is None:
+				continue
+			events_counter[pid] += 1
+			if pid not in sessions_map:
+				sessions_map[pid] = set()
+			sessions_map[pid].add(event.session_key)
+
+		result = {}
+		for pid in set(events_counter) | set(sessions_map):
+			result[pid] = {
+				"events": events_counter.get(pid, 0),
+				"sessions": len(sessions_map.get(pid, set())),
+			}
+		return result
 
 	def get_queryset(self):
 		queryset = self._with_available_stock(super().get_queryset())
@@ -469,30 +563,8 @@ class ProductViewSet(viewsets.ModelViewSet):
 			)
 		)
 
-		view_events = (
-			AnalyticsEvent.objects.filter(created_at__gte=cutoff, event_name="view_product")
-			.values("metadata__product_id")
-			.annotate(count=Count("id"))
-		)
-		add_to_cart_events = (
-			AnalyticsEvent.objects.filter(created_at__gte=cutoff, event_name="add_to_cart")
-			.values("metadata__product_id")
-			.annotate(count=Count("id"))
-		)
-
-		view_map = {}
-		for row in view_events:
-			product_id = self._parse_product_id(row.get("metadata__product_id"))
-			if product_id is None:
-				continue
-			view_map[product_id] = int(row.get("count") or 0)
-
-		add_to_cart_map = {}
-		for row in add_to_cart_events:
-			product_id = self._parse_product_id(row.get("metadata__product_id"))
-			if product_id is None:
-				continue
-			add_to_cart_map[product_id] = int(row.get("count") or 0)
+		view_map = self._build_event_count_map("view_product", cutoff)
+		add_to_cart_map = self._build_event_count_map("add_to_cart", cutoff)
 
 		items = []
 		for product in sales_queryset:
@@ -535,50 +607,21 @@ class ProductViewSet(viewsets.ModelViewSet):
 		now = timezone.now()
 		cutoff = now - timezone.timedelta(days=days)
 
-		view_rows = (
-			AnalyticsEvent.objects.filter(
-				created_at__gte=cutoff,
-				event_name="view_product",
-			)
-			.exclude(session_key="")
-			.values("metadata__product_id")
-			.annotate(
-				view_events=Count("id"),
-				view_sessions=Count("session_key", distinct=True),
-			)
-		)
-
-		cart_rows = (
-			AnalyticsEvent.objects.filter(
-				created_at__gte=cutoff,
-				event_name="add_to_cart",
-			)
-			.exclude(session_key="")
-			.values("metadata__product_id")
-			.annotate(
-				add_to_cart_events=Count("id"),
-				add_to_cart_sessions=Count("session_key", distinct=True),
-			)
-		)
+		raw_view_map = self._build_session_event_map("view_product", cutoff)
+		raw_cart_map = self._build_session_event_map("add_to_cart", cutoff)
 
 		view_map = {}
-		for row in view_rows:
-			product_id = self._parse_product_id(row.get("metadata__product_id"))
-			if product_id is None:
-				continue
-			view_map[product_id] = {
-				"view_events": int(row.get("view_events") or 0),
-				"view_sessions": int(row.get("view_sessions") or 0),
+		for pid, info in raw_view_map.items():
+			view_map[pid] = {
+				"view_events": info["events"],
+				"view_sessions": info["sessions"],
 			}
 
 		cart_map = {}
-		for row in cart_rows:
-			product_id = self._parse_product_id(row.get("metadata__product_id"))
-			if product_id is None:
-				continue
-			cart_map[product_id] = {
-				"add_to_cart_events": int(row.get("add_to_cart_events") or 0),
-				"add_to_cart_sessions": int(row.get("add_to_cart_sessions") or 0),
+		for pid, info in raw_cart_map.items():
+			cart_map[pid] = {
+				"add_to_cart_events": info["events"],
+				"add_to_cart_sessions": info["sessions"],
 			}
 
 		products = Product.objects.filter(id__in=set(view_map.keys()) | set(cart_map.keys())).only("id", "name")

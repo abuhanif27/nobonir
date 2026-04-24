@@ -49,7 +49,8 @@ function App() {
               />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/product/:id" element={<ProductPage />} />
-              <Route
+              <R
+              oute
                 path="/login"
                 element={
                   !isAuthenticated ? <LoginPage /> : <Navigate to="/" replace />
