@@ -77,13 +77,7 @@ function App() {
               />
               <Route
                 path="/reset-password"
-                element={
-                  !isAuthenticated ? (
-                    <PasswordResetConfirmPage />
-                  ) : (
-                    <Navigate to="/profile" replace />
-                  )
-                }
+                element={<PasswordResetConfirmPage />}
               />
 
               {/* Protected customer routes */}
