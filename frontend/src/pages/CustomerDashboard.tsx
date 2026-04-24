@@ -121,6 +121,11 @@ type OrderNotificationSource = {
   updated_at: string;
 };
 
+type CategoryOption = {
+  id: number;
+  name: string;
+};
+
 const SUGGESTION_CAROUSEL_AUTOPLAY_MS = 3000;
 const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 const PRODUCTS_PAGE_SIZE = 12;
@@ -177,6 +182,10 @@ export function CustomerDashboard() {
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
+    null,
+  );
   const [productPage, setProductPage] = useState(1);
   const [productTotalCount, setProductTotalCount] = useState(0);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -192,6 +201,7 @@ export function CustomerDashboard() {
   const [isTopSellingView, setIsTopSellingView] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [notificationItems, setNotificationItems] = useState<
     UserNotification[]
   >([]);
@@ -224,6 +234,7 @@ export function CustomerDashboard() {
   const [geoDetectionFailed, setGeoDetectionFailed] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationMenuRef = useRef<HTMLDivElement | null>(null);
+  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
   const lastAutoPersonalizeKeyRef = useRef("");
 
   const getAgeFromBirthDate = (dateOfBirth?: string) => {
@@ -364,6 +375,17 @@ export function CustomerDashboard() {
     return Math.max(1, Math.ceil(productTotalCount / PRODUCTS_PAGE_SIZE));
   }, [productTotalCount]);
 
+  const selectedCategoryName = useMemo(() => {
+    if (selectedCategoryId === null) {
+      return "All Categories";
+    }
+
+    const matchedCategory = categoryOptions.find(
+      (category) => category.id === selectedCategoryId,
+    );
+    return matchedCategory?.name || "All Categories";
+  }, [categoryOptions, selectedCategoryId]);
+
   const visibleProductPages = useMemo(() => {
     if (totalProductPages <= 7) {
       return Array.from({ length: totalProductPages }, (_, index) => index + 1);
@@ -398,13 +420,17 @@ export function CustomerDashboard() {
       ? "search results"
       : isTopSellingView
         ? "top selling products"
-        : "all products";
+        : selectedCategoryId !== null
+          ? `${selectedCategoryName} products`
+          : "all products";
 
     return `Loaded page ${productPage} of ${totalProductPages}. Showing ${contextLabel}. Total ${productTotalCount} products.`;
   }, [
     loading,
     search,
     isTopSellingView,
+    selectedCategoryId,
+    selectedCategoryName,
     productPage,
     totalProductPages,
     productTotalCount,
@@ -787,7 +813,7 @@ export function CustomerDashboard() {
   }, [calculatedAge]);
 
   useEffect(() => {
-    if (!isUserMenuOpen && !isNotificationMenuOpen) {
+    if (!isUserMenuOpen && !isNotificationMenuOpen && !isCategoryMenuOpen) {
       return;
     }
 
@@ -805,11 +831,18 @@ export function CustomerDashboard() {
       ) {
         setIsNotificationMenuOpen(false);
       }
+
+      if (
+        categoryMenuRef.current &&
+        !categoryMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsCategoryMenuOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [isUserMenuOpen, isNotificationMenuOpen]);
+  }, [isCategoryMenuOpen, isNotificationMenuOpen, isUserMenuOpen]);
 
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent) => {
@@ -819,6 +852,7 @@ export function CustomerDashboard() {
 
       setIsUserMenuOpen(false);
       setIsNotificationMenuOpen(false);
+      setIsCategoryMenuOpen(false);
       setIsMobileMenuOpen(false);
     };
 
@@ -1055,22 +1089,61 @@ export function CustomerDashboard() {
     }
   };
 
+  const loadCategoryOptions = useCallback(async () => {
+    try {
+      const response = await api.get("/products/categories/", {
+        params: { page_size: 100 },
+      });
+      const rows = Array.isArray(response.data?.results)
+        ? response.data.results
+        : Array.isArray(response.data)
+          ? response.data
+          : [];
+
+      const normalized = rows
+        .map((item: { id?: number; name?: string }) => ({
+          id: Number(item.id || 0),
+          name: String(item.name || "").trim(),
+        }))
+        .filter((item: CategoryOption) => item.id > 0 && item.name);
+
+      setCategoryOptions(normalized);
+    } catch (error) {
+      console.error("Failed to load categories:", error);
+      setCategoryOptions([]);
+    }
+  }, []);
+
   const loadProducts = useCallback(
-    async (page: number = 1, availabilityOverride?: string) => {
+    async (
+      page: number = 1,
+      availabilityOverride?: string,
+      categoryOverride?: number | null,
+    ) => {
       setLoading(true);
       setIsTopSellingView(false);
       setProductsError(null);
       try {
         const activeAvailability = availabilityOverride ?? availabilityFilter;
+        const activeCategory =
+          categoryOverride !== undefined
+            ? categoryOverride
+            : selectedCategoryId;
+        const params: Record<string, string | number> = {
+          page,
+          page_size: PRODUCTS_PAGE_SIZE,
+        };
+
+        if (activeAvailability !== "ALL") {
+          params.availability_status = activeAvailability;
+        }
+
+        if (activeCategory !== null) {
+          params.category = activeCategory;
+        }
+
         const response = await api.get("/products/", {
-          params:
-            activeAvailability !== "ALL"
-              ? {
-                  availability_status: activeAvailability,
-                  page,
-                  page_size: PRODUCTS_PAGE_SIZE,
-                }
-              : { page, page_size: PRODUCTS_PAGE_SIZE },
+          params,
         });
         const isPaginated = Array.isArray(response.data?.results);
         const rows = isPaginated ? response.data.results : response.data;
@@ -1096,7 +1169,12 @@ export function CustomerDashboard() {
         setLoading(false);
       }
     },
-    [availabilityFilter, loadMerchandising, normalizeProducts],
+    [
+      availabilityFilter,
+      loadMerchandising,
+      normalizeProducts,
+      selectedCategoryId,
+    ],
   );
 
   const loadTopSellingProducts = useCallback(
@@ -1143,7 +1221,14 @@ export function CustomerDashboard() {
       setProductsError(null);
       try {
         const response = await api.get("/products/", {
-          params: { search: query, page, page_size: PRODUCTS_PAGE_SIZE },
+          params: {
+            search: query,
+            page,
+            page_size: PRODUCTS_PAGE_SIZE,
+            ...(selectedCategoryId !== null
+              ? { category: selectedCategoryId }
+              : {}),
+          },
         });
         const isPaginated = Array.isArray(response.data?.results);
         const rows = isPaginated ? response.data.results : response.data;
@@ -1168,7 +1253,7 @@ export function CustomerDashboard() {
         setLoading(false);
       }
     },
-    [normalizeProducts],
+    [normalizeProducts, selectedCategoryId],
   );
 
   const handleSearch = useCallback(async () => {
@@ -1186,7 +1271,9 @@ export function CustomerDashboard() {
   const handleMerchandisingSectionClick = useCallback(
     async (sectionKey: string) => {
       setIsNotificationMenuOpen(false);
+      setIsCategoryMenuOpen(false);
       setSearch("");
+      setSelectedCategoryId(null);
 
       if (sectionKey === "trending_now") {
         setAvailabilityFilter("ALL");
@@ -1293,6 +1380,19 @@ export function CustomerDashboard() {
   }, [jumpPageInput, navigateToPage, totalProductPages, showError]);
 
   useEffect(() => {
+    void loadCategoryOptions();
+  }, [loadCategoryOptions]);
+
+  useEffect(() => {
+    if (
+      selectedCategoryId !== null &&
+      !categoryOptions.some((category) => category.id === selectedCategoryId)
+    ) {
+      setSelectedCategoryId(null);
+    }
+  }, [categoryOptions, selectedCategoryId]);
+
+  useEffect(() => {
     void loadProducts();
     void refreshCart(isAuthenticated);
     setIsInitialLoad(false);
@@ -1333,6 +1433,19 @@ export function CustomerDashboard() {
 
     return () => clearTimeout(debounceTimer);
   }, [handleSearch, isInitialLoad, isTopSellingView, loadProducts, search]);
+
+  const handleCategorySelection = useCallback(
+    async (categoryId: number | null) => {
+      setIsCategoryMenuOpen(false);
+      setIsMobileMenuOpen(false);
+      setIsTopSellingView(false);
+      setSearch("");
+      setAvailabilityFilter("ALL");
+      setSelectedCategoryId(categoryId);
+      await loadProducts(1, "ALL", categoryId);
+    },
+    [loadProducts],
+  );
 
   const addToCart = async (product: Product, sourceElement?: HTMLElement) => {
     const addToLocalDemoCart = () => {
@@ -1649,11 +1762,82 @@ export function CustomerDashboard() {
                       )}
                     </Button>
                   </Link>
+                  <div className="relative" ref={categoryMenuRef}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsNotificationMenuOpen(false);
+                        setIsCategoryMenuOpen((prev) => !prev);
+                      }}
+                      aria-haspopup="menu"
+                      aria-expanded={isCategoryMenuOpen}
+                      aria-controls="dashboard-category-menu"
+                    >
+                      <Tag className="h-4 w-4" />
+                      <span className="hidden sm:inline">Categories</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+
+                    {isCategoryMenuOpen && (
+                      <div
+                        id="dashboard-category-menu"
+                        role="menu"
+                        aria-label="Categories"
+                        className="absolute right-0 z-50 mt-2 w-64 max-w-[90vw] rounded-xl border border-border bg-card p-2 shadow-lg"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            void handleCategorySelection(null);
+                          }}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
+                            selectedCategoryId === null
+                              ? "bg-muted font-semibold"
+                              : ""
+                          }`}
+                        >
+                          All Categories
+                        </button>
+                        <div className="my-1 h-px bg-border" />
+                        <div className="max-h-72 overflow-auto">
+                          {categoryOptions.length > 0 ? (
+                            categoryOptions.map((category) => (
+                              <button
+                                key={category.id}
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  void handleCategorySelection(category.id);
+                                }}
+                                className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
+                                  selectedCategoryId === category.id
+                                    ? "bg-muted font-semibold"
+                                    : ""
+                                }`}
+                              >
+                                {category.name}
+                              </button>
+                            ))
+                          ) : (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">
+                              No categories found.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="gap-2"
                     onClick={() => {
+                      setIsCategoryMenuOpen(false);
+                      setSelectedCategoryId(null);
                       void loadTopSellingProducts(1);
                     }}
                   >
@@ -1865,11 +2049,80 @@ export function CustomerDashboard() {
                       )}
                     </Button>
                   </Link>
+                  <div className="relative" ref={categoryMenuRef}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        setIsCategoryMenuOpen((prev) => !prev);
+                      }}
+                      aria-haspopup="menu"
+                      aria-expanded={isCategoryMenuOpen}
+                      aria-controls="dashboard-category-menu"
+                    >
+                      <Tag className="h-4 w-4" />
+                      <span className="hidden sm:inline">Categories</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+
+                    {isCategoryMenuOpen && (
+                      <div
+                        id="dashboard-category-menu"
+                        role="menu"
+                        aria-label="Categories"
+                        className="absolute right-0 z-50 mt-2 w-64 max-w-[90vw] rounded-xl border border-border bg-card p-2 shadow-lg"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            void handleCategorySelection(null);
+                          }}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
+                            selectedCategoryId === null
+                              ? "bg-muted font-semibold"
+                              : ""
+                          }`}
+                        >
+                          All Categories
+                        </button>
+                        <div className="my-1 h-px bg-border" />
+                        <div className="max-h-72 overflow-auto">
+                          {categoryOptions.length > 0 ? (
+                            categoryOptions.map((category) => (
+                              <button
+                                key={category.id}
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  void handleCategorySelection(category.id);
+                                }}
+                                className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
+                                  selectedCategoryId === category.id
+                                    ? "bg-muted font-semibold"
+                                    : ""
+                                }`}
+                              >
+                                {category.name}
+                              </button>
+                            ))
+                          ) : (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">
+                              No categories found.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="gap-2"
                     onClick={() => {
+                      setIsCategoryMenuOpen(false);
+                      setSelectedCategoryId(null);
                       void loadTopSellingProducts(1);
                     }}
                   >
@@ -1915,6 +2168,19 @@ export function CustomerDashboard() {
                   size="sm"
                   className="justify-start"
                   onClick={() => {
+                    setIsCategoryMenuOpen((prev) => !prev);
+                  }}
+                >
+                  <Tag className="mr-2 h-4 w-4" />
+                  Categories
+                  <ChevronDown className="ml-auto h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => {
+                    setSelectedCategoryId(null);
                     void loadTopSellingProducts(1);
                     setIsMobileMenuOpen(false);
                   }}
@@ -1922,6 +2188,45 @@ export function CustomerDashboard() {
                   <Trophy className="mr-2 h-4 w-4" />
                   Top Selling
                 </Button>
+                {isCategoryMenuOpen && (
+                  <div className="col-span-2 rounded-lg border border-border bg-background p-2">
+                    <Button
+                      variant={selectedCategoryId === null ? "default" : "ghost"}
+                      size="sm"
+                      className="mb-1 w-full justify-start"
+                      onClick={() => {
+                        void handleCategorySelection(null);
+                      }}
+                    >
+                      All Categories
+                    </Button>
+                    <div className="max-h-40 space-y-1 overflow-auto pr-1">
+                      {categoryOptions.length > 0 ? (
+                        categoryOptions.map((category) => (
+                          <Button
+                            key={category.id}
+                            variant={
+                              selectedCategoryId === category.id
+                                ? "default"
+                                : "ghost"
+                            }
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => {
+                              void handleCategorySelection(category.id);
+                            }}
+                          >
+                            {category.name}
+                          </Button>
+                        ))
+                      ) : (
+                        <p className="px-2 py-1 text-xs text-muted-foreground">
+                          No categories found.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {isAuthenticated ? (
                   <>
                     <Link
@@ -2440,6 +2745,22 @@ export function CustomerDashboard() {
                 "It looks like there are no products available right now. Check back soon!"
               )}
             </p>
+            {selectedCategoryId !== null && (
+              <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
+                <Badge variant="secondary" className="px-3 py-1 text-xs">
+                  Category: {selectedCategoryName}
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void handleCategorySelection(null);
+                  }}
+                >
+                  Show All Categories
+                </Button>
+              </div>
+            )}
             {!search && !isTopSellingView && (
               <div className="mb-6 flex flex-wrap justify-center gap-2">
                 {Object.keys(availabilityLabelMap).map((key) => (
@@ -2596,6 +2917,22 @@ export function CustomerDashboard() {
                     ? "amazing product"
                     : "amazing products"}
                 </p>
+                {selectedCategoryId !== null && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary" className="px-3 py-1 text-xs">
+                      Category: {selectedCategoryName}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        void handleCategorySelection(null);
+                      }}
+                    >
+                      Clear Category
+                    </Button>
+                  </div>
+                )}
                 {!search && !isTopSellingView && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {Object.keys(availabilityLabelMap).map((key) => (
@@ -2830,7 +3167,7 @@ export function CustomerDashboard() {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   placeholder={String(productPage)}
-                  maxLength="6"
+                  maxLength={6}
                   aria-label={`Jump to page (current: ${productPage}/${totalProductPages})`}
                   title={`Enter page 1-${totalProductPages}`}
                   className="h-9 w-24 text-center"
