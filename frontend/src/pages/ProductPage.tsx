@@ -210,10 +210,10 @@ export function ProductPage() {
       ...genericMedia,
       ...extractImageCandidates(product.image_url),
       ...extractImageCandidates(product.image),
-      FALLBACK_PRODUCT_IMAGE,
     ];
 
-    return Array.from(new Set(merged));
+    const unique = Array.from(new Set(merged));
+    return unique.length > 0 ? unique : [FALLBACK_PRODUCT_IMAGE];
   }, [product, selectedColor, selectedSize]);
 
   const colorOptions = useMemo(() => {
