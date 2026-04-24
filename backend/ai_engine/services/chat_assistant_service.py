@@ -47,12 +47,8 @@ def _free_llm_enabled() -> bool:
 _PROVIDER_COOLDOWN_UNTIL: dict[str, float] = {}
 FAST_FALLBACK_INTENTS = {
     "TOP_SELLING",
-    "ORDER_HELP",
     "PRICE_STOCK_LOOKUP",
-    "BUDGET_SEARCH",
-    "FIT_HELP",
-    "RECOMMENDATION",
-    "HELP",
+    "ORDER_STATUS_HELP",
 }
 
 
@@ -183,7 +179,7 @@ def _ollama_reply(prompt: str, timeout_override: float | None = None) -> str | N
         return None
 
 
-def _build_ollama_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool) -> str:
+def _build_ollama_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool, history: list[dict] | None = None) -> str:
     product_lines = []
     for product in products[:3]:
         stock = get_available_stock(product)
@@ -202,9 +198,18 @@ def _build_ollama_prompt(intent: str, message: str, products: list[Product], fal
         else "If the user is a guest, do not reveal exact stock numbers. Use only In Stock or Out of Stock."
     )
 
+    history_text = ""
+    if history:
+        history_lines = []
+        for msg in history[-4:]:
+            role = "User" if msg["role"] == "user" else "Assistant"
+            history_lines.append(f"{role}: {msg['text']}")
+        history_text = "Recent Conversation History:\n" + "\n".join(history_lines) + "\n\n"
+
     return (
         "You are Nobonir Assistant, a friendly shopping helper.\n"
         f"Intent: {intent}\n"
+        f"{history_text}"
         f"User message: {message}\n"
         f"Product context:\n{product_context}\n"
         f"Draft reply: {fallback_reply}\n"
@@ -242,7 +247,64 @@ STORE_KNOWLEDGE = {
     "return_policy": "7-day easy return policy for unused items in original packaging.",
     "payment_methods": "We accept Cash on Delivery, bKash, Nagad, and all major Credit/Debit cards.",
     "customer_support": "Available 10 AM - 10 PM daily via phone or email.",
+    "support_email": "admin@nobonir.com",
 }
+
+
+CATEGORY_HINTS: dict[str, list[str]] = {
+    "fashion": ["clothes", "clothing", "apparel", "wear", "outfit", "fashion", "dress", "shirt", "shirts", "pants", "jeans", "jacket", "shoes", "bag", "bags"],
+    "electronics": ["electronics", "electronic", "phone", "phones", "mobile", "smartphone", "laptop", "computer", "headphone", "headphones", "earbuds", "buds", "camera", "charger", "tech"],
+    "home": ["home", "kitchen", "furniture", "lamp", "fan", "cushion", "organizer", "decor", "sofa", "chair", "table"],
+    "grocery": ["grocery", "groceries", "food", "rice", "fruit", "fruits", "snack", "snacks", "drink", "drinks", "beverage"],
+    "beauty": ["beauty", "cosmetic", "cosmetics", "makeup", "skincare", "skin", "hair", "perfume"],
+    "sports": ["sports", "sport", "fitness", "gym", "workout"],
+    "books": ["book", "books", "novel", "reading", "stationery"],
+}
+
+
+def _category_hint_terms(normalized_message: str) -> list[str]:
+    msg = normalized_message.lower()
+    hint_terms: list[str] = []
+    for terms in CATEGORY_HINTS.values():
+        if any(term in msg for term in terms):
+            hint_terms.extend(terms)
+    return hint_terms
+
+
+def _category_hint_names(normalized_message: str) -> list[str]:
+    msg = normalized_message.lower()
+    matched: list[str] = []
+    for category_name, terms in CATEGORY_HINTS.items():
+        if any(term in msg for term in terms):
+            matched.append(category_name)
+    return matched
+
+
+def _build_catalog_candidates(normalized_message: str, limit: int = 24) -> list[Product]:
+    hint_terms = _category_hint_terms(normalized_message)
+    expanded_query = normalized_message
+    if hint_terms:
+        expanded_query = f"{normalized_message} {' '.join(dict.fromkeys(hint_terms))}"
+
+    semantic_results = _filter_real_catalog_products(semantic_product_search(expanded_query, limit=max(12, limit)))
+
+    category_names = _category_hint_names(normalized_message)
+    category_results: list[Product] = []
+    if category_names:
+        category_query = Q()
+        for category_name in category_names:
+            category_query |= Q(category__name__icontains=category_name) | Q(category__slug__icontains=category_name)
+
+        category_results = list(
+            Product.objects.filter(is_active=True, stock__gt=0)
+            .select_related("category")
+            .prefetch_related("media", "variants__media")
+            .filter(category_query)
+            .order_by("-updated_at")[: max(8, limit)]
+        )
+
+    fallback_results = _fallback_products(limit=max(8, limit))
+    return _dedupe_products(semantic_results + category_results + fallback_results, limit=limit)
 
 
 def _build_llm_prompt(intent: str, message: str, products: list[Product], fallback_reply: str, is_authenticated: bool, history: list[dict] | None = None) -> str:
@@ -359,6 +421,38 @@ TERM_STOPWORDS = {
     "products",
     "under",
     "below",
+}
+
+
+SYSTEM_QUERY_KEYWORDS = {
+    "order",
+    "checkout",
+    "register",
+    "signup",
+    "sign up",
+    "account",
+    "login",
+    "log in",
+    "password",
+    "return",
+    "refund",
+    "exchange",
+    "policy",
+    "shipping",
+    "delivery",
+    "track",
+    "tracking",
+    "payment",
+    "cod",
+    "bkash",
+    "nagad",
+    "card",
+    "coupon",
+    "discount",
+    "promo",
+    "cancel",
+    "contact",
+    "support",
 }
 
 
@@ -531,7 +625,15 @@ def _is_small_talk(normalized_message: str) -> bool:
 
 def _is_help_query(normalized_message: str) -> bool:
     msg = normalized_message.lower()
-    return any(k in msg for k in ["help", "support", "what can you do", "capabilities", "features"])
+    return _has_word(msg, ["help", "support", "what can you do", "capabilities", "features"])
+
+
+def _has_word(msg: str, words: list[str]) -> bool:
+    return any(re.search(rf"\b{k}\b", msg) for k in words)
+
+def _is_system_query(normalized_message: str) -> bool:
+    msg = normalized_message.lower()
+    return _has_word(msg, list(SYSTEM_QUERY_KEYWORDS))
 
 
 def _query_terms(normalized_message: str) -> list[str]:
@@ -573,7 +675,14 @@ def _filter_relevant_products(products: list[Product], normalized_message: str, 
     return [product for _, product in scored[:limit]]
 
 
-def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Product], fallback_reply: str, user, history: list[dict] | None = None) -> str:
+def _enhance_reply_with_free_llm(
+    intent: str,
+    message: str,
+    products: list[Product],
+    fallback_reply: str,
+    user,
+    history: list[dict] | None = None,
+) -> tuple[str, str, bool, list[str]]:
     if not _free_llm_enabled():
         return fallback_reply, "local", False, ["local"]
 
@@ -597,6 +706,7 @@ def _enhance_reply_with_free_llm(intent: str, message: str, products: list[Produ
         products=products,
         fallback_reply=fallback_reply,
         is_authenticated=_is_authenticated_user(user),
+        history=history,
     )
 
     attempts: list[str] = []
@@ -726,23 +836,58 @@ def _normalize_message(message: str) -> str:
 def _detect_intent(normalized_message: str) -> str:
     # Use keywords to detect intent - expanded for more professional coverage
     msg = normalized_message.lower()
+
+    # Normalize wording variants like "make order" / "making an order".
+    msg = re.sub(r"\bmake(?:\s+an?)?\s+order\b", "place order", msg)
     
-    if any(k in msg for k in ["top selling", "best selling", "popular", "trending", "best product", "most popular"]):
+    if _has_word(msg, ["top selling", "best selling", "popular", "trending", "best product", "most popular"]):
         return "TOP_SELLING"
 
-    if any(k in msg for k in ["order", "delivery", "shipping", "track", "status", "where is my", "package"]):
+    if _has_word(msg, ["login", "log in", "sign in", "sign up", "signup", "register", "create account", "password", "account"]):
+        return "LOGIN_HELP"
+
+    if _has_word(msg, ["refund", "return", "exchange"]):
+        return "REFUND_HELP"
+
+    if _has_word(msg, ["policy", "policies", "terms", "conditions", "contact", "email", "support"]):
+        return "POLICY_HELP"
+
+    if _has_word(msg, ["where is my", "track", "tracking", "delivery status", "shipping status", "package status", "order status"]):
+        return "ORDER_STATUS_HELP"
+
+    if _has_word(msg, [
+        "how to order",
+        "place order",
+        "checkout",
+        "buy",
+        "purchase",
+        "add to cart",
+        "order product",
+        "order now",
+        "how do i order",
+        "how can i order",
+        "how to make an order",
+        "make order",
+        "making an order",
+    ]):
         return "ORDER_HELP"
 
-    if any(k in msg for k in ["stock", "available", "availability", "have it", "ready to"]):
+    if _has_word(msg, ["delivery", "shipping", "package"]):
+        return "ORDER_STATUS_HELP"
+
+    if _has_word(msg, ["stock", "available", "availability", "have it", "ready to"]):
         return "PRICE_STOCK_LOOKUP"
 
-    if any(k in msg for k in ["budget", "cheap", "under", "price", "cost", "how much", "range", "low price"]):
+    if _has_word(msg, ["budget", "cheap", "under", "price", "cost", "how much", "range", "low price"]):
         return "BUDGET_SEARCH"
 
-    if any(k in msg for k in ["size", "fit", "fitting", "wear", "small", "large", "xl", "medium"]):
+    if _has_word(msg, ["size", "fit", "fitting", "wear", "small", "large", "xl", "medium"]):
         return "FIT_HELP"
 
-    if any(k in msg for k in ["recommend", "suggest", "find", "looking for", "need", "show me", "help with", "gift"]):
+    if _has_word(msg, ["recommend", "suggest", "find", "looking for", "need", "show me", "help with", "gift"]):
+        return "RECOMMENDATION"
+
+    if _has_word(msg, ["clothes", "clothing", "apparel", "wear", "outfit", "fashion", "dress", "shirt", "pants", "jeans", "jacket", "shoes", "bag"]):
         return "RECOMMENDATION"
 
     return "GENERAL"
@@ -785,7 +930,7 @@ def _serialize_products(products: list[Product], user, request) -> list[dict]:
 
 def _recommend_products_for_message(user, normalized_message: str, history: list[dict] | None = None) -> list[Product]:
     # Pull a wider candidate pool, then rerank/diversify.
-    semantic_results = _filter_real_catalog_products(semantic_product_search(normalized_message, limit=12))
+    semantic_results = _build_catalog_candidates(normalized_message, limit=16)
     history_terms = _recent_history_terms(history)
 
     if _is_authenticated_user(user):
@@ -1017,6 +1162,94 @@ def _build_price_stock_reply(products: list[Product]) -> str:
     return "\n".join(lines)
 
 
+def _build_support_reply(intent: str) -> str:
+    support_email = str(STORE_KNOWLEDGE.get("support_email") or "admin@nobonir.com")
+    if intent == "ORDER_HELP":
+        return (
+            "You can place an order in 4 quick steps: open a product, choose size/variant and quantity, add it to cart, then complete checkout with your payment method. "
+            f"If anything fails, contact {support_email}. Do you want a quick checkout checklist?"
+        )
+
+    if intent == "ORDER_STATUS_HELP":
+        return (
+            "For order updates, sign in and open My Orders to see status and timeline. You can also share your order number here and I will guide you. "
+            f"If anything looks wrong, contact {support_email}. Want help understanding each status label?"
+        )
+
+    if intent == "LOGIN_HELP":
+        return (
+            "To register, use Sign Up with your name, phone/email, and password. To access your account later, use Sign In. If you forget the password, use Forgot Password on the login page. "
+            f"For account help, contact {support_email}. Do you want registration or login steps based on your current screen?"
+        )
+
+    if intent == "REFUND_HELP":
+        return (
+            "We support a 7-day easy return for unused items in original packaging. To start, share your order ID, reason, and product condition with support. "
+            f"Contact {support_email} to open the request. Do you want the exact return eligibility checklist?"
+        )
+
+    if intent == "POLICY_HELP":
+        return (
+            "Nobonir supports Cash on Delivery, bKash, Nagad, and major cards. Shipping is usually 2-3 days in Dhaka and 5-7 days outside Dhaka, and returns are available within 7 days for unused items in original packaging. "
+            f"For support, contact {support_email}. Which policy do you want in detail: shipping, payment, or returns?"
+        )
+
+    return f"For help, contact {support_email}."
+
+
+def _build_system_help_reply(normalized_message: str, user) -> str:
+    msg = normalized_message.lower()
+    support_email = str(STORE_KNOWLEDGE.get("support_email") or "admin@nobonir.com")
+    shipping_policy = str(STORE_KNOWLEDGE.get("shipping_policy") or "")
+    return_policy = str(STORE_KNOWLEDGE.get("return_policy") or "")
+    payment_methods = str(STORE_KNOWLEDGE.get("payment_methods") or "")
+
+    if _has_word(msg, ["register", "signup", "sign up", "create account"]):
+        return (
+            "Open Sign Up, enter your name, phone/email, and password, then submit to create your account. "
+            "After registration, sign in to track orders, save wishlist items, and get personalized recommendations. "
+            "Do you want me to guide you through each registration field?"
+        )
+
+    if _has_word(msg, ["login", "log in", "password", "forgot password", "reset password"]):
+        return (
+            "Use Sign In with your account credentials. If you forgot your password, use Forgot Password on the login page and follow the reset steps. "
+            "Are you trying to recover password or just sign in normally?"
+        )
+
+    if _has_word(msg, ["how to order", "place order", "make an order", "checkout", "buy", "purchase", "add to cart"]):
+        return (
+            "Browse products, open an item, choose options, add to cart, then complete checkout with address and payment confirmation. "
+            f"Need live help while ordering? Contact {support_email}. Do you want checkout steps for guest mode or signed-in mode?"
+        )
+
+    if _has_word(msg, ["return", "refund", "exchange", "return policy"]):
+        return (
+            f"{return_policy} To start a return or refund, share your order ID, issue reason, and product condition with support at {support_email}. "
+            "Do you want a quick eligibility check before you submit?"
+        )
+
+    if _has_word(msg, ["shipping", "delivery", "track", "tracking", "order status"]):
+        base = shipping_policy or "Standard shipping is available across Bangladesh."
+        if _is_authenticated_user(user):
+            return f"{base} You can also check live progress in My Orders. Do you want help interpreting current status (pending, processing, shipped, delivered)?"
+        return f"{base} Sign in to view order tracking and status updates. Want the fastest way to track once you sign in?"
+
+    if _has_word(msg, ["payment", "cod", "bkash", "nagad", "card", "coupon", "discount", "promo"]):
+        return f"{payment_methods} We occasionally offer promo/coupon codes which you can apply at checkout. Do you want a recommendation on which payment method is best for your case?"
+
+    if _has_word(msg, ["policy", "terms", "conditions", "contact", "support"]):
+        return (
+            f"Shipping: {shipping_policy} Returns: {return_policy} Payments: {payment_methods} "
+            f"For anything specific, contact {support_email}. Which one should I break down first?"
+        )
+
+    return (
+        "I can help with ordering, account access, shipping, returns, payments, and product suggestions. "
+        "Tell me your exact question and I will guide you step by step. What are you trying to do right now?"
+    )
+
+
 def list_chat_history(
     user,
     session_key: str | None = None,
@@ -1099,14 +1332,13 @@ def generate_assistant_response(
         products = _recommend_products_for_message(user, normalized_message, history=history)
         return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)
 
-    if _is_help_query(normalized_message):
-        reply = (
-            "i can help with product search, budget picks, stock checks, and order tracking. what do you need?"
-        )
+    intent = _detect_intent(normalized_message)
+
+    if _is_help_query(normalized_message) and intent == "GENERAL":
+        reply = _build_system_help_reply(normalized_message, user)
         products = _fallback_products(limit=4)
         return _result_with_enhancement("HELP", normalized_message, products, reply, user, history=history)
 
-    intent = _detect_intent(normalized_message)
     budget_min, budget_cap = _extract_budget_bounds(normalized_message)
     budget_min, budget_cap = _budget_bounds_in_base_currency(
         budget_min,
@@ -1148,9 +1380,22 @@ def generate_assistant_response(
                 reply += f" all under {budget_cap} in your local currency."
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
+    if intent in {"LOGIN_HELP", "REFUND_HELP", "POLICY_HELP"}:
+        reply = _build_support_reply(intent)
+        products = _fallback_products(limit=3)
+        return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
+
     if intent == "ORDER_HELP":
+        reply = _build_support_reply(intent)
+        products = _fallback_products(limit=3)
+        return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
+
+    if intent == "ORDER_STATUS_HELP":
         if not _is_authenticated_user(user):
-            guest_reply = "you'd need to sign in to see your orders. that keeps your info safe and lets me pull up shipping details fast."
+            guest_reply = (
+                "Please sign in first to view your order status and tracking updates securely. "
+                "Once you sign in, open My Orders and I can help you interpret each status."
+            )
             products = _fallback_products(limit=4)
             return _result_with_enhancement(intent, normalized_message, products, guest_reply, user, history=history)
 
@@ -1166,7 +1411,7 @@ def generate_assistant_response(
                 f"your latest order #{latest_order.id} is {latest_order.status.lower()}. want suggestions while you wait?"
             )
         else:
-            reply = "no orders yet. let me help you find something great to start with."
+            reply = _build_support_reply(intent)
 
         products = get_personalized_recommendations_for_user(user, limit=4)
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
@@ -1236,10 +1481,23 @@ def generate_assistant_response(
                 products = _fallback_products(limit=4)
         return _result_with_enhancement(intent, normalized_message, products, reply, user, history=history)
 
+    # General system questions should not be forced into product-budget fallback text.
+    if _is_system_query(normalized_message):
+        reply = _build_system_help_reply(normalized_message, user)
+        products = _fallback_products(limit=3)
+        return _result_with_enhancement("HELP", normalized_message, products, reply, user, history=history)
+
     # General catch-all: proactive product search
     products = _recommend_products_for_message(user, normalized_message, history=history)
     guest_hint = " (logged in members get tailored picks.)" if not _is_authenticated_user(user) else ""
-    reply = f"help me narrow that down. what's your budget or style?{guest_hint}"
+    reply = _pick_variant(
+        [
+            f"tell me what you want to buy and your budget, then i can suggest better matches.{guest_hint}",
+            f"i can help with better picks if you share category, budget, or preferred brand.{guest_hint}",
+            f"share your target price or product type, and i'll narrow this down for you.{guest_hint}",
+        ],
+        normalized_message,
+    )
     if not products:
         reply = "nothing on that one. try a different search term?"
     return _result_with_enhancement("GENERAL", normalized_message, products, reply, user, history=history)

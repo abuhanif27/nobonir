@@ -185,7 +185,7 @@ class AIAssistantEndpointTests(TestCase):
 		)
 		self.assertEqual(response.status_code, 200)
 		body = response.json()
-		self.assertEqual(body["intent"], "ORDER_HELP")
+		self.assertEqual(body["intent"], "ORDER_STATUS_HELP")
 		self.assertIn("sign in", body["reply"].lower())
 
 	def test_guest_price_stock_returns_live_database_stock(self):
@@ -280,6 +280,73 @@ class AIAssistantEndpointTests(TestCase):
 		self.assertTrue(
 			all(Decimal(str(item.get("price") or 0)) <= Decimal("100") for item in body["suggested_products"])
 		)
+
+	def test_chat_endpoint_category_request_returns_matching_products(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "i want clothes"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertIn(body["intent"], {"RECOMMENDATION", "GENERAL"})
+		self.assertTrue(body["suggested_products"])
+		self.assertTrue(
+			any(item["name"] == self.product.name for item in body["suggested_products"])
+		)
+
+	def test_chat_endpoint_how_to_order_returns_order_help(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "how to order product"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "ORDER_HELP")
+		self.assertIn("add it to cart", body["reply"].lower())
+		self.assertIn("checkout", body["reply"].lower())
+
+	def test_chat_endpoint_login_help_returns_support_reply(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "how do i login"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "LOGIN_HELP")
+		self.assertIn("sign in", body["reply"].lower())
+		self.assertIn("reset", body["reply"].lower())
+
+	def test_chat_endpoint_refund_help_returns_policy_reply(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "how to refund"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "REFUND_HELP")
+		self.assertIn("7-day", body["reply"].lower())
+		self.assertIn("admin@nobonir.com", body["reply"].lower())
+
+	def test_chat_endpoint_policy_help_returns_store_policy(self):
+		response = self.client.post(
+			"/api/ai/assistant/chat/",
+			{"message": "what is the policy"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		body = response.json()
+		self.assertEqual(body["intent"], "POLICY_HELP")
+		self.assertIn("cash on delivery", body["reply"].lower())
+		self.assertIn("7-day", body["reply"].lower())
 
 	def test_history_endpoint_returns_persisted_messages_for_user(self):
 		chat_response = self.client.post(

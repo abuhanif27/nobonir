@@ -1038,29 +1038,39 @@ export function AdminDashboard() {
                     ))}
                   </select>
 
-                  <input
-                    type="date"
-                    value={orderFilters.dateFrom}
-                    onChange={(event) =>
-                      setOrderFilters((current) => ({
-                        ...current,
-                        dateFrom: event.target.value,
-                      }))
-                    }
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
-                  />
+                  <div className="relative">
+                    <label className="absolute -top-2.5 left-2 bg-background px-1 text-[10px] text-muted-foreground">
+                      Date From
+                    </label>
+                    <input
+                      type="date"
+                      value={orderFilters.dateFrom}
+                      onChange={(event) =>
+                        setOrderFilters((current) => ({
+                          ...current,
+                          dateFrom: event.target.value,
+                        }))
+                      }
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    />
+                  </div>
 
-                  <input
-                    type="date"
-                    value={orderFilters.dateTo}
-                    onChange={(event) =>
-                      setOrderFilters((current) => ({
-                        ...current,
-                        dateTo: event.target.value,
-                      }))
-                    }
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
-                  />
+                  <div className="relative">
+                    <label className="absolute -top-2.5 left-2 bg-background px-1 text-[10px] text-muted-foreground">
+                      Date To
+                    </label>
+                    <input
+                      type="date"
+                      value={orderFilters.dateTo}
+                      onChange={(event) =>
+                        setOrderFilters((current) => ({
+                          ...current,
+                          dateTo: event.target.value,
+                        }))
+                      }
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    />
+                  </div>
 
                   <input
                     type="text"
