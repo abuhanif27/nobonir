@@ -48,6 +48,7 @@ interface CartItem {
     price: string;
     image: string;
     image_url?: string;
+    primary_image?: string;
     stock: number;
   };
   quantity: number;
@@ -667,8 +668,9 @@ export function CartPage() {
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <img
                           src={
-                            item.product.image ||
+                            item.product.primary_image ||
                             item.product.image_url ||
+                            item.product.image ||
                             "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop"
                           }
                           alt={item.product.name}

@@ -86,6 +86,7 @@ type ProductPayload = {
   price?: string | number;
   image?: string;
   image_url?: string;
+  primary_image?: string;
   stock?: number;
   available_stock?: number;
   availability_status?: string;
