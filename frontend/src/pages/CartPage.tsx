@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import api from "@/lib/api";
+import { MEDIA_BASE_URL } from "@/lib/api";
 import {
   getErrorData,
   getErrorFieldMessages,
@@ -64,6 +65,9 @@ interface CouponPreview {
   expires_at: string;
 }
 
+const FALLBACK_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop";
+
 export function CartPage() {
   const { isAuthenticated } = useAuthStore();
   const { formatPrice } = useCurrency();
@@ -89,6 +93,24 @@ export function CartPage() {
   >(null);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
+
+  const resolveProductImage = useCallback((product: CartItem["product"]) => {
+    const imageUrl =
+      product.primary_image || product.image_url || product.image || "";
+
+    if (!imageUrl) {
+      return FALLBACK_PRODUCT_IMAGE;
+    }
+
+    if (imageUrl.startsWith("http")) {
+      return imageUrl;
+    }
+
+    const normalizedPath = imageUrl.startsWith("/")
+      ? imageUrl
+      : `/${imageUrl}`;
+    return `${MEDIA_BASE_URL}${normalizedPath}`;
+  }, []);
 
   const getLocalCartItems = useCallback((): CartItem[] => {
     const raw = localStorage.getItem("nobonir_demo_cart");
@@ -667,17 +689,12 @@ export function CartPage() {
                     <div key={item.id} className="rounded-lg border p-4">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <img
-                          src={
-                            item.product.primary_image ||
-                            item.product.image_url ||
-                            item.product.image ||
-                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop"
-                          }
+                          src={resolveProductImage(item.product)}
                           alt={item.product.name}
                           className="h-20 w-20 rounded object-cover"
                           onError={(e) => {
-                            e.currentTarget.src =
-                              "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop";
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
                           }}
                         />
                         <div className="flex-1">
