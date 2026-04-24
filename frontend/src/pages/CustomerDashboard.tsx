@@ -1479,11 +1479,21 @@ export function CustomerDashboard() {
     }
   }, [categoryOptions, selectedCategoryId]);
 
+  const loadProductsRef = useRef(loadProducts);
+  const refreshCartRef = useRef(refreshCart);
   useEffect(() => {
-    void loadProducts();
-    void refreshCart(isAuthenticated);
+    loadProductsRef.current = loadProducts;
+    refreshCartRef.current = refreshCart;
+  }, [loadProducts, refreshCart]);
+
+  useEffect(() => {
+    // Reload on auth transitions only. Using refs prevents this effect from
+    // re-firing (and racing with intentional view switches like Top Selling)
+    // whenever loadProducts' closure changes due to filter/category updates.
+    void loadProductsRef.current();
+    void refreshCartRef.current(isAuthenticated);
     setIsInitialLoad(false);
-  }, [isAuthenticated, loadProducts, refreshCart]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // Auto-refresh merchandising every 60 seconds to ensure fresh product data

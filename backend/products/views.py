@@ -312,53 +312,108 @@ class ProductViewSet(viewsets.ModelViewSet):
 		base = self._with_available_stock(super().get_queryset().filter(is_active=True))
 		now = timezone.now()
 		used_ids: set[int] = set()
+		SECTION_LIMIT = 8
 
-		# Trending: Top selling products (not yet used)
-		trending_raw = self._top_selling_last_30_days_queryset().filter(total_sold_30d__gt=0)[:24]
-		trending = []
-		for product in trending_raw:
-			if product.id not in used_ids:
-				trending.append(product)
-				used_ids.add(product.id)
-				if len(trending) >= 8:
+		def take(queryset, bucket, claim=True):
+			for product in queryset:
+				if product.id in used_ids:
+					continue
+				bucket.append(product)
+				if claim:
+					used_ids.add(product.id)
+				if len(bucket) >= SECTION_LIMIT:
 					break
 
-		# Almost Gone: Low stock items (not yet used, not in trending)
-		almost_gone_raw = base.filter(available_stock__gt=0, available_stock__lte=5).order_by("available_stock", "-updated_at")[:24]
-		almost_gone = []
-		for product in almost_gone_raw:
-			if product.id not in used_ids:
-				almost_gone.append(product)
-				used_ids.add(product.id)
-				if len(almost_gone) >= 8:
-					break
+		# Trending: single most-bought product in the last 24 hours.
+		# Counts any placed order (including PENDING) so the section reflects
+		# current buying intent; cancelled orders are excluded. Leaves the
+		# section empty when nothing was ordered in the last 24h.
+		trending: list = []
+		cutoff_24h = now - timezone.timedelta(hours=24)
+		trending_qs = (
+			super()
+			.get_queryset()
+			.filter(is_active=True)
+			.annotate(
+				total_sold_24h=Coalesce(
+					Sum(
+						"order_items__quantity",
+						filter=Q(
+							order_items__order__status__in=[
+								"PENDING",
+								"PAID",
+								"PROCESSING",
+								"SHIPPED",
+								"DELIVERED",
+							],
+							order_items__order__created_at__gte=cutoff_24h,
+						),
+					),
+					0,
+				),
+			)
+			.filter(total_sold_24h__gt=0)
+			.order_by("-total_sold_24h", "-updated_at")[:1]
+		)
+		for product in trending_qs:
+			trending.append(product)
+			used_ids.add(product.id)
 
-		# Just Restocked: Recently restocked items (not yet used)
-		just_restocked_raw = base.filter(
-			available_stock__gt=0,
-			last_restocked_at__gte=now - timezone.timedelta(days=14),
-		).order_by("-last_restocked_at")[:24]
-		just_restocked = []
-		for product in just_restocked_raw:
-			if product.id not in used_ids:
-				just_restocked.append(product)
-				used_ids.add(product.id)
-				if len(just_restocked) >= 8:
-					break
+		# Almost Gone: stock 1-5 first, then the lowest-stock in-stock items overall.
+		almost_gone: list = []
+		take(
+			base.filter(available_stock__gt=0, available_stock__lte=5)
+			.order_by("available_stock", "-updated_at")[:24],
+			almost_gone,
+		)
+		if not almost_gone:
+			take(
+				base.filter(available_stock__gt=0)
+				.order_by("available_stock", "-updated_at")[:24],
+				almost_gone,
+			)
 
-		# Back in Stock: Items back from being out of stock (not yet used)
-		back_in_stock_raw = base.filter(
-			available_stock__gt=0,
-			last_out_of_stock_at__isnull=False,
-			last_restocked_at__gt=F("last_out_of_stock_at"),
-		).order_by("-last_restocked_at")[:24]
-		back_in_stock = []
-		for product in back_in_stock_raw:
-			if product.id not in used_ids:
-				back_in_stock.append(product)
-				used_ids.add(product.id)
-				if len(back_in_stock) >= 8:
-					break
+		# Just Restocked: last_restocked_at in last 14 days; fall back to most recently updated.
+		just_restocked: list = []
+		take(
+			base.filter(
+				available_stock__gt=0,
+				last_restocked_at__gte=now - timezone.timedelta(days=14),
+			).order_by("-last_restocked_at")[:24],
+			just_restocked,
+		)
+		if not just_restocked:
+			take(
+				base.filter(available_stock__gt=0).order_by("-updated_at", "-created_at")[:24],
+				just_restocked,
+			)
+
+		# Back in Stock: products that went out and came back; fall back to well-stocked items.
+		back_in_stock: list = []
+		take(
+			base.filter(
+				available_stock__gt=0,
+				last_out_of_stock_at__isnull=False,
+				last_restocked_at__gt=F("last_out_of_stock_at"),
+			).order_by("-last_restocked_at")[:24],
+			back_in_stock,
+		)
+		if not back_in_stock:
+			take(
+				base.filter(available_stock__gt=5).order_by("-available_stock", "-created_at")[:24],
+				back_in_stock,
+			)
+
+		# Guarantee at least one item for the stock-based sections even if the
+		# catalog is tiny. Trending is intentionally excluded: it must reflect
+		# real 24h purchase activity and stay empty otherwise.
+		fallback_pool = list(
+			base.filter(available_stock__gt=0).order_by("-created_at")[:SECTION_LIMIT]
+		)
+		if fallback_pool:
+			for bucket in (almost_gone, just_restocked, back_in_stock):
+				if not bucket:
+					bucket.append(fallback_pool[0])
 
 		return Response(
 			{
