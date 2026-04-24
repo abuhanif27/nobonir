@@ -534,18 +534,23 @@ class CheckoutAPIView(APIView):
 			)
 		except ValueError as exc:
 			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-		track_analytics_event(
-			event_name="order_created",
-			source="backend",
-			request=request,
-			user=request.user,
-			metadata={
-				"order_id": order.id,
-				"payment_method": serializer.validated_data.get("payment_method", "CARD"),
-				"coupon_code": serializer.validated_data.get("coupon_code", ""),
-				"total_amount": str(order.total_amount),
-			},
-		)
+		except Exception as exc:
+			return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+		try:
+			track_analytics_event(
+				event_name="order_created",
+				source="backend",
+				request=request,
+				user=request.user,
+				metadata={
+					"order_id": order.id,
+					"payment_method": serializer.validated_data.get("payment_method", "CARD"),
+					"coupon_code": serializer.validated_data.get("coupon_code", ""),
+					"total_amount": str(order.total_amount),
+				},
+			)
+		except Exception:
+			pass
 		return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
 

@@ -149,7 +149,21 @@ export function CartPage() {
       }
 
       if (apiItems.length === 0 && localItems.length > 0) {
-        setCartLoadError("Showing locally saved items (not synced to server yet).");
+        // Auto-sync local items to server
+        try {
+          for (const item of localItems) {
+            await api.post("/cart/items/", {
+              product_id: item.product.id,
+              variant_id: item.variant_id ?? null,
+              quantity: item.quantity,
+            });
+          }
+          setLocalCartItems([]);
+          const syncedResponse = await api.get("/cart/");
+          setCartItems(Array.isArray(syncedResponse.data) ? syncedResponse.data : []);
+        } catch {
+          // If sync fails, keep showing local items without error
+        }
       }
     } catch (error) {
       console.error("Failed to load cart:", error);
@@ -848,48 +862,44 @@ export function CartPage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label
-                        htmlFor="billing-address"
-                        className="text-sm font-medium"
-                      >
-                        Billing Address
-                        {paymentMethod === "COD" && (
+                  {paymentMethod === "COD" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label
+                          htmlFor="billing-address"
+                          className="text-sm font-medium"
+                        >
+                          Billing Address
                           <span className="ml-1 text-xs text-muted-foreground">
                             (required for COD)
                           </span>
-                        )}
-                      </label>
-                      <label
-                        htmlFor="same-as-shipping"
-                        className="inline-flex items-center gap-2 text-xs text-muted-foreground"
-                      >
-                        <input
-                          id="same-as-shipping"
-                          type="checkbox"
-                          checked={useShippingAsBilling}
-                          onChange={(event) =>
-                            setUseShippingAsBilling(event.target.checked)
-                          }
-                          disabled={!isAuthenticated || paymentMethod === "CARD"}
-                        />
-                        Same as shipping
-                      </label>
+                        </label>
+                        <label
+                          htmlFor="same-as-shipping"
+                          className="inline-flex items-center gap-2 text-xs text-muted-foreground"
+                        >
+                          <input
+                            id="same-as-shipping"
+                            type="checkbox"
+                            checked={useShippingAsBilling}
+                            onChange={(event) =>
+                              setUseShippingAsBilling(event.target.checked)
+                            }
+                            disabled={!isAuthenticated}
+                          />
+                          Same as shipping
+                        </label>
+                      </div>
+                      <Textarea
+                        id="billing-address"
+                        placeholder="Enter your billing address..."
+                        value={billingAddress}
+                        onChange={(e) => setBillingAddress(e.target.value)}
+                        disabled={!isAuthenticated || useShippingAsBilling}
+                        rows={4}
+                      />
                     </div>
-                    <Textarea
-                      id="billing-address"
-                      placeholder="Enter your billing address..."
-                      value={billingAddress}
-                      onChange={(e) => setBillingAddress(e.target.value)}
-                      disabled={
-                        !isAuthenticated ||
-                        paymentMethod === "CARD" ||
-                        useShippingAsBilling
-                      }
-                      rows={4}
-                    />
-                  </div>
+                  )}
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">

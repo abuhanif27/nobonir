@@ -62,6 +62,8 @@ class StripeCheckoutSessionAPIView(APIView):
 			)
 		except ValueError as exc:
 			return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+		except Exception as exc:
+			return Response({"detail": f"Payment service error: {exc}"}, status=status.HTTP_502_BAD_GATEWAY)
 
 		return Response({"checkout_url": session.url}, status=status.HTTP_201_CREATED)
 
