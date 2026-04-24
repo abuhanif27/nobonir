@@ -109,12 +109,6 @@ type GeoPayload = {
   continent_code?: string;
 };
 
-type LocalWishlistItem = {
-  product?: {
-    id?: number;
-  };
-};
-
 type OrderNotificationSource = {
   id: number;
   status: string;
@@ -127,7 +121,6 @@ type CategoryOption = {
 };
 
 const SUGGESTION_CAROUSEL_AUTOPLAY_MS = 3000;
-const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 const PRODUCTS_PAGE_SIZE = 12;
 const FALLBACK_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop";
@@ -1527,49 +1520,6 @@ export function CustomerDashboard() {
 
       showSuccess("Product added to wishlist");
     } catch (error: unknown) {
-      const addToLocalDemoWishlist = () => {
-        const selectedProduct = products.find((item) => item.id === productId);
-        if (!selectedProduct) {
-          return { ok: false, reason: "missing" as const };
-        }
-
-        if (selectedProduct.stock <= 0) {
-          return { ok: false, reason: "out_of_stock" as const };
-        }
-
-        const existingRaw = localStorage.getItem(DEMO_WISHLIST_KEY);
-        const existing = existingRaw ? JSON.parse(existingRaw) : [];
-        const alreadyExists = Array.isArray(existing)
-          ? existing.some(
-              (item: LocalWishlistItem) =>
-                item?.product?.id === selectedProduct.id,
-            )
-          : false;
-
-        if (alreadyExists) {
-          return { ok: true, reason: "already_exists" as const };
-        }
-
-        const safeExisting = Array.isArray(existing) ? existing : [];
-        safeExisting.push({
-          id: -selectedProduct.id,
-          isLocal: true,
-          created_at: new Date().toISOString(),
-          product: {
-            id: selectedProduct.id,
-            name: selectedProduct.name,
-            description: selectedProduct.description,
-            price: selectedProduct.price,
-            stock: selectedProduct.stock,
-            image: selectedProduct.image,
-            category: selectedProduct.category,
-          },
-        });
-
-        localStorage.setItem(DEMO_WISHLIST_KEY, JSON.stringify(safeExisting));
-        return { ok: true, reason: "added" as const };
-      };
-
       const errorData = getErrorData(error);
       const apiMessage =
         typeof errorData?.detail === "string" ? errorData.detail : "";
@@ -1578,28 +1528,9 @@ export function CustomerDashboard() {
         getErrorStatus(error) === 404;
 
       if (isMissingProductError) {
-        const localResult = addToLocalDemoWishlist();
-        if (localResult.ok && sourceElement) {
-          animateFlyToCart({
-            fromElement: sourceElement,
-            toSelector: '[data-user-menu-trigger="true"]',
-            imageSrc,
-          });
-        }
-
-        const localResultMessage = localResult.ok
-          ? localResult.reason === "already_exists"
-            ? "This product is already in your wishlist"
-            : "Product added to wishlist"
-          : localResult.reason === "out_of_stock"
-            ? "This product is out of stock and cannot be added to your wishlist"
-            : "This product is not available in the live catalog yet and cannot be added to your wishlist";
-
-        if (localResult.ok) {
-          showSuccess(localResultMessage);
-        } else {
-          showError(localResultMessage);
-        }
+        showError(
+          "This product is not available in the live catalog and cannot be added to wishlist.",
+        );
         return;
       }
 

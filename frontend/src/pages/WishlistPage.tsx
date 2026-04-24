@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "@/lib/api";
+import api, { MEDIA_BASE_URL } from "@/lib/api";
 import { getErrorMessage } from "@/lib/apiError";
 import { useCurrency } from "@/lib/currency";
 import { useFeedback } from "@/lib/feedback";
+import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FlowStateBanner, FlowStateCard } from "@/components/ui/flow-state";
@@ -27,6 +28,7 @@ interface WishlistProduct {
   description: string;
   price: string | number;
   stock: number;
+  primary_image?: string;
   image_url?: string;
   image?: string;
   category?: {
@@ -43,6 +45,23 @@ interface WishlistItem {
   isLocal?: boolean;
 }
 
+type ProductCatalogRow = {
+  id?: number;
+  name?: string;
+  description?: string;
+  price?: string | number;
+  stock?: number;
+  available_stock?: number;
+  primary_image?: string;
+  image_url?: string;
+  image?: string;
+  category?: {
+    id?: number;
+    name?: string;
+    slug?: string;
+  };
+};
+
 type LocalCartItem = {
   product?: {
     id?: number;
@@ -52,6 +71,8 @@ type LocalCartItem = {
 
 const DEMO_WISHLIST_KEY = "nobonir_demo_wishlist";
 const DEMO_CART_KEY = "nobonir_demo_cart";
+const FALLBACK_PRODUCT_IMAGE =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='%236b7280'>No Image</text></svg>";
 
 const parseAmount = (value: string | number) => {
   const parsed = Number(value);
@@ -60,6 +81,7 @@ const parseAmount = (value: string | number) => {
 
 export function WishlistPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
   const { formatPrice } = useCurrency();
   const { showError, showSuccess } = useFeedback();
   const [items, setItems] = useState<WishlistItem[]>([]);
@@ -71,6 +93,97 @@ export function WishlistPage() {
   const [fallbackWarning, setFallbackWarning] = useState("");
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
+  const [imageVersion, setImageVersion] = useState<number>(Date.now());
+
+  const withCacheVersion = useCallback(
+    (imageUrl: string) => {
+      const separator = imageUrl.includes("?") ? "&" : "?";
+      return `${imageUrl}${separator}v=${imageVersion}`;
+    },
+    [imageVersion],
+  );
+
+  const resolveWishlistImage = useCallback(
+    (product: WishlistProduct) => {
+      const imageUrl =
+        product.primary_image || product.image_url || product.image || "";
+
+      if (!imageUrl) {
+        return FALLBACK_PRODUCT_IMAGE;
+      }
+
+      if (imageUrl.startsWith("http")) {
+        return withCacheVersion(imageUrl);
+      }
+
+      const normalizedPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+      return withCacheVersion(`${MEDIA_BASE_URL}${normalizedPath}`);
+    },
+    [withCacheVersion],
+  );
+
+  const loadLiveProductMap = useCallback(async () => {
+    const response = await api.get("/products/", {
+      params: { page: 1, page_size: 500 },
+    });
+    const rows = Array.isArray(response.data?.results)
+      ? response.data.results
+      : Array.isArray(response.data)
+        ? response.data
+        : [];
+
+    const catalog = new Map<number, ProductCatalogRow>();
+    rows.forEach((row: ProductCatalogRow) => {
+      const productId = Number(row?.id || 0);
+      if (productId > 0) {
+        catalog.set(productId, row);
+      }
+    });
+    return catalog;
+  }, []);
+
+  const hydrateWithCatalog = useCallback(
+    (wishlistItems: WishlistItem[], catalog: Map<number, ProductCatalogRow>) => {
+      if (catalog.size === 0) {
+        return wishlistItems;
+      }
+
+      return wishlistItems
+        .map((item) => {
+          const liveProduct = catalog.get(item.product.id);
+          if (!liveProduct) {
+            return null;
+          }
+
+          return {
+            ...item,
+            product: {
+              ...item.product,
+              name: String(liveProduct.name || item.product.name || "Unnamed product"),
+              description: String(
+                liveProduct.description || item.product.description || "",
+              ),
+              price: liveProduct.price ?? item.product.price,
+              stock: Number(
+                liveProduct.available_stock ?? liveProduct.stock ?? item.product.stock,
+              ),
+              primary_image: liveProduct.primary_image || item.product.primary_image,
+              image_url: liveProduct.image_url || item.product.image_url,
+              image: liveProduct.image || item.product.image,
+              category: liveProduct.category
+                ? {
+                    id: Number(liveProduct.category.id || 0),
+                    name: String(liveProduct.category.name || "Uncategorized"),
+                    slug: liveProduct.category.slug,
+                  }
+                : item.product.category,
+            },
+          };
+        })
+        .filter((item): item is WishlistItem => Boolean(item));
+    },
+    [],
+  );
 
   const getLocalWishlistItems = useCallback((): WishlistItem[] => {
     const raw = localStorage.getItem(DEMO_WISHLIST_KEY);
@@ -150,22 +263,47 @@ export function WishlistPage() {
       setFallbackWarning("");
 
       try {
+        let catalog = new Map<number, ProductCatalogRow>();
+        try {
+          catalog = await loadLiveProductMap();
+        } catch {
+          catalog = new Map<number, ProductCatalogRow>();
+        }
+
         const response = await api.get("/cart/wishlist/");
         const data = Array.isArray(response.data) ? response.data : [];
-        const localItems = getLocalWishlistItems();
-        const apiProductIds = new Set(
-          data
-            .map((item: WishlistItem) => item?.product?.id)
-            .filter((productId: number | undefined) => Boolean(productId)),
-        );
-        const merged = [
-          ...data,
-          ...localItems.filter((item) => !apiProductIds.has(item.product.id)),
-        ];
-        setItems(merged);
+        const serverItems = hydrateWithCatalog(data, catalog);
+
+        if (isAuthenticated) {
+          setItems(serverItems);
+          if (getLocalWishlistItems().length > 0) {
+            setLocalWishlistItems([]);
+          }
+        } else {
+          const localItems = hydrateWithCatalog(getLocalWishlistItems(), catalog);
+          const apiProductIds = new Set(
+            serverItems
+              .map((item: WishlistItem) => item?.product?.id)
+              .filter((productId: number | undefined) => Boolean(productId)),
+          );
+          const merged = [
+            ...serverItems,
+            ...localItems.filter((item) => !apiProductIds.has(item.product.id)),
+          ];
+          setItems(merged);
+          setLocalWishlistItems(merged);
+        }
       } catch (err: unknown) {
-        const localItems = getLocalWishlistItems();
+        let catalog = new Map<number, ProductCatalogRow>();
+        try {
+          catalog = await loadLiveProductMap();
+        } catch {
+          catalog = new Map<number, ProductCatalogRow>();
+        }
+
+        const localItems = hydrateWithCatalog(getLocalWishlistItems(), catalog);
         setItems(localItems);
+        setLocalWishlistItems(localItems);
         if (localItems.length === 0) {
           setError(getErrorMessage(err, "Failed to load wishlist"));
         } else {
@@ -174,11 +312,17 @@ export function WishlistPage() {
           );
         }
       } finally {
+        setImageVersion(Date.now());
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [getLocalWishlistItems],
+    [
+      getLocalWishlistItems,
+      hydrateWithCatalog,
+      isAuthenticated,
+      loadLiveProductMap,
+    ],
   );
 
   useEffect(() => {
@@ -500,10 +644,6 @@ export function WishlistPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => {
-                const image =
-                  item.product.image_url ||
-                  item.product.image ||
-                  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop";
                 const disabled = workingItemId === item.id || movingAll;
 
                 return (
@@ -513,12 +653,12 @@ export function WishlistPage() {
                   >
                     <div className="relative">
                       <img
-                        src={image}
+                        src={resolveWishlistImage(item.product)}
                         alt={item.product.name}
                         className="h-48 w-full object-cover"
                         onError={(event) => {
-                          event.currentTarget.src =
-                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=400&fit=crop";
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
                         }}
                       />
                       <div className="absolute left-3 top-3 flex gap-2">
